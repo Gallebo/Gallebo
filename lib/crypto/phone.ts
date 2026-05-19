@@ -1,0 +1,41 @@
+import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "crypto";
+
+import { getServerEnv } from "@/lib/env";
+
+function getKey(): Buffer {
+  const secret =
+    getServerEnv().PHONE_ENCRYPTION_KEY ??
+    "dev-only-change-me-32-chars-min!!!!!";
+  return scryptSync(secret, "gallebo-phone-salt", 32);
+}
+
+/** Encrypt phone for storage in profiles.phone_encrypted (bytea). */
+export function encryptPhone(phone: string): Buffer {
+  const key = getKey();
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const encrypted = Buffer.concat([
+    cipher.update(phone, "utf8"),
+    cipher.final(),
+  ]);
+  const tag = cipher.getAuthTag();
+  return Buffer.concat([iv, tag, encrypted]);
+}
+
+export function decryptPhone(data: Buffer): string {
+  const key = getKey();
+  const iv = data.subarray(0, 12);
+  const tag = data.subarray(12, 28);
+  const encrypted = data.subarray(28);
+  const decipher = createDecipheriv("aes-256-gcm", key, iv);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([
+    decipher.update(encrypted),
+    decipher.final(),
+  ]).toString("utf8");
+}
+
+/** Encode bytea for Supabase insert (hex string). */
+export function phoneToDbValue(phone: string): string {
+  return `\\x${encryptPhone(phone).toString("hex")}`;
+}

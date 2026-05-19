@@ -1,0 +1,26 @@
+# Gallebo — Flight Sharing Platform
+
+## Scope
+- Develop phase-by-phase only. Do not implement features from future phases.
+- Product docs: `../files/` (Flight documentation). Security doc governs server-only operations.
+
+## Stack
+- Next.js App Router, TypeScript strict, Tailwind, shadcn/ui, Supabase, MapLibre, Didit (later: Stripe, Resend).
+
+## UI
+- Use `docs/design-references/` (Wingly + AER). Primary layout = Wingly; premium accents = AER gold CTA and hero typography.
+- Server Components by default. `"use client"` only when needed.
+- Design: premium, clean, modern (lapa.ninja as secondary inspiration).
+
+## Supabase
+- RLS on all tables when they exist. Never use `service_role` on the client.
+- Use generated types in `types/database.ts`.
+- Sensitive ops: server client only; admin client in `lib/supabase/admin.ts` only.
+
+## Security (server-only)
+- Stripe webhooks, Didit API, IBAN decrypt, admin actions, email, cron, commission logic.
+- Validate all inputs with Zod. `NEXT_PUBLIC_` only for public keys.
+
+## Code quality
+- No `any`. try/catch on async server code. No mock API data unless requested.
+- No placeholder business logic except explicit phase-0 UI shells.
