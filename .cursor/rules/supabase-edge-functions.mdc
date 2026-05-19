@@ -1,0 +1,77 @@
+---
+description: Supabase Edge Functions — cron, email queue, deploy i auth (Gallebo)
+globs: supabase/functions/**/*
+alwaysApply: false
+---
+
+# Supabase Edge Functions (Gallebo)
+
+## Arhitektura
+
+- **Cron i email više nisu u Next.js** — obrisan je `app/api/cron/pilot-expiry/route.ts` i Vercel cron iz `vercel.json`.
+- **pg_cron** (migracije `017`–`019`) poziva edge funkcije preko `pg_net`.
+- **Produkcija (hosted):** `019_pg_cron_vault.sql` — URL je hardkodiran, `CRON_SECRET` se čita iz **Vault** (`cron_secret`). Ne koristi `ALTER DATABASE SET` (nije dozvoljeno na Supabase hostingu).
+- **App** samo upisuje u `notification_queue`; slanje mailova radi `process-notifications`.
+
+```
+admin/actions, pilot-expiry  →  notification_queue
+pg_cron (satno)              →  process-notifications  →  Resend
+pg_cron (06:00 UTC)          →  pilot-expiry           →  suspend + queue
+```
+
+## Funkcije
+
+| Funkcija | Svrha |
+|----------|--------|
+| `pilot-expiry` | Istek licence/medicinskog, upozorenja, suspend |
+| `process-notifications` | Čita `notification_queue`, šalje email |
+
+Shared kod: `supabase/functions/_shared/supabase.ts`, `resend.ts`.
+
+## Deno, ne Node
+
+- Importi: `https://deno.land/...`, `https://esm.sh/@supabase/supabase-js@2`
+- `Deno.env.get("CRON_SECRET")`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (zadnja dva Supabase injektira)
+- `serve()` iz `deno.land/std` — **ne** Next.js API route pattern
+
+## Auth (obavezno na svakoj funkciji)
+
+`verify_jwt = false` u `supabase/config.toml` — JWT se ne provjerava automatski.
+
+Svaki handler mora na početku provjeriti:
+
+```typescript
+const secret = Deno.env.get("CRON_SECRET");
+const auth = req.headers.get("Authorization") ?? "";
+if (!secret || auth !== `Bearer ${secret}`) {
+  return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
+    status: 401,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+```
+
+**Nikad** ne stavljaj `service_role` u cron SQL ili javni kod — samo `CRON_SECRET`.
+
+## notification_queue
+
+- Tipovi: `verification_approved`, `verification_rejected`, `airfield_approved`, `airfield_rejected`, `pilot_suspended`, `kyc_result`, `expiry_warning_*`
+- **Ime u emailu:** `process-notifications` dohvaća `first_name` + `last_name` iz `profiles` — **ne** oslanjaj se na `payload.displayName`
+- Novi tip: dodaj `insert` u `lib/admin/actions.ts` (ili drugi producer) **i** `case` + HTML template u `process-notifications/index.ts`
+
+## Deploy
+
+```bash
+npx supabase functions deploy pilot-expiry --project-ref <ref> --no-verify-jwt
+npx supabase functions deploy process-notifications --project-ref <ref> --no-verify-jwt
+```
+
+Dashboard → Edge Functions → Secrets: `CRON_SECRET` (isti kao u `.env.local`), opcionalno `RESEND_API_KEY`.
+
+Migracije: `supabase/migrations/` — na remote su primijenjene do `020`. Nove DDL migracije pushati preko Supabase MCP ili `supabase db push`.
+
+## Što ne raditi
+
+- Ne vraćaj Vercel cron / `app/api/cron/*` bez dogovora
+- Ne šalji email iz Next.js server actions — samo queue + edge funkcija
+- Ne mijenjaj `019` URL bez svjesnosti da je environment-specific

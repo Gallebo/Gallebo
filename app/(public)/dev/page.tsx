@@ -1,5 +1,6 @@
 import { MapTest } from "@/components/map/map-test";
 import { Badge } from "@/components/ui/badge";
+import { requireAdmin } from "@/lib/auth/rbac";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
@@ -51,6 +52,7 @@ async function getSupabaseStatus(): Promise<{
 }
 
 export default async function DevPage() {
+  await requireAdmin();
   const supabaseStatus = await getSupabaseStatus();
 
   return (

@@ -7,16 +7,13 @@ import {
   approveVerificationAction,
   rejectVerificationAction,
 } from "@/lib/admin/actions";
-import type { UserRole } from "@/lib/types/profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export function VerificationActions({
   requestId,
-  role,
 }: {
   requestId: string;
-  role: UserRole;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -30,7 +27,7 @@ export function VerificationActions({
         onClick={() => {
           setError(null);
           startTransition(async () => {
-            const res = await approveVerificationAction(requestId, role);
+            const res = await approveVerificationAction(requestId);
             if (res.error) setError(res.error);
             else router.push("/admin");
           });

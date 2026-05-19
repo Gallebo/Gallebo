@@ -4,13 +4,11 @@ import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "@/lib/auth/rbac";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { UserRole } from "@/lib/types/profile";
 
 export type AdminActionState = { error?: string; success?: string };
 
 export async function approveVerificationAction(
-  requestId: string,
-  role: UserRole
+  requestId: string
 ): Promise<AdminActionState> {
   const { user: adminUser } = await requireAdmin();
   const admin = createAdminClient();
@@ -25,7 +23,7 @@ export async function approveVerificationAction(
     return { error: fetchError?.message ?? "Request not found" };
   }
 
-  const assignRole = role === "admin" ? request.requested_role : role;
+  const assignRole = request.requested_role;
 
   const { error: profileError } = await admin
     .from("profiles")
@@ -157,6 +155,12 @@ export async function rejectAirfieldRequestAction(
     .from("profiles")
     .update({ status: "registered" })
     .eq("id", request.user_id);
+
+  await admin.from("notification_queue").insert({
+    user_id: request.user_id,
+    type: "airfield_rejected",
+    payload: { requestId, reason },
+  });
 
   revalidatePath("/admin");
   return { success: "Rejected" };

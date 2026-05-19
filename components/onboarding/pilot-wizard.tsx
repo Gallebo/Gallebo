@@ -63,6 +63,7 @@ export function PilotOnboardingWizard({
     };
   });
   const [iban, setIban] = useState("");
+  const [licenseType, setLicenseType] = useState<"ppl_license" | "lapl_license">("ppl_license");
   const [licenseFile, setLicenseFile] = useState<File | null>(null);
   const [medicalFile, setMedicalFile] = useState<File | null>(null);
   const [state, setState] = useState<ActionState>({});
@@ -139,6 +140,28 @@ export function PilotOnboardingWizard({
       {step === 2 ? (
         <StepCard step={2} title="PPL / LAPL licence" description="Upload + expiry date">
           <div className="space-y-4">
+            <div className="flex gap-4 text-sm">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="licenseType"
+                  value="ppl_license"
+                  checked={licenseType === "ppl_license"}
+                  onChange={() => setLicenseType("ppl_license")}
+                />
+                PPL
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="licenseType"
+                  value="lapl_license"
+                  checked={licenseType === "lapl_license"}
+                  onChange={() => setLicenseType("lapl_license")}
+                />
+                LAPL
+              </label>
+            </div>
             <input
               type="file"
               accept="image/jpeg,image/png,application/pdf"
@@ -287,6 +310,7 @@ export function PilotOnboardingWizard({
               fd.append("phone", String(draft.phone));
               fd.append("weightKg", String(draft.weightKg));
               fd.append("licenseFile", licenseFile);
+              fd.append("licenseType", licenseType);
               fd.append("licenseExpiresAt", String(draft.licenseExpiresAt));
               fd.append("medicalFile", medicalFile);
               fd.append("medicalExpiresAt", String(draft.medicalExpiresAt));

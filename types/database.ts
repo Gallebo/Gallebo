@@ -158,7 +158,7 @@ export type Database = {
           role: Database["public"]["Enums"]["user_role"] | null;
           status: Database["public"]["Enums"]["user_status"];
           updated_at: string;
-          weight_kg: number | null;
+          weight_encrypted: string | null;
         };
         Insert: {
           created_at?: string;
@@ -170,7 +170,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"] | null;
           status?: Database["public"]["Enums"]["user_status"];
           updated_at?: string;
-          weight_kg?: number | null;
+          weight_encrypted?: string | null;
         };
         Update: {
           created_at?: string;
@@ -182,7 +182,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"] | null;
           status?: Database["public"]["Enums"]["user_status"];
           updated_at?: string;
-          weight_kg?: number | null;
+          weight_encrypted?: string | null;
         };
         Relationships: [];
       };
@@ -271,6 +271,7 @@ export type Database = {
       document_type:
         | "id_card"
         | "ppl_license"
+        | "lapl_license"
         | "medical_certificate"
         | "airfield_operating_license";
       user_role: "passenger" | "pilot" | "airfield_operator" | "admin";
@@ -308,6 +309,7 @@ export const Constants = {
       document_type: [
         "id_card",
         "ppl_license",
+        "lapl_license",
         "medical_certificate",
         "airfield_operating_license",
       ],

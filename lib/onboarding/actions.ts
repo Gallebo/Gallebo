@@ -3,8 +3,9 @@
 import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth/rbac";
-import { airfieldRequestSchema, personalInfoSchema, pilotIbanSchema } from "@/lib/auth/schemas";
+import { airfieldRequestSchema, personalInfoSchema, pilotDocumentSchema, pilotIbanSchema } from "@/lib/auth/schemas";
 import { phoneToDbValue } from "@/lib/crypto/phone";
+import { weightToDbValue } from "@/lib/crypto/weight";
 import { uploadDocumentAction } from "@/lib/documents/upload";
 import { storePilotIban } from "@/lib/pilot/iban";
 import { createClient } from "@/lib/supabase/server";
@@ -37,7 +38,7 @@ export async function savePassengerProfileAction(
       last_name: parsed.data.lastName,
       date_of_birth: parsed.data.dateOfBirth,
       phone_encrypted: phoneToDbValue(parsed.data.phone),
-      weight_kg: parsed.data.weightKg,
+      weight_encrypted: weightToDbValue(parsed.data.weightKg),
     })
     .eq("id", user.id);
 
@@ -63,7 +64,12 @@ export async function submitPassengerVerificationAction(
     requested_role: "passenger",
   });
 
-  if (vrError) return { error: vrError.message };
+  if (vrError) {
+    if (vrError.code === "23505") {
+      return { error: "Zahtjev za verifikaciju već postoji. Pričekaj admin odobrenje." };
+    }
+    return { error: vrError.message };
+  }
 
   const { error: statusError } = await supabase
     .from("profiles")
@@ -99,8 +105,17 @@ export async function submitPilotVerificationAction(
   const profileResult = await savePassengerProfileAction({}, formData);
   if (profileResult.error) return profileResult;
 
+  const docDatesParsed = pilotDocumentSchema.safeParse({
+    licenseExpiresAt: formData.get("licenseExpiresAt"),
+    medicalExpiresAt: formData.get("medicalExpiresAt"),
+  });
+  if (!docDatesParsed.success) {
+    return { error: docDatesParsed.error.issues[0]?.message ?? "Invalid document dates" };
+  }
+
+  const licenseType = formData.get("licenseType") === "lapl_license" ? "lapl_license" : "ppl_license";
   const licenseUpload = await uploadDocumentAction(
-    buildUploadFormData(formData, "licenseFile", "ppl_license", "licenseExpiresAt")
+    buildUploadFormData(formData, "licenseFile", licenseType, "licenseExpiresAt")
   );
   if (licenseUpload.error) return { error: licenseUpload.error };
 
@@ -128,8 +143,8 @@ export async function submitPilotVerificationAction(
   const supabase = await createClient();
   await supabase.from("pilot_profiles").upsert({
     user_id: user.id,
-    license_expires_at: String(formData.get("licenseExpiresAt") ?? ""),
-    medical_expires_at: String(formData.get("medicalExpiresAt") ?? ""),
+    license_expires_at: docDatesParsed.data.licenseExpiresAt,
+    medical_expires_at: docDatesParsed.data.medicalExpiresAt,
     account_holder_name: ibanParsed.data.accountHolderName,
     tax_declaration_accepted_at: new Date().toISOString(),
     onboarding_step: 5,
@@ -139,12 +154,19 @@ export async function submitPilotVerificationAction(
     user_id: user.id,
     requested_role: "pilot",
   });
-  if (vrError) return { error: vrError.message };
+  if (vrError) {
+    if (vrError.code === "23505") {
+      return { error: "Zahtjev za verifikaciju već postoji. Pričekaj admin odobrenje." };
+    }
+    return { error: vrError.message };
+  }
 
-  await supabase
+  const { error: statusError } = await supabase
     .from("profiles")
     .update({ status: "pending" })
     .eq("id", user.id);
+
+  if (statusError) return { error: statusError.message };
 
   redirect("/dashboard");
 }

@@ -15,7 +15,6 @@ const PUBLIC_PATHS = [
   "/auth/callback",
   "/api/health",
   "/api/didit/health",
-  "/dev",
 ];
 
 const AUTH_ONLY_PATHS = ["/login", "/register"];

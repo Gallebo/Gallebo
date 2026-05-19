@@ -1,5 +1,6 @@
 import { PilotOnboardingWizard } from "@/components/onboarding/pilot-wizard";
 import { requireUser, getProfile } from "@/lib/auth/rbac";
+import { weightFromDbValue } from "@/lib/crypto/weight";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Pilot verification — Gallebo" };
@@ -26,7 +27,9 @@ export default async function PilotOnboardingPage() {
         lastName: profile?.last_name ?? null,
         dateOfBirth: profile?.date_of_birth ?? null,
         phone: null,
-        weightKg: profile?.weight_kg ?? null,
+        weightKg: profile?.weight_encrypted
+          ? weightFromDbValue(profile.weight_encrypted)
+          : null,
       }}
     />
   );

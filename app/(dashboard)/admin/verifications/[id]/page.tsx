@@ -4,7 +4,7 @@ import { VerificationActions } from "@/components/admin/verification-actions";
 import { BUCKET_BY_TYPE } from "@/lib/documents/constants";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { DocumentType, UserRole } from "@/lib/types/profile";
+import type { DocumentType } from "@/lib/types/profile";
 
 export const metadata = { title: "Review verification — Admin" };
 
@@ -69,10 +69,7 @@ export default async function VerificationDetailPage({
         </CardContent>
       </Card>
 
-      <VerificationActions
-        requestId={id}
-        role={request.requested_role as UserRole}
-      />
+      <VerificationActions requestId={id} />
     </div>
   );
 }

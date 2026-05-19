@@ -22,6 +22,8 @@
 
 # misc
 .DS_Store
+Thumbs.db
+Desktop.ini
 *.pem
 
 # debug
@@ -35,9 +37,20 @@ yarn-error.log*
 !.env.example
 
 # editor / local supabase
-.cursor/
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
+CLAUDE.md
+.specs/
 supabase/.branches
 supabase/.temp
+
+# accidental local tooling copy
+/~
+
+# deploy / temp artifacts
+tmp-deploy*.json
+tmp-*.ts
 
 # vercel
 .vercel
@@ -45,3 +58,4 @@ supabase/.temp
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+.gstack/

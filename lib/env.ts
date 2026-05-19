@@ -66,7 +66,3 @@ export function isDiditConfigured(): boolean {
     env.DIDIT_API_KEY && env.DIDIT_WORKFLOW_ID && env.DIDIT_WEBHOOK_SECRET
   );
 }
-
-export function isCronConfigured(): boolean {
-  return Boolean(getServerEnv().CRON_SECRET);
-}

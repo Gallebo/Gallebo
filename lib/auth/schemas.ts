@@ -51,6 +51,21 @@ export const airfieldRequestSchema = z.object({
   contactPhone: z.string().min(6).max(30),
 });
 
+export const pilotDocumentSchema = z.object({
+  licenseExpiresAt: z
+    .string()
+    .min(1, "Datum isteka licence je obavezan")
+    .refine((d) => new Date(d) > new Date(), {
+      message: "Datum isteka licence mora biti u budućnosti",
+    }),
+  medicalExpiresAt: z
+    .string()
+    .min(1, "Datum isteka medicinskog certifikata je obavezan")
+    .refine((d) => new Date(d) > new Date(), {
+      message: "Datum isteka medicinskog certifikata mora biti u budućnosti",
+    }),
+});
+
 export const pilotIbanSchema = z.object({
   iban: z
     .string()
