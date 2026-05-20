@@ -59,3 +59,34 @@ export async function requireRole(role: UserRole) {
   }
   return { user, profile };
 }
+
+export async function requireAirfieldOperator() {
+  const user = await requireUser();
+  const profile = await getProfile();
+  if (
+    profile?.role !== "airfield_operator" ||
+    profile?.status !== "verified"
+  ) {
+    redirect("/dashboard");
+  }
+  return { user, profile };
+}
+
+export async function requirePilot() {
+  const user = await requireUser();
+  const profile = await getProfile();
+  if (profile?.role !== "pilot" || profile?.status !== "verified") {
+    redirect("/dashboard");
+  }
+  return { user, profile };
+}
+
+export async function getOperatorAirfieldForUser(userId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("airfields")
+    .select("*")
+    .eq("operator_user_id", userId)
+    .maybeSingle();
+  return data;
+}

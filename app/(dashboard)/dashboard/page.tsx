@@ -48,8 +48,32 @@ export default async function DashboardPage() {
         <StatusBanner status="verified" />
         <ProfileCard profile={profile} email={authUser?.email ?? ""} />
         <p className="text-muted-foreground">
-          Pilot home — coming in a later phase.
+          Manage your pilot profile and aircraft listings.
         </p>
+        <Link
+          href="/pilot"
+          className={cn(buttonVariants({ variant: "default" }), "inline-flex")}
+        >
+          Open pilot hub
+        </Link>
+      </div>
+    );
+  }
+
+  if (profile.status === "verified" && profile.role === "airfield_operator") {
+    return (
+      <div className="space-y-6">
+        <StatusBanner status="verified" />
+        <ProfileCard profile={profile} email={authUser?.email ?? ""} />
+        <p className="text-muted-foreground">
+          Manage your airfield profile, photos, notices, and events.
+        </p>
+        <Link
+          href="/airfield"
+          className={cn(buttonVariants({ variant: "default" }), "inline-flex")}
+        >
+          Open airfield dashboard
+        </Link>
       </div>
     );
   }

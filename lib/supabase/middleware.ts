@@ -15,12 +15,14 @@ const PUBLIC_PATHS = [
   "/auth/callback",
   "/api/health",
   "/api/didit/health",
+  "/map",
 ];
 
 const AUTH_ONLY_PATHS = ["/login", "/register"];
 
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true;
+  if (pathname.startsWith("/airfields/")) return true;
   if (pathname.startsWith("/api/didit/webhook")) return true;
   if (pathname.startsWith("/api/cron/")) return true;
   return false;
@@ -30,7 +32,8 @@ function isProtectedPath(pathname: string): boolean {
   return (
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/onboarding") ||
-    pathname.startsWith("/admin")
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/airfield")
   );
 }
 
@@ -90,6 +93,23 @@ export async function updateSession(request: NextRequest) {
       .single();
 
     if (profile?.role !== "admin") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
+  }
+
+  if (user && pathname.startsWith("/airfield")) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, status")
+      .eq("id", user.id)
+      .single();
+
+    if (
+      profile?.role !== "airfield_operator" ||
+      profile?.status !== "verified"
+    ) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
       return NextResponse.redirect(url);

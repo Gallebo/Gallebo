@@ -9,6 +9,144 @@
 export type Database = {
   public: {
     Tables: {
+      airfield_events: {
+        Row: {
+          airfield_id: string;
+          created_at: string;
+          description: string | null;
+          event_date: string;
+          id: string;
+          link: string | null;
+          title: string;
+        };
+        Insert: {
+          airfield_id: string;
+          created_at?: string;
+          description?: string | null;
+          event_date: string;
+          id?: string;
+          link?: string | null;
+          title: string;
+        };
+        Update: {
+          airfield_id?: string;
+          created_at?: string;
+          description?: string | null;
+          event_date?: string;
+          id?: string;
+          link?: string | null;
+          title?: string;
+        };
+        Relationships: [];
+      };
+      airfield_notices: {
+        Row: {
+          airfield_id: string;
+          body: string;
+          created_at: string;
+          id: string;
+        };
+        Insert: {
+          airfield_id: string;
+          body: string;
+          created_at?: string;
+          id?: string;
+        };
+        Update: {
+          airfield_id?: string;
+          body?: string;
+          created_at?: string;
+          id?: string;
+        };
+        Relationships: [];
+      };
+      airfield_photos: {
+        Row: {
+          airfield_id: string;
+          created_at: string;
+          id: string;
+          sort_order: number;
+          storage_path: string;
+        };
+        Insert: {
+          airfield_id: string;
+          created_at?: string;
+          id?: string;
+          sort_order?: number;
+          storage_path: string;
+        };
+        Update: {
+          airfield_id?: string;
+          created_at?: string;
+          id?: string;
+          sort_order?: number;
+          storage_path?: string;
+        };
+        Relationships: [];
+      };
+      airfields: {
+        Row: {
+          contact_email: string | null;
+          contact_phone: string | null;
+          country: string;
+          created_at: string;
+          description: string | null;
+          destination_info: string | null;
+          has_fuel: boolean;
+          has_hangar: boolean;
+          has_rental: boolean;
+          icao_code: string;
+          id: string;
+          latitude: number;
+          longitude: number;
+          name: string;
+          operator_user_id: string | null;
+          status: string;
+          updated_at: string;
+          working_hours: string | null;
+        };
+        Insert: {
+          contact_email?: string | null;
+          contact_phone?: string | null;
+          country: string;
+          created_at?: string;
+          description?: string | null;
+          destination_info?: string | null;
+          has_fuel?: boolean;
+          has_hangar?: boolean;
+          has_rental?: boolean;
+          icao_code: string;
+          id?: string;
+          latitude: number;
+          longitude: number;
+          name: string;
+          operator_user_id?: string | null;
+          status?: string;
+          updated_at?: string;
+          working_hours?: string | null;
+        };
+        Update: {
+          contact_email?: string | null;
+          contact_phone?: string | null;
+          country?: string;
+          created_at?: string;
+          description?: string | null;
+          destination_info?: string | null;
+          has_fuel?: boolean;
+          has_hangar?: boolean;
+          has_rental?: boolean;
+          icao_code?: string;
+          id?: string;
+          latitude?: number;
+          longitude?: number;
+          name?: string;
+          operator_user_id?: string | null;
+          status?: string;
+          updated_at?: string;
+          working_hours?: string | null;
+        };
+        Relationships: [];
+      };
       airfield_operator_requests: {
         Row: {
           admin_notes: string | null;
@@ -50,6 +188,76 @@ export type Database = {
           user_id?: string;
         };
         Relationships: [];
+      };
+      aircraft: {
+        Row: {
+          created_at: string;
+          id: string;
+          model: string;
+          pilot_user_id: string;
+          registration: string;
+          seats: number;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          model: string;
+          pilot_user_id: string;
+          registration: string;
+          seats: number;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          model?: string;
+          pilot_user_id?: string;
+          registration?: string;
+          seats?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "aircraft_pilot_user_id_fkey";
+            columns: ["pilot_user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      aircraft_photos: {
+        Row: {
+          aircraft_id: string;
+          created_at: string;
+          id: string;
+          position: number;
+          storage_path: string;
+        };
+        Insert: {
+          aircraft_id: string;
+          created_at?: string;
+          id?: string;
+          position?: number;
+          storage_path: string;
+        };
+        Update: {
+          aircraft_id?: string;
+          created_at?: string;
+          id?: string;
+          position?: number;
+          storage_path?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "aircraft_photos_aircraft_id_fkey";
+            columns: ["aircraft_id"];
+            isOneToOne: false;
+            referencedRelation: "aircraft";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       documents: {
         Row: {
@@ -147,6 +355,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      pilot_reviews: {
+        Row: {
+          comment: string;
+          created_at: string;
+          id: string;
+          pilot_user_id: string;
+          rating: number;
+          reviewer_user_id: string;
+        };
+        Insert: {
+          comment: string;
+          created_at?: string;
+          id?: string;
+          pilot_user_id: string;
+          rating: number;
+          reviewer_user_id: string;
+        };
+        Update: {
+          comment?: string;
+          created_at?: string;
+          id?: string;
+          pilot_user_id?: string;
+          rating?: number;
+          reviewer_user_id?: string;
+        };
+        Relationships: [];
+      };
       profiles: {
         Row: {
           created_at: string;
@@ -159,6 +394,7 @@ export type Database = {
           status: Database["public"]["Enums"]["user_status"];
           updated_at: string;
           weight_encrypted: string | null;
+          avatar_path: string | null;
         };
         Insert: {
           created_at?: string;
@@ -171,6 +407,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["user_status"];
           updated_at?: string;
           weight_encrypted?: string | null;
+          avatar_path?: string | null;
         };
         Update: {
           created_at?: string;
@@ -183,6 +420,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["user_status"];
           updated_at?: string;
           weight_encrypted?: string | null;
+          avatar_path?: string | null;
         };
         Relationships: [];
       };
@@ -227,8 +465,33 @@ export type Database = {
       };
     };
     Views: {
+      pilot_reviews_public: {
+        Row: {
+          comment: string | null;
+          created_at: string | null;
+          id: string | null;
+          pilot_user_id: string | null;
+          rating: number | null;
+        };
+        Insert: {
+          comment?: string | null;
+          created_at?: string | null;
+          id?: string | null;
+          pilot_user_id?: string | null;
+          rating?: number | null;
+        };
+        Update: {
+          comment?: string | null;
+          created_at?: string | null;
+          id?: string | null;
+          pilot_user_id?: string | null;
+          rating?: number | null;
+        };
+        Relationships: [];
+      };
       profiles_public: {
         Row: {
+          avatar_path: string | null;
           created_at: string | null;
           first_name: string | null;
           id: string | null;
@@ -238,6 +501,7 @@ export type Database = {
           updated_at: string | null;
         };
         Insert: {
+          avatar_path?: string | null;
           created_at?: string | null;
           first_name?: string | null;
           id?: string | null;
@@ -247,6 +511,7 @@ export type Database = {
           updated_at?: string | null;
         };
         Update: {
+          avatar_path?: string | null;
           created_at?: string | null;
           first_name?: string | null;
           id?: string | null;
@@ -260,7 +525,15 @@ export type Database = {
     };
     Functions: {
       delete_pilot_iban: { Args: { p_secret_id: string }; Returns: undefined };
+      get_pilot_iban_last_four: {
+        Args: Record<string, never>;
+        Returns: string | null;
+      };
       is_admin: { Args: Record<string, never>; Returns: boolean };
+      is_airfield_operator_for: {
+        Args: { p_airfield_id: string };
+        Returns: boolean;
+      };
       store_pilot_iban: {
         Args: { p_iban: string; p_user_id: string };
         Returns: string;

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { approveAirfieldSchema } from "@/lib/airfield/schemas";
 import { requireAdmin } from "@/lib/auth/rbac";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -96,19 +97,56 @@ export async function rejectVerificationAction(
 }
 
 export async function approveAirfieldRequestAction(
-  requestId: string
+  requestId: string,
+  formData: FormData
 ): Promise<AdminActionState> {
   const { user: adminUser } = await requireAdmin();
   const admin = createAdminClient();
 
+  const parsed = approveAirfieldSchema.safeParse({
+    latitude: formData.get("latitude"),
+    longitude: formData.get("longitude"),
+    country: formData.get("country"),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid coordinates" };
+  }
+
   const { data: request, error: fetchError } = await admin
     .from("airfield_operator_requests")
-    .select("user_id")
+    .select("user_id, airfield_name, icao_code, contact_email, contact_phone")
     .eq("id", requestId)
     .single();
 
   if (fetchError || !request) {
     return { error: fetchError?.message ?? "Request not found" };
+  }
+
+  const { data: existingAirfield } = await admin
+    .from("airfields")
+    .select("id")
+    .eq("icao_code", request.icao_code)
+    .maybeSingle();
+
+  if (existingAirfield) {
+    return { error: "An airfield with this ICAO code already exists" };
+  }
+
+  const { error: airfieldError } = await admin.from("airfields").insert({
+    name: request.airfield_name,
+    icao_code: request.icao_code,
+    latitude: parsed.data.latitude,
+    longitude: parsed.data.longitude,
+    country: parsed.data.country,
+    contact_email: request.contact_email,
+    contact_phone: request.contact_phone,
+    operator_user_id: request.user_id,
+    status: "active",
+  });
+
+  if (airfieldError) {
+    return { error: airfieldError.message };
   }
 
   await admin
@@ -128,6 +166,7 @@ export async function approveAirfieldRequestAction(
   });
 
   revalidatePath("/admin");
+  revalidatePath("/map");
   return { success: "Airfield operator approved" };
 }
 

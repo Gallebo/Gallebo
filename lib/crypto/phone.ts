@@ -39,3 +39,14 @@ export function decryptPhone(data: Buffer): string {
 export function phoneToDbValue(phone: string): string {
   return `\\x${encryptPhone(phone).toString("hex")}`;
 }
+
+export function phoneFromDbValue(hex: string | null): string | null {
+  if (!hex) return null;
+  const raw = hex.startsWith("\\x") ? hex.slice(2) : hex;
+  if (raw.length < 28) return null;
+  try {
+    return decryptPhone(Buffer.from(raw, "hex"));
+  } catch {
+    return null;
+  }
+}

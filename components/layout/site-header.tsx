@@ -48,6 +48,12 @@ export async function SiteHeader({ className }: { className?: string }) {
         </Link>
         <nav className="flex items-center gap-4 text-sm font-medium sm:gap-6">
           <Link
+            href="/map"
+            className="hidden text-muted-foreground transition-colors hover:text-foreground sm:inline"
+          >
+            Airfields
+          </Link>
+          <Link
             href="/pilot"
             className="hidden text-muted-foreground transition-colors hover:text-foreground sm:inline"
           >

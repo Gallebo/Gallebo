@@ -76,6 +76,16 @@ export const pilotIbanSchema = z.object({
   accountHolderName: z.string().min(2).max(200),
 });
 
+export const pilotIbanUpdateSchema = z.object({
+  iban: z
+    .string()
+    .min(15)
+    .max(34)
+    .regex(/^[A-Z]{2}[0-9A-Z]+$/, "Invalid IBAN format")
+    .transform((v) => v.replace(/\s/g, "").toUpperCase()),
+  accountHolderName: z.string().min(2).max(200).optional(),
+});
+
 export type LoginFormValues = z.infer<typeof loginSchema>;
 export type RegisterFormValues = z.infer<typeof registerSchema>;
 export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
