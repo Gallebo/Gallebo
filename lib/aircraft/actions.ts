@@ -215,6 +215,8 @@ export async function deleteAircraftAction(aircraftId: string): Promise<Aircraft
     const supabase = await createClient();
     const { user } = await assertOwnAircraft(supabase, aircraftId);
 
+    // TODO (Phase 4): before delete, check no active flights reference this aircraft.
+
     const { data: photos } = await supabase
       .from("aircraft_photos")
       .select("storage_path")

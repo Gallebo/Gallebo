@@ -1,7 +1,8 @@
-ALTER TABLE public.profiles
-ADD COLUMN avatar_path text;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_path text;
 
-CREATE OR REPLACE VIEW public.profiles_public AS
+DROP VIEW IF EXISTS public.profiles_public CASCADE;
+
+CREATE VIEW public.profiles_public AS
 SELECT
   id,
   first_name,

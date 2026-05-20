@@ -25,7 +25,9 @@ serve(async (req) => {
   const { data: pilots, error } = await supabase
     .from("pilot_profiles")
     .select("user_id, license_expires_at, medical_expires_at")
-    .not("license_expires_at", "is", null);
+    .or(
+      "license_expires_at.not.is.null,medical_expires_at.not.is.null",
+    );
 
   if (error) {
     console.error("[pilot-expiry] fetch error:", error.message);
@@ -50,18 +52,28 @@ serve(async (req) => {
 
       if (days < 0 || expiresAt <= today) {
         if (!pilotSuspended) {
-          await supabase
-            .from("profiles")
-            .update({ status: "suspended" })
-            .eq("id", pilot.user_id);
+          const suspendedSinceIso = new Date(Date.now() - 7 * 86_400_000).toISOString();
+          const { count: alreadyNotified } = await supabase
+            .from("notification_queue")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", pilot.user_id)
+            .eq("type", "pilot_suspended")
+            .gte("created_at", suspendedSinceIso);
 
-          await supabase.from("notification_queue").insert({
-            user_id: pilot.user_id,
-            type: "pilot_suspended",
-            payload: { expiresAt },
-          });
+          if ((alreadyNotified ?? 0) === 0) {
+            await supabase
+              .from("profiles")
+              .update({ status: "suspended" })
+              .eq("id", pilot.user_id);
 
-          suspended += 1;
+            await supabase.from("notification_queue").insert({
+              user_id: pilot.user_id,
+              type: "pilot_suspended",
+              payload: { expiresAt },
+            });
+
+            suspended += 1;
+          }
           pilotSuspended = true;
         }
         continue;
@@ -77,6 +89,18 @@ serve(async (req) => {
               : null;
 
       if (warningType) {
+        const sinceIso = new Date(Date.now() - 28 * 86_400_000).toISOString();
+        const { count } = await supabase
+          .from("notification_queue")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", pilot.user_id)
+          .eq("type", warningType)
+          .gte("created_at", sinceIso);
+
+        if ((count ?? 0) > 0) {
+          continue;
+        }
+
         const documentLabel =
           expiresAt === pilot.license_expires_at ? "pilot license" : "medical certificate";
 

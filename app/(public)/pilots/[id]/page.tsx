@@ -128,7 +128,7 @@ export default async function PublicPilotProfilePage({
           <div className="flex flex-wrap gap-4 text-sm">
             <span className="flex items-center gap-1">
               <Plane className="h-4 w-4" />
-              Flights on Gallebo: <strong>0</strong>
+              Flights on Gallebo: <strong>—</strong>
             </span>
             <span className="flex items-center gap-1">
               <Star className="h-4 w-4" />

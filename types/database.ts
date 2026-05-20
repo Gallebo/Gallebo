@@ -538,6 +538,33 @@ export type Database = {
         Args: { p_iban: string; p_user_id: string };
         Returns: string;
       };
+      swap_airfield_photo_order: {
+        Args: {
+          p_id_a: string;
+          p_order_a: number;
+          p_id_b: string;
+          p_order_b: number;
+        };
+        Returns: undefined;
+      };
+      update_airfield_as_operator: {
+        Args: {
+          p_airfield_id: string;
+          p_name: string;
+          p_contact_email: string | null;
+          p_contact_phone: string | null;
+          p_working_hours: string | null;
+          p_latitude: number;
+          p_longitude: number;
+          p_country: string;
+          p_has_fuel: boolean;
+          p_has_hangar: boolean;
+          p_has_rental: boolean;
+          p_description: string | null;
+          p_destination_info: string | null;
+        };
+        Returns: undefined;
+      };
     };
     Enums: {
       doc_review_status: "pending" | "approved" | "rejected";

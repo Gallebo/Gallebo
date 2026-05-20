@@ -42,7 +42,7 @@ export default async function PilotOverviewPage() {
         <CardContent className="space-y-4 text-sm">
           <div className="flex justify-between border-b pb-2">
             <span className="text-muted-foreground">Completed flights</span>
-            <span className="font-medium">0</span>
+            <span className="font-medium">— (available in Phase 4)</span>
           </div>
           <div className="flex justify-between border-b pb-2">
             <span className="text-muted-foreground">Lifetime earnings</span>

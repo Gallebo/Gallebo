@@ -67,23 +67,21 @@ export async function updateAirfieldProfileAction(
 
     const data = parsed.data;
 
-    const { error } = await supabase
-      .from("airfields")
-      .update({
-        name: data.name,
-        contact_email: data.contact_email || null,
-        contact_phone: data.contact_phone || null,
-        working_hours: data.working_hours || null,
-        latitude: data.latitude,
-        longitude: data.longitude,
-        country: data.country,
-        has_fuel: data.has_fuel,
-        has_hangar: data.has_hangar,
-        has_rental: data.has_rental,
-        description: data.description || null,
-        destination_info: data.destination_info || null,
-      })
-      .eq("id", airfield.id);
+    const { error } = await supabase.rpc("update_airfield_as_operator", {
+      p_airfield_id: airfield.id,
+      p_name: data.name,
+      p_contact_email: data.contact_email || null,
+      p_contact_phone: data.contact_phone || null,
+      p_working_hours: data.working_hours || null,
+      p_latitude: data.latitude,
+      p_longitude: data.longitude,
+      p_country: data.country,
+      p_has_fuel: data.has_fuel,
+      p_has_hangar: data.has_hangar,
+      p_has_rental: data.has_rental,
+      p_description: data.description || null,
+      p_destination_info: data.destination_info || null,
+    });
 
     if (error) {
       return { error: error.message };
@@ -238,18 +236,15 @@ export async function updatePhotoOrderAction(
       return { error: "Photo not found" };
     }
 
-    const { error: e1 } = await supabase
-      .from("airfield_photos")
-      .update({ sort_order: swap.sort_order })
-      .eq("id", current.id);
+    const { error: swapErr } = await supabase.rpc("swap_airfield_photo_order", {
+      p_id_a: current.id,
+      p_order_a: current.sort_order,
+      p_id_b: swap.id,
+      p_order_b: swap.sort_order,
+    });
 
-    const { error: e2 } = await supabase
-      .from("airfield_photos")
-      .update({ sort_order: current.sort_order })
-      .eq("id", swap.id);
-
-    if (e1 || e2) {
-      return { error: e1?.message ?? e2?.message ?? "Failed to reorder" };
+    if (swapErr) {
+      return { error: swapErr.message };
     }
 
     revalidatePath("/airfield/photos");
