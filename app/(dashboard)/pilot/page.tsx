@@ -30,19 +30,25 @@ export default async function PilotOverviewPage() {
     .select("id", { count: "exact", head: true })
     .eq("pilot_user_id", user.id);
 
+  const { count: publishedFlights } = await supabase
+    .from("flights")
+    .select("id", { count: "exact", head: true })
+    .eq("pilot_user_id", user.id)
+    .eq("status", "published");
+
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <Card>
         <CardHeader>
           <CardTitle>Performance</CardTitle>
           <CardDescription>
-            Bookings and earnings will appear once flights launch (Phase&nbsp;4).
+            Published flights and passenger bookings (earnings in a later phase).
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
           <div className="flex justify-between border-b pb-2">
-            <span className="text-muted-foreground">Completed flights</span>
-            <span className="font-medium">— (available in Phase 4)</span>
+            <span className="text-muted-foreground">Published flights</span>
+            <span className="font-medium">{publishedFlights ?? 0}</span>
           </div>
           <div className="flex justify-between border-b pb-2">
             <span className="text-muted-foreground">Lifetime earnings</span>
@@ -78,6 +84,12 @@ export default async function PilotOverviewPage() {
             className={cn(buttonVariants({ variant: "outline" }), "inline-flex w-fit")}
           >
             Manage aircraft ({aircraftCount ?? 0})
+          </Link>
+          <Link
+            href="/pilot/flights"
+            className={cn(buttonVariants({ variant: "outline" }), "inline-flex w-fit")}
+          >
+            My flights
           </Link>
           <Link
             href="/pilot/documents"

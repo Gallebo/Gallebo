@@ -6,10 +6,12 @@ import { Calendar, Fuel, Mail, Phone, Plane, Warehouse } from "lucide-react";
 import { AirfieldMiniMap } from "@/components/map/airfield-mini-map";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FlightListCard } from "@/components/flights/flight-list-card";
 import {
   formatServiceLabels,
   getAirfieldPhotoPublicUrl,
 } from "@/lib/airfield/utils";
+import { getFlightsForAirfield } from "@/lib/flights/search";
 import { createClient } from "@/lib/supabase/server";
 
 export async function generateMetadata({
@@ -52,6 +54,8 @@ export default async function AirfieldProfilePage({
     .maybeSingle();
 
   if (!airfield) notFound();
+
+  const { departing, arriving } = await getFlightsForAirfield(airfield.id);
 
   const [{ data: photos }, { data: notices }, { data: events }] =
     await Promise.all([
@@ -151,14 +155,39 @@ export default async function AirfieldProfilePage({
             </section>
           ) : null}
 
-          <section className="space-y-3">
+          <section className="space-y-6">
             <h2 className="text-lg font-semibold">Flights</h2>
-            <Card>
-              <CardContent className="py-6 text-sm text-muted-foreground">
-                Flights departing from and arriving at this airfield will be
-                available in Phase 4.
-              </CardContent>
-            </Card>
+            {departing.length > 0 ? (
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-muted-foreground">
+                  Departing
+                </h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {departing.map((f) => (
+                    <FlightListCard key={f.id} flight={f} />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {arriving.length > 0 ? (
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-muted-foreground">
+                  Arriving
+                </h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {arriving.map((f) => (
+                    <FlightListCard key={f.id} flight={f} />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {departing.length === 0 && arriving.length === 0 ? (
+              <Card>
+                <CardContent className="py-6 text-sm text-muted-foreground">
+                  No upcoming flights at this airfield.
+                </CardContent>
+              </Card>
+            ) : null}
           </section>
         </div>
 

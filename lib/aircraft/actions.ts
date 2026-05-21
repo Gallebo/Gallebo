@@ -215,7 +215,17 @@ export async function deleteAircraftAction(aircraftId: string): Promise<Aircraft
     const supabase = await createClient();
     const { user } = await assertOwnAircraft(supabase, aircraftId);
 
-    // TODO (Phase 4): before delete, check no active flights reference this aircraft.
+    const { count: activeFlights } = await supabase
+      .from("flights")
+      .select("id", { count: "exact", head: true })
+      .eq("aircraft_id", aircraftId)
+      .eq("status", "published");
+
+    if ((activeFlights ?? 0) > 0) {
+      return {
+        error: "Cannot delete aircraft while it is used on published flights",
+      };
+    }
 
     const { data: photos } = await supabase
       .from("aircraft_photos")

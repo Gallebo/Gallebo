@@ -33,11 +33,14 @@ export default async function DashboardPage() {
         <StatusBanner status="verified" />
         <ProfileCard profile={profile} email={authUser?.email ?? ""} />
         <p className="text-muted-foreground">
-          Flight search — coming in Phase 4.{" "}
-          <Link href="/" className="text-primary hover:underline">
-            Browse destinations
-          </Link>
+          Search and book shared flights across Europe.
         </p>
+        <Link
+          href="/flights"
+          className={cn(buttonVariants({ variant: "default" }), "inline-flex")}
+        >
+          Find flights
+        </Link>
       </div>
     );
   }

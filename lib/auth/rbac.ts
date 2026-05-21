@@ -81,6 +81,15 @@ export async function requirePilot() {
   return { user, profile };
 }
 
+export async function requireVerifiedPassenger() {
+  const user = await requireUser();
+  const profile = await getProfile();
+  if (profile?.role !== "passenger" || profile?.status !== "verified") {
+    redirect("/dashboard");
+  }
+  return { user, profile };
+}
+
 export async function getOperatorAirfieldForUser(userId: string) {
   const supabase = await createClient();
   const { data } = await supabase

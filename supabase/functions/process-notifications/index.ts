@@ -48,6 +48,16 @@ function renderExpiryWarning(name: string, days: number, label: string): string 
   return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your <strong>${l}</strong> expires in <strong>${days}</strong> day(s). Please upload renewed documents in Gallebo to stay verified.</p></body></html>`;
 }
 
+function renderFlightPriceDeviation(
+  name: string,
+  flightId: string,
+  price: string,
+  avg: string,
+): string {
+  const n = escapeHtml(name);
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>A pilot published flight <strong>${escapeHtml(flightId)}</strong> with a per-passenger price of <strong>€${escapeHtml(price)}</strong>, which differs significantly from the route average (€${escapeHtml(avg)}).</p><p>Please review in the admin dashboard.</p></body></html>`;
+}
+
 serve(async (req) => {
   const secret = Deno.env.get("CRON_SECRET");
   const auth = req.headers.get("Authorization") ?? "";
@@ -148,6 +158,17 @@ serve(async (req) => {
         const docLabel = String(payload.documentLabel ?? "document");
         subject = `Gallebo: your ${docLabel} expires in ${days} day(s)`;
         html = renderExpiryWarning(displayName, days, docLabel);
+        break;
+      }
+
+      case "flight_price_deviation": {
+        subject = "Gallebo: flight price deviation alert";
+        html = renderFlightPriceDeviation(
+          displayName,
+          String(payload.flightId ?? ""),
+          String(payload.pricePerPassenger ?? ""),
+          String(payload.avgPrice ?? ""),
+        );
         break;
       }
 

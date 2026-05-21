@@ -1,6 +1,7 @@
 "use client";
 
 import { MapPin, Search, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -8,12 +9,17 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 export function HeroSearchCard({ className }: { className?: string }) {
+  const router = useRouter();
   const [location, setLocation] = useState("");
   const [passengers, setPassengers] = useState("1");
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    // Faza 4+: navigate to flight search results
+    const params = new URLSearchParams();
+    if (location.trim()) params.set("location", location.trim());
+    if (passengers) params.set("minSeats", passengers);
+    const q = params.toString();
+    router.push(q ? `/flights?${q}` : "/flights");
   }
 
   return (

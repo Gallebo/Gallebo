@@ -289,6 +289,201 @@ export type Database = {
         };
         Relationships: [];
       };
+      flight_booking_requests: {
+        Row: {
+          created_at: string;
+          flight_id: string;
+          id: string;
+          passenger_user_id: string;
+          status: Database["public"]["Enums"]["flight_booking_status"];
+        };
+        Insert: {
+          created_at?: string;
+          flight_id: string;
+          id?: string;
+          passenger_user_id: string;
+          status?: Database["public"]["Enums"]["flight_booking_status"];
+        };
+        Update: {
+          created_at?: string;
+          flight_id?: string;
+          id?: string;
+          passenger_user_id?: string;
+          status?: Database["public"]["Enums"]["flight_booking_status"];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "flight_booking_requests_flight_id_fkey";
+            columns: ["flight_id"];
+            isOneToOne: false;
+            referencedRelation: "flights";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      flight_photos: {
+        Row: {
+          created_at: string;
+          flight_id: string;
+          id: string;
+          position: number;
+          storage_path: string;
+        };
+        Insert: {
+          created_at?: string;
+          flight_id: string;
+          id?: string;
+          position?: number;
+          storage_path: string;
+        };
+        Update: {
+          created_at?: string;
+          flight_id?: string;
+          id?: string;
+          position?: number;
+          storage_path?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "flight_photos_flight_id_fkey";
+            columns: ["flight_id"];
+            isOneToOne: false;
+            referencedRelation: "flights";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      flight_publish_drafts: {
+        Row: {
+          draft: Json;
+          pilot_user_id: string;
+          step: number;
+          updated_at: string;
+        };
+        Insert: {
+          draft?: Json;
+          pilot_user_id: string;
+          step?: number;
+          updated_at?: string;
+        };
+        Update: {
+          draft?: Json;
+          pilot_user_id?: string;
+          step?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      flights: {
+        Row: {
+          aircraft_id: string | null;
+          arrival_airfield_id: string;
+          communication_language: Database["public"]["Enums"]["flight_language"];
+          created_at: string;
+          departure_airfield_id: string;
+          departure_time: string;
+          description: string;
+          flight_date: string;
+          flight_type: Database["public"]["Enums"]["flight_type"];
+          id: string;
+          passenger_seats: number;
+          pilot_return_date: string | null;
+          pilot_user_id: string;
+          price_deviation_flag: boolean;
+          price_per_passenger_eur: number;
+          published_at: string | null;
+          rented_model: string | null;
+          rented_registration: string | null;
+          rented_seats: number | null;
+          return_note: string | null;
+          route_avg_price_eur: number | null;
+          status: Database["public"]["Enums"]["flight_status"];
+          total_cost_eur: number;
+          updated_at: string;
+        };
+        Insert: {
+          aircraft_id?: string | null;
+          arrival_airfield_id: string;
+          communication_language?: Database["public"]["Enums"]["flight_language"];
+          created_at?: string;
+          departure_airfield_id: string;
+          departure_time: string;
+          description: string;
+          flight_date: string;
+          flight_type: Database["public"]["Enums"]["flight_type"];
+          id?: string;
+          passenger_seats: number;
+          pilot_return_date?: string | null;
+          pilot_user_id: string;
+          price_deviation_flag?: boolean;
+          price_per_passenger_eur: number;
+          published_at?: string | null;
+          rented_model?: string | null;
+          rented_registration?: string | null;
+          rented_seats?: number | null;
+          return_note?: string | null;
+          route_avg_price_eur?: number | null;
+          status?: Database["public"]["Enums"]["flight_status"];
+          total_cost_eur: number;
+          updated_at?: string;
+        };
+        Update: {
+          aircraft_id?: string | null;
+          arrival_airfield_id?: string;
+          communication_language?: Database["public"]["Enums"]["flight_language"];
+          created_at?: string;
+          departure_airfield_id?: string;
+          departure_time?: string;
+          description?: string;
+          flight_date?: string;
+          flight_type?: Database["public"]["Enums"]["flight_type"];
+          id?: string;
+          passenger_seats?: number;
+          pilot_return_date?: string | null;
+          pilot_user_id?: string;
+          price_deviation_flag?: boolean;
+          price_per_passenger_eur?: number;
+          published_at?: string | null;
+          rented_model?: string | null;
+          rented_registration?: string | null;
+          rented_seats?: number | null;
+          return_note?: string | null;
+          route_avg_price_eur?: number | null;
+          status?: Database["public"]["Enums"]["flight_status"];
+          total_cost_eur?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "flights_aircraft_id_fkey";
+            columns: ["aircraft_id"];
+            isOneToOne: false;
+            referencedRelation: "aircraft";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "flights_arrival_airfield_id_fkey";
+            columns: ["arrival_airfield_id"];
+            isOneToOne: false;
+            referencedRelation: "airfields";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "flights_departure_airfield_id_fkey";
+            columns: ["departure_airfield_id"];
+            isOneToOne: false;
+            referencedRelation: "airfields";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "flights_pilot_user_id_fkey";
+            columns: ["pilot_user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       notification_queue: {
         Row: {
           created_at: string;
@@ -313,6 +508,33 @@ export type Database = {
           sent_at?: string | null;
           type?: string;
           user_id?: string;
+        };
+        Relationships: [];
+      };
+      route_price_benchmarks: {
+        Row: {
+          arrival_airfield_id: string;
+          avg_price_per_passenger_eur: number | null;
+          departure_airfield_id: string;
+          flight_type: Database["public"]["Enums"]["flight_type"];
+          sample_count: number;
+          updated_at: string;
+        };
+        Insert: {
+          arrival_airfield_id: string;
+          avg_price_per_passenger_eur?: number | null;
+          departure_airfield_id: string;
+          flight_type: Database["public"]["Enums"]["flight_type"];
+          sample_count?: number;
+          updated_at?: string;
+        };
+        Update: {
+          arrival_airfield_id?: string;
+          avg_price_per_passenger_eur?: number | null;
+          departure_airfield_id?: string;
+          flight_type?: Database["public"]["Enums"]["flight_type"];
+          sample_count?: number;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -567,6 +789,10 @@ export type Database = {
       };
     };
     Enums: {
+      flight_booking_status: "pending" | "cancelled";
+      flight_language: "hr" | "en" | "it";
+      flight_status: "draft" | "published" | "cancelled";
+      flight_type: "panoramic" | "excursion" | "one_way";
       doc_review_status: "pending" | "approved" | "rejected";
       document_type:
         | "id_card"
@@ -605,6 +831,10 @@ export type Enums<EnumName extends keyof DefaultSchema["Enums"]> =
 export const Constants = {
   public: {
     Enums: {
+      flight_booking_status: ["pending", "cancelled"],
+      flight_language: ["hr", "en", "it"],
+      flight_status: ["draft", "published", "cancelled"],
+      flight_type: ["panoramic", "excursion", "one_way"],
       doc_review_status: ["pending", "approved", "rejected"],
       document_type: [
         "id_card",
