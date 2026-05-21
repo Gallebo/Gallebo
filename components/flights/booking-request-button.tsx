@@ -8,6 +8,11 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { submitBookingRequestAction } from "@/lib/flights/actions";
 
+type BookingFeedback =
+  | { status: "idle" }
+  | { status: "success"; message: string }
+  | { status: "error"; message: string };
+
 export function BookingRequestButton({
   flightId,
   canBook,
@@ -20,7 +25,7 @@ export function BookingRequestButton({
   isVerifiedPassenger: boolean;
 }) {
   const router = useRouter();
-  const [message, setMessage] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<BookingFeedback>({ status: "idle" });
   const [pending, startTransition] = useTransition();
 
   if (!isLoggedIn) {
@@ -55,13 +60,16 @@ export function BookingRequestButton({
         className="w-full sm:w-auto"
         disabled={pending}
         onClick={() => {
-          setMessage(null);
+          setFeedback({ status: "idle" });
           startTransition(async () => {
             const res = await submitBookingRequestAction(flightId);
             if (res.error) {
-              setMessage(res.error);
+              setFeedback({ status: "error", message: res.error });
             } else {
-              setMessage(res.success ?? "Request sent");
+              setFeedback({
+                status: "success",
+                message: res.success ?? "Booking request sent",
+              });
               router.refresh();
             }
           });
@@ -69,15 +77,15 @@ export function BookingRequestButton({
       >
         {pending ? "Sending…" : "Request booking"}
       </Button>
-      {message ? (
+      {feedback.status !== "idle" ? (
         <p
           className={
-            message.includes("sent")
+            feedback.status === "success"
               ? "text-sm text-green-600"
               : "text-sm text-destructive"
           }
         >
-          {message}
+          {feedback.message}
         </p>
       ) : null}
     </div>

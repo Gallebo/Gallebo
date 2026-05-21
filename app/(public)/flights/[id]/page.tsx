@@ -41,9 +41,10 @@ export default async function FlightDetailPage({
 
   const authUser = await getSessionUser();
   const profile = await getProfile();
+  const seatsLeft = availableSeats(flight);
   const weightWarning =
     profile?.weight_encrypted && profile.role === "passenger"
-      ? getPassengerWeightWarning(profile.weight_encrypted, flight.passenger_seats)
+      ? getPassengerWeightWarning(profile.weight_encrypted, seatsLeft)
       : null;
 
   const supabase = await createClient();
@@ -65,7 +66,6 @@ export default async function FlightDetailPage({
     (a, b) => (a.position ?? 0) - (b.position ?? 0),
   );
 
-  const seatsLeft = availableSeats(flight);
   const pilotName = pilotDisplayName(flight.pilot);
   const avatarUrl =
     flight.pilot?.avatar_path && flight.pilot.avatar_path.length > 0

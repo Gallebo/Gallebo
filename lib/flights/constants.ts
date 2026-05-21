@@ -1,3 +1,5 @@
+import type { FlightLanguage, FlightType } from "@/lib/flights/types";
+
 export const FLIGHT_PHOTOS_BUCKET = "flight-photos";
 
 export const MIN_FLIGHT_PHOTOS = 3;
@@ -24,14 +26,22 @@ export const WEIGHT_WARNING_GENERAL_KG = 95;
 
 export const WEIGHT_WARNING_SINGLE_SEAT_KG = 85;
 
-export const FLIGHT_TYPE_LABELS: Record<string, string> = {
+export const FLIGHT_TYPE_LABELS = {
   panoramic: "Panoramic (A→A)",
   excursion: "Excursion (A→B→A)",
   one_way: "One-way (A→B)",
-};
+} as const satisfies Record<FlightType, string>;
 
-export const FLIGHT_LANGUAGE_LABELS: Record<string, string> = {
+export const FLIGHT_LANGUAGE_LABELS = {
   hr: "Croatian",
   en: "English",
   it: "Italian",
-};
+} as const satisfies Record<FlightLanguage, string>;
+
+export function flightTypeLabel(type: FlightType): string {
+  return FLIGHT_TYPE_LABELS[type];
+}
+
+export function flightLanguageLabel(language: FlightLanguage): string {
+  return FLIGHT_LANGUAGE_LABELS[language];
+}

@@ -57,10 +57,12 @@ export const scheduleStepSchema = z.object({
   flightDate: z
     .string()
     .min(1)
-    .refine((d) => new Date(d) >= new Date(new Date().toDateString()), {
+    .refine((d) => d >= new Date().toISOString().slice(0, 10), {
       message: "Flight date must be today or in the future",
     }),
-  departureTime: z.string().regex(/^\d{2}:\d{2}$/, "Invalid time (HH:MM)"),
+  departureTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Invalid time (HH:MM)"),
 });
 
 export const costStepSchema = z.object({
@@ -90,11 +92,18 @@ export const publishFlightSchema = z
     aircraftId: z.string().uuid().optional(),
     rentedModel: z.string().optional(),
     rentedRegistration: z.string().optional(),
-    rentedSeats: z.coerce.number().optional(),
+    rentedSeats: z.coerce.number().int().min(2).max(6).optional(),
     departureAirfieldId: z.string().uuid(),
     arrivalAirfieldId: z.string().uuid(),
-    flightDate: z.string().min(1),
-    departureTime: z.string().min(1),
+    flightDate: z
+      .string()
+      .min(1)
+      .refine((d) => d >= new Date().toISOString().slice(0, 10), {
+        message: "Flight date must be today or in the future",
+      }),
+    departureTime: z
+      .string()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Invalid time (HH:MM)"),
     totalCostEur: z.coerce.number().positive(),
     passengerSeats: z.coerce.number().int().min(MIN_PASSENGER_SEATS).max(MAX_PASSENGER_SEATS),
     description: z.string().min(20).max(5000),
@@ -125,10 +134,30 @@ export const publishFlightSchema = z
         path: ["arrivalAirfieldId"],
       });
     }
+
+    if (data.flightType !== "panoramic" && data.departureAirfieldId === data.arrivalAirfieldId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Departure and arrival must be different airfields",
+        path: ["arrivalAirfieldId"],
+      });
+    }
+
+    if (
+      data.rentedSeats !== undefined &&
+      data.passengerSeats > data.rentedSeats - 1
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "Passenger seats cannot exceed aircraft capacity minus one seat for pilot",
+        path: ["passengerSeats"],
+      });
+    }
   });
 
 export type FlightDraft = {
-  flightType?: "panoramic" | "excursion" | "one_way";
+  flightType?: z.infer<typeof flightTypeSchema>;
   aircraftMode?: "owned" | "rented";
   aircraftId?: string;
   rentedModel?: string;
@@ -143,7 +172,7 @@ export type FlightDraft = {
   totalCostEur?: number;
   passengerSeats?: number;
   description?: string;
-  communicationLanguage?: "hr" | "en" | "it";
+  communicationLanguage?: z.infer<typeof flightLanguageSchema>;
   returnNote?: string;
   pilotReturnDate?: string;
   photoPaths?: string[];

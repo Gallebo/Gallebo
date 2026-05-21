@@ -42,6 +42,11 @@ function renderKycResult(name: string): string {
   return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your Gallebo identity verification (KYC) was <strong>approved</strong>.</p><p>You now have full access to the platform.</p></body></html>`;
 }
 
+function renderKycRejection(name: string): string {
+  const n = escapeHtml(name);
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your Gallebo identity verification (KYC) was <strong>not approved</strong>.</p><p>Please contact support for more information.</p></body></html>`;
+}
+
 function renderExpiryWarning(name: string, days: number, label: string): string {
   const n = escapeHtml(name);
   const l = escapeHtml(label);
@@ -56,6 +61,11 @@ function renderFlightPriceDeviation(
 ): string {
   const n = escapeHtml(name);
   return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>A pilot published flight <strong>${escapeHtml(flightId)}</strong> with a per-passenger price of <strong>€${escapeHtml(price)}</strong>, which differs significantly from the route average (€${escapeHtml(avg)}).</p><p>Please review in the admin dashboard.</p></body></html>`;
+}
+
+function renderFlightCancelled(name: string, flightId: string): string {
+  const n = escapeHtml(name);
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>The flight you requested (<strong>${escapeHtml(flightId)}</strong>) has been <strong>cancelled</strong> by the pilot.</p><p>You can browse other available flights on Gallebo.</p></body></html>`;
 }
 
 serve(async (req) => {
@@ -74,7 +84,8 @@ serve(async (req) => {
     .from("notification_queue")
     .select("*")
     .is("sent_at", null)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    .limit(50);
 
   if (error) {
     console.error("[process-notifications] fetch error:", error.message);
@@ -141,14 +152,12 @@ serve(async (req) => {
 
       case "kyc_result":
         if (payload.approved !== true) {
-          await supabase
-            .from("notification_queue")
-            .update({ sent_at: new Date().toISOString() })
-            .eq("id", notification.id);
-          continue;
+          subject = "Your Gallebo identity verification was not approved";
+          html = renderKycRejection(displayName);
+        } else {
+          subject = "Your Gallebo identity verification was approved";
+          html = renderKycResult(displayName);
         }
-        subject = "Your Gallebo identity verification was approved";
-        html = renderKycResult(displayName);
         break;
 
       case "expiry_warning_3d":
@@ -168,6 +177,15 @@ serve(async (req) => {
           String(payload.flightId ?? ""),
           String(payload.pricePerPassenger ?? ""),
           String(payload.avgPrice ?? ""),
+        );
+        break;
+      }
+
+      case "flight_cancelled": {
+        subject = "Your flight booking request was cancelled";
+        html = renderFlightCancelled(
+          displayName,
+          String(payload.flightId ?? ""),
         );
         break;
       }

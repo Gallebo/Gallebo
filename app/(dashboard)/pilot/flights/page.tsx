@@ -23,6 +23,27 @@ export default async function PilotFlightsPage({
     .eq("pilot_user_id", user.id)
     .order("flight_date", { ascending: false });
 
+  const publishedIds = (flights ?? [])
+    .filter((f) => f.status === "published")
+    .map((f) => f.id);
+
+  const { data: bookings } =
+    publishedIds.length > 0
+      ? await supabase
+          .from("flight_booking_requests")
+          .select("flight_id")
+          .in("flight_id", publishedIds)
+          .eq("status", "pending")
+      : { data: [] as { flight_id: string }[] };
+
+  const pendingByFlight = new Map<string, number>();
+  for (const b of bookings ?? []) {
+    pendingByFlight.set(
+      b.flight_id,
+      (pendingByFlight.get(b.flight_id) ?? 0) + 1,
+    );
+  }
+
   return (
     <div className="space-y-6">
       {params.published ? (
@@ -55,7 +76,9 @@ export default async function PilotFlightsPage({
                 <p className="text-sm text-muted-foreground">
                   {FLIGHT_TYPE_LABELS[f.flight_type]} · {f.flight_date} · €
                   {Number(f.price_per_passenger_eur).toFixed(2)} / seat ·{" "}
-                  {f.passenger_seats} seats
+                  {f.status === "published"
+                    ? `${pendingByFlight.get(f.id) ?? 0}/${f.passenger_seats} seats booked`
+                    : `${f.passenger_seats} seats`}
                 </p>
               </div>
               <div className="flex gap-2">

@@ -1,5 +1,14 @@
 import { getPublicEnv, isMapTilerConfigured } from "@/lib/env";
-import type { FlightSearchParams, FlightListItem } from "@/lib/flights/types";
+import {
+  flightRowsFromQuery,
+  isFlightRowFromDb,
+  toFlightListItem,
+} from "@/lib/flights/list-item";
+import type {
+  FlightListItem,
+  FlightPilotSummary,
+  FlightSearchParams,
+} from "@/lib/flights/types";
 import { createClient } from "@/lib/supabase/server";
 
 const FLIGHT_SELECT = `
@@ -44,14 +53,15 @@ async function resolveAirfieldIdsFromLocation(
           const [lng, lat] = feature.center;
           const { data: nearby } = await supabase
             .from("airfields")
-            .select("id, latitude, longitude")
-            .eq("status", "active");
+            .select("id")
+            .eq("status", "active")
+            .gte("latitude", lat - 1.5)
+            .lte("latitude", lat + 1.5)
+            .gte("longitude", lng - 1.5)
+            .lte("longitude", lng + 1.5)
+            .limit(50);
           for (const af of nearby ?? []) {
-            const dLat = Math.abs(af.latitude - lat);
-            const dLng = Math.abs(af.longitude - lng);
-            if (dLat < 1.5 && dLng < 1.5) {
-              ids.add(af.id);
-            }
+            ids.add(af.id);
           }
         }
       }
@@ -157,30 +167,31 @@ export async function searchPublishedFlights(
       pilotIds.length > 0 ? pilotIds : ["00000000-0000-0000-0000-000000000000"],
     );
 
-  const pilotById = new Map(
-    (pilotRows ?? []).map((p) => [
-      p.id!,
-      {
-        id: p.id!,
-        first_name: p.first_name,
-        last_name: p.last_name,
-        avatar_path: p.avatar_path,
-      },
-    ]),
+  const pilotById = new Map<string, FlightPilotSummary>(
+    (pilotRows ?? [])
+      .filter((p): p is typeof p & { id: string } => Boolean(p.id))
+      .map((p) => [
+        p.id,
+        {
+          id: p.id,
+          first_name: p.first_name,
+          last_name: p.last_name,
+          avatar_path: p.avatar_path,
+        },
+      ]),
   );
 
-  let items: FlightListItem[] = data.map((row) => {
+  let items: FlightListItem[] = flightRowsFromQuery(data).map((row) => {
     const pending = pendingByFlight.get(row.id) ?? 0;
     const rating = ratingByPilot.get(row.pilot_user_id);
-    return {
-      ...(row as FlightListItem),
+    return toFlightListItem(row, {
       pilot: pilotById.get(row.pilot_user_id) ?? null,
       pending_bookings: pending,
       pilot_avg_rating: rating
         ? Math.round((rating.sum / rating.count) * 10) / 10
         : null,
       pilot_review_count: rating?.count ?? 0,
-    };
+    });
   });
 
   if (params.minSeats !== undefined && params.minSeats > 0) {
@@ -199,14 +210,18 @@ export async function searchPublishedFlights(
 
 export async function getFlightById(id: string): Promise<FlightListItem | null> {
   const supabase = await createClient();
+  const today = new Date().toISOString().slice(0, 10);
   const { data, error } = await supabase
     .from("flights")
     .select(FLIGHT_SELECT)
     .eq("id", id)
     .eq("status", "published")
+    .gte("flight_date", today)
     .maybeSingle();
 
-  if (error || !data) return null;
+  if (error || !data || !isFlightRowFromDb(data)) return null;
+
+  const row = data;
 
   const { count } = await supabase
     .from("flight_booking_requests")
@@ -217,7 +232,7 @@ export async function getFlightById(id: string): Promise<FlightListItem | null> 
   const { data: reviews } = await supabase
     .from("pilot_reviews_public")
     .select("rating")
-    .eq("pilot_user_id", data.pilot_user_id);
+    .eq("pilot_user_id", row.pilot_user_id);
 
   const ratings = (reviews ?? [])
     .map((r) => r.rating)
@@ -231,23 +246,24 @@ export async function getFlightById(id: string): Promise<FlightListItem | null> 
   const { data: pilotRow } = await supabase
     .from("profiles_public")
     .select("id, first_name, last_name, avatar_path")
-    .eq("id", data.pilot_user_id)
+    .eq("id", row.pilot_user_id)
     .maybeSingle();
 
-  return {
-    ...(data as FlightListItem),
-    pilot: pilotRow?.id
-      ? {
-          id: pilotRow.id,
-          first_name: pilotRow.first_name,
-          last_name: pilotRow.last_name,
-          avatar_path: pilotRow.avatar_path,
-        }
-      : null,
+  const pilot: FlightPilotSummary | null = pilotRow?.id
+    ? {
+        id: pilotRow.id,
+        first_name: pilotRow.first_name,
+        last_name: pilotRow.last_name,
+        avatar_path: pilotRow.avatar_path,
+      }
+    : null;
+
+  return toFlightListItem(row, {
+    pilot,
     pending_bookings: count ?? 0,
     pilot_avg_rating: avg,
     pilot_review_count: ratings.length,
-  };
+  });
 }
 
 export async function getFlightsForAirfield(airfieldId: string): Promise<{
@@ -277,29 +293,49 @@ export async function getFlightsForAirfield(airfieldId: string): Promise<{
 
   const enrich = async (rows: typeof departing) => {
     if (!rows?.length) return [] as FlightListItem[];
-    const pilotIds = [...new Set(rows.map((r) => r.pilot_user_id))];
-    const { data: pilotRows } = await supabase
-      .from("profiles_public")
-      .select("id, first_name, last_name, avatar_path")
-      .in("id", pilotIds);
 
-    const pilotById = new Map(
-      (pilotRows ?? []).map((p) => [
-        p.id!,
-        {
-          id: p.id!,
-          first_name: p.first_name,
-          last_name: p.last_name,
-          avatar_path: p.avatar_path,
-        },
-      ]),
+    const flightIds = rows.map((r) => r.id);
+    const pilotIds = [...new Set(rows.map((r) => r.pilot_user_id))];
+
+    const [{ data: pilotRows }, { data: bookings }] = await Promise.all([
+      supabase
+        .from("profiles_public")
+        .select("id, first_name, last_name, avatar_path")
+        .in("id", pilotIds),
+      supabase
+        .from("flight_booking_requests")
+        .select("flight_id")
+        .in("flight_id", flightIds)
+        .eq("status", "pending"),
+    ]);
+
+    const pilotById = new Map<string, FlightPilotSummary>(
+      (pilotRows ?? [])
+        .filter((p): p is typeof p & { id: string } => Boolean(p.id))
+        .map((p) => [
+          p.id,
+          {
+            id: p.id,
+            first_name: p.first_name,
+            last_name: p.last_name,
+            avatar_path: p.avatar_path,
+          },
+        ]),
     );
 
-    return rows.map((row) => ({
-      ...(row as FlightListItem),
-      pilot: pilotById.get(row.pilot_user_id) ?? null,
-      pending_bookings: 0,
-    }));
+    const pendingByFlight = new Map<string, number>();
+    for (const b of bookings ?? []) {
+      pendingByFlight.set(b.flight_id, (pendingByFlight.get(b.flight_id) ?? 0) + 1);
+    }
+
+    return flightRowsFromQuery(rows).map((row) =>
+      toFlightListItem(row, {
+        pilot: pilotById.get(row.pilot_user_id) ?? null,
+        pending_bookings: pendingByFlight.get(row.id) ?? 0,
+        pilot_avg_rating: null,
+        pilot_review_count: 0,
+      }),
+    );
   };
 
   return {

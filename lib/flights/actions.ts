@@ -9,6 +9,7 @@ import {
   ALLOWED_FLIGHT_PHOTO_MIME,
   FLIGHT_PHOTOS_BUCKET,
   MAX_PHOTO_BYTES,
+  MAX_FLIGHT_PHOTOS,
   MIN_FLIGHT_PHOTOS,
 } from "@/lib/flights/constants";
 import { checkRoutePriceDeviation } from "@/lib/flights/pricing";
@@ -17,6 +18,7 @@ import {
   publishFlightSchema,
   type FlightDraft,
 } from "@/lib/flights/schemas";
+import { rethrowIfNextRedirect } from "@/lib/navigation/redirect-error";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/types/database";
@@ -41,11 +43,14 @@ async function notifyAdminsPriceDeviation(
     .eq("role", "admin");
 
   for (const a of admins ?? []) {
-    await admin.from("notification_queue").insert({
+    const { error } = await admin.from("notification_queue").insert({
       user_id: a.id,
       type: "flight_price_deviation",
       payload: { flightId, pilotUserId: pilotId, ...payload },
     });
+    if (error) {
+      console.error("[notifyAdminsPriceDeviation]", error.message);
+    }
   }
 }
 
@@ -89,6 +94,19 @@ export async function uploadFlightDraftPhotoAction(
       return { error: "File must be under 5MB" };
     }
 
+    const supabase = await createClient();
+    const { data: draftRow } = await supabase
+      .from("flight_publish_drafts")
+      .select("draft")
+      .eq("pilot_user_id", user.id)
+      .maybeSingle();
+
+    const existingCount =
+      (draftRow?.draft as FlightDraft | null)?.photoPaths?.length ?? 0;
+    if (existingCount >= MAX_FLIGHT_PHOTOS) {
+      return { error: `Maximum ${MAX_FLIGHT_PHOTOS} photos allowed` };
+    }
+
     const ext =
       file.type === "image/png"
         ? "png"
@@ -96,7 +114,6 @@ export async function uploadFlightDraftPhotoAction(
           ? "webp"
           : "jpg";
     const storagePath = `${user.id}/draft/${randomUUID()}.${ext}`;
-    const supabase = await createClient();
     const buffer = Buffer.from(await file.arrayBuffer());
 
     const { error } = await supabase.storage
@@ -172,6 +189,15 @@ export async function publishFlightAction(
     if (photoPaths.length < MIN_FLIGHT_PHOTOS) {
       return { error: `At least ${MIN_FLIGHT_PHOTOS} photos are required` };
     }
+    if (photoPaths.length > MAX_FLIGHT_PHOTOS) {
+      return { error: `Maximum ${MAX_FLIGHT_PHOTOS} photos allowed` };
+    }
+
+    for (const p of photoPaths) {
+      if (!p.startsWith(`${user.id}/draft/`)) {
+        return { error: "Invalid photo path" };
+      }
+    }
 
     const parsed = publishFlightSchema.safeParse({
       flightType: formData.get("flightType"),
@@ -220,6 +246,24 @@ export async function publishFlightAction(
       };
     }
 
+    if (data.aircraftId) {
+      const { data: ac } = await supabase
+        .from("aircraft")
+        .select("seats")
+        .eq("id", data.aircraftId)
+        .eq("pilot_user_id", user.id)
+        .maybeSingle();
+
+      if (!ac) {
+        return { error: "Aircraft not found" };
+      }
+      if (data.passengerSeats > ac.seats - 1) {
+        return {
+          error: `Passenger seats cannot exceed ${ac.seats - 1} for this aircraft`,
+        };
+      }
+    }
+
     const insertRow = {
       pilot_user_id: user.id,
       flight_type: data.flightType,
@@ -260,6 +304,17 @@ export async function publishFlightAction(
       return { error: flightError?.message ?? "Failed to publish flight" };
     }
 
+    const movedPaths: string[] = [];
+
+    const rollback = async (errMsg: string): Promise<FlightActionState> => {
+      await supabase.from("flights").delete().eq("id", flight.id);
+      if (movedPaths.length > 0) {
+        const admin = createAdminClient();
+        await admin.storage.from(FLIGHT_PHOTOS_BUCKET).remove(movedPaths);
+      }
+      return { error: errMsg };
+    };
+
     let position = 0;
     for (const draftPath of photoPaths) {
       const filename = draftPath.split("/").pop() ?? `${randomUUID()}.jpg`;
@@ -273,17 +328,20 @@ export async function publishFlightAction(
         const { data: blob } = await supabase.storage
           .from(FLIGHT_PHOTOS_BUCKET)
           .download(draftPath);
-        if (blob) {
-          const buf = Buffer.from(await blob.arrayBuffer());
-          await supabase.storage
-            .from(FLIGHT_PHOTOS_BUCKET)
-            .upload(destPath, buf, { upsert: true });
-          await supabase.storage.from(FLIGHT_PHOTOS_BUCKET).remove([draftPath]);
-        } else {
-          await supabase.from("flights").delete().eq("id", flight.id);
-          return { error: moveError.message };
+        if (!blob) {
+          return rollback(moveError.message);
         }
+        const buf = Buffer.from(await blob.arrayBuffer());
+        const { error: uploadError } = await supabase.storage
+          .from(FLIGHT_PHOTOS_BUCKET)
+          .upload(destPath, buf, { upsert: true });
+        if (uploadError) {
+          return rollback(uploadError.message);
+        }
+        await supabase.storage.from(FLIGHT_PHOTOS_BUCKET).remove([draftPath]);
       }
+
+      movedPaths.push(destPath);
 
       const { error: photoErr } = await supabase.from("flight_photos").insert({
         flight_id: flight.id,
@@ -292,8 +350,7 @@ export async function publishFlightAction(
       });
 
       if (photoErr) {
-        await supabase.from("flights").delete().eq("id", flight.id);
-        return { error: photoErr.message };
+        return rollback(photoErr.message);
       }
       position += 1;
     }
@@ -320,9 +377,7 @@ export async function publishFlightAction(
 
     redirect(`/pilot/flights?published=${flight.id}`);
   } catch (e) {
-    if (e instanceof Error && e.message === "NEXT_REDIRECT") {
-      throw e;
-    }
+    rethrowIfNextRedirect(e);
     return {
       error: e instanceof Error ? e.message : "Failed to publish",
     };
@@ -336,16 +391,44 @@ export async function cancelFlightAction(
     const { user } = await requirePilot();
     const supabase = await createClient();
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("flights")
       .update({ status: "cancelled" })
       .eq("id", flightId)
-      .eq("pilot_user_id", user.id);
+      .eq("pilot_user_id", user.id)
+      .select("id")
+      .maybeSingle();
 
     if (error) return { error: error.message };
+    if (!data) return { error: "Flight not found or already cancelled" };
+
+    const admin = createAdminClient();
+    const { data: cancelledBookings, error: bookingErr } = await admin
+      .from("flight_booking_requests")
+      .update({ status: "cancelled" })
+      .eq("flight_id", flightId)
+      .eq("status", "pending")
+      .select("passenger_user_id");
+
+    if (bookingErr) {
+      console.error("[cancelFlightAction] booking cancel:", bookingErr.message);
+    } else if (cancelledBookings?.length) {
+      for (const b of cancelledBookings) {
+        const { error: notifyErr } = await admin.from("notification_queue").insert({
+          user_id: b.passenger_user_id,
+          type: "flight_cancelled",
+          payload: { flightId },
+        });
+        if (notifyErr) {
+          console.error("[cancelFlightAction] notify passenger:", notifyErr.message);
+        }
+      }
+    }
 
     revalidatePath("/flights");
+    revalidatePath(`/flights/${flightId}`);
     revalidatePath("/pilot/flights");
+    revalidatePath(`/pilots/${user.id}`);
     return { success: "Flight cancelled" };
   } catch (e) {
     return {
@@ -367,15 +450,17 @@ export async function submitBookingRequestAction(
 
     const supabase = await createClient();
 
+    const today = new Date().toISOString().slice(0, 10);
     const { data: flight } = await supabase
       .from("flights")
       .select("id, passenger_seats, status, flight_date")
       .eq("id", flightId)
       .eq("status", "published")
+      .gte("flight_date", today)
       .maybeSingle();
 
     if (!flight) {
-      return { error: "Flight not available" };
+      return { error: "Flight not available or has already departed" };
     }
 
     const { count } = await supabase
@@ -397,9 +482,27 @@ export async function submitBookingRequestAction(
 
     if (error) {
       if (error.code === "23505") {
-        return { error: "You already requested this flight" };
+        const { data: reactivated, error: updateErr } = await supabase
+          .from("flight_booking_requests")
+          .update({ status: "pending" })
+          .eq("flight_id", flightId)
+          .eq("passenger_user_id", user.id)
+          .eq("status", "cancelled")
+          .select("id")
+          .maybeSingle();
+
+        if (updateErr) {
+          if (updateErr.message.includes("No seats available")) {
+            return { error: "No seats available on this flight" };
+          }
+          return { error: updateErr.message };
+        }
+        if (!reactivated) {
+          return { error: "You already have a pending request for this flight" };
+        }
+      } else {
+        return { error: error.message };
       }
-      return { error: error.message };
     }
 
     revalidatePath(`/flights/${flightId}`);

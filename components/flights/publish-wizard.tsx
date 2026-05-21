@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 
 import { StepCard } from "@/components/onboarding/step-card";
 import { StepIndicator } from "@/components/onboarding/step-indicator";
@@ -13,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import {
   FLIGHT_LANGUAGE_LABELS,
   FLIGHT_TYPE_LABELS,
+  MAX_FLIGHT_PHOTOS,
   MIN_FLIGHT_PHOTOS,
 } from "@/lib/flights/constants";
 import {
@@ -43,6 +45,7 @@ export function PublishFlightWizard({
 }) {
   const [step, setStep] = useState(initialStep);
   const [draft, setDraft] = useState<FlightDraft>(initialDraft);
+  const [stepError, setStepError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [publishState, publishAction] = useActionState(publishFlightAction, {});
   const [pricePreview, setPricePreview] = useState<{
@@ -55,7 +58,25 @@ export function PublishFlightWizard({
     return computePricePerPassenger(draft.totalCostEur, draft.passengerSeats);
   }, [draft.totalCostEur, draft.passengerSeats]);
 
+  const pricingDraft = useMemo(
+    (): FlightDraft => ({
+      departureAirfieldId: draft.departureAirfieldId,
+      arrivalAirfieldId: draft.arrivalAirfieldId,
+      flightType: draft.flightType,
+      totalCostEur: draft.totalCostEur,
+      passengerSeats: draft.passengerSeats,
+    }),
+    [
+      draft.departureAirfieldId,
+      draft.arrivalAirfieldId,
+      draft.flightType,
+      draft.totalCostEur,
+      draft.passengerSeats,
+    ],
+  );
+
   const persist = (nextStep: number, nextDraft: FlightDraft) => {
+    setStepError(null);
     setDraft(nextDraft);
     startTransition(async () => {
       await saveFlightDraftAction(nextStep, nextDraft);
@@ -63,16 +84,25 @@ export function PublishFlightWizard({
   };
 
   useEffect(() => {
-    if (step === 11 && draft.departureAirfieldId && draft.arrivalAirfieldId) {
-      startTransition(async () => {
-        const res = await previewPublishPricingAction(draft);
-        setPricePreview({
-          warning: res.priceWarning ?? null,
-          avg: res.avgRoutePrice ?? null,
-        });
-      });
+    if (step !== 11) return;
+    if (
+      !pricingDraft.departureAirfieldId ||
+      !pricingDraft.arrivalAirfieldId ||
+      !pricingDraft.flightType ||
+      !pricingDraft.totalCostEur ||
+      !pricingDraft.passengerSeats
+    ) {
+      return;
     }
-  }, [step, draft]);
+
+    startTransition(async () => {
+      const res = await previewPublishPricingAction(pricingDraft);
+      setPricePreview({
+        warning: res.priceWarning ?? null,
+        avg: res.avgRoutePrice ?? null,
+      });
+    });
+  }, [step, pricingDraft, startTransition]);
 
   const depOpt: AirfieldOption | null =
     draft.departureAirfieldId && draft.departureAirfieldLabel
@@ -102,8 +132,8 @@ export function PublishFlightWizard({
           "Route",
           "Schedule",
           "Cost",
-          "Price",
           "Seats",
+          "Price",
           "Photos",
           "Language",
           "Return",
@@ -126,12 +156,13 @@ export function PublishFlightWizard({
               </label>
             ))}
           </div>
+          {stepError ? <p className="text-sm text-destructive">{stepError}</p> : null}
           <NavButtons
             pending={pending}
             onBack={() => setStep(1)}
             showBack={false}
             onNext={() => {
-              if (!draft.flightType) return;
+              if (!draft.flightType) { setStepError("Select a flight type to continue"); return; }
               persist(2, draft);
               setStep(2);
             }}
@@ -159,20 +190,29 @@ export function PublishFlightWizard({
               My registered aircraft
             </label>
             {draft.aircraftMode !== "rented" ? (
-              <select
-                className="w-full rounded-md border px-3 py-2 text-sm"
-                value={draft.aircraftId ?? ""}
-                onChange={(e) =>
-                  setDraft((d) => ({ ...d, aircraftId: e.target.value, aircraftMode: "owned" }))
-                }
-              >
-                <option value="">Select aircraft</option>
-                {aircraftList.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.model} — {a.registration} ({a.seats} seats)
-                  </option>
-                ))}
-              </select>
+              aircraftList.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No aircraft registered.{" "}
+                  <Link href="/pilot/aircraft/new" className="text-primary hover:underline">
+                    Add an aircraft first
+                  </Link>
+                </p>
+              ) : (
+                <select
+                  className="w-full rounded-md border px-3 py-2 text-sm"
+                  value={draft.aircraftId ?? ""}
+                  onChange={(e) =>
+                    setDraft((d) => ({ ...d, aircraftId: e.target.value, aircraftMode: "owned" }))
+                  }
+                >
+                  <option value="">Select aircraft</option>
+                  {aircraftList.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.model} — {a.registration} ({a.seats} seats)
+                    </option>
+                  ))}
+                </select>
+              )
             ) : null}
 
             <label className="flex items-center gap-2 text-sm">
@@ -222,6 +262,7 @@ export function PublishFlightWizard({
               </div>
             ) : null}
           </div>
+          {stepError ? <p className="text-sm text-destructive">{stepError}</p> : null}
           <NavButtons
             pending={pending}
             onBack={() => setStep(1)}
@@ -232,7 +273,7 @@ export function PublishFlightWizard({
                 draft.rentedModel &&
                 draft.rentedRegistration &&
                 draft.rentedSeats;
-              if (!owned && !rent) return;
+              if (!owned && !rent) { setStepError("Complete aircraft details to continue"); return; }
               persist(3, draft);
               setStep(3);
             }}
@@ -274,11 +315,12 @@ export function PublishFlightWizard({
               />
             ) : null}
           </div>
+          {stepError ? <p className="text-sm text-destructive">{stepError}</p> : null}
           <NavButtons
             pending={pending}
             onBack={() => setStep(2)}
             onNext={() => {
-              if (!draft.departureAirfieldId || !draft.arrivalAirfieldId) return;
+              if (!draft.departureAirfieldId || !draft.arrivalAirfieldId) { setStepError("Select both departure and arrival airfields"); return; }
               persist(4, draft);
               setStep(4);
             }}
@@ -310,11 +352,12 @@ export function PublishFlightWizard({
               />
             </div>
           </div>
+          {stepError ? <p className="text-sm text-destructive">{stepError}</p> : null}
           <NavButtons
             pending={pending}
             onBack={() => setStep(3)}
             onNext={() => {
-              if (!draft.flightDate || !draft.departureTime) return;
+              if (!draft.flightDate || !draft.departureTime) { setStepError("Enter date and departure time"); return; }
               persist(5, draft);
               setStep(5);
             }}
@@ -336,11 +379,12 @@ export function PublishFlightWizard({
               }))
             }
           />
+          {stepError ? <p className="text-sm text-destructive">{stepError}</p> : null}
           <NavButtons
             pending={pending}
             onBack={() => setStep(4)}
             onNext={() => {
-              if (!draft.totalCostEur || draft.totalCostEur <= 0) return;
+              if (!draft.totalCostEur || draft.totalCostEur <= 0) { setStepError("Enter a total cost greater than 0"); return; }
               persist(6, draft);
               setStep(6);
             }}
@@ -349,28 +393,7 @@ export function PublishFlightWizard({
       ) : null}
 
       {step === 6 ? (
-        <StepCard step={6} title="Price per passenger" description="Auto-calculated">
-          <p className="text-2xl font-semibold">
-            {pricePerPassenger !== null
-              ? `€${pricePerPassenger.toFixed(2)}`
-              : "—"}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Total €{draft.totalCostEur} ÷ ({draft.passengerSeats ?? "?"} passengers + you)
-          </p>
-          <NavButtons
-            pending={pending}
-            onBack={() => setStep(5)}
-            onNext={() => {
-              persist(7, draft);
-              setStep(7);
-            }}
-          />
-        </StepCard>
-      ) : null}
-
-      {step === 7 ? (
-        <StepCard step={7} title="Passenger seats" description="Max 5 (6 incl. pilot)">
+        <StepCard step={6} title="Passenger seats" description="Max 5 (6 incl. pilot)">
           <Input
             type="number"
             min={1}
@@ -383,11 +406,33 @@ export function PublishFlightWizard({
               }))
             }
           />
+          {stepError ? <p className="text-sm text-destructive">{stepError}</p> : null}
+          <NavButtons
+            pending={pending}
+            onBack={() => setStep(5)}
+            onNext={() => {
+              if (!draft.passengerSeats) { setStepError("Enter number of passenger seats (1–5)"); return; }
+              persist(7, draft);
+              setStep(7);
+            }}
+          />
+        </StepCard>
+      ) : null}
+
+      {step === 7 ? (
+        <StepCard step={7} title="Price per passenger" description="Auto-calculated">
+          <p className="text-2xl font-semibold">
+            {pricePerPassenger !== null
+              ? `€${pricePerPassenger.toFixed(2)}`
+              : "—"}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Total €{draft.totalCostEur} ÷ ({draft.passengerSeats ?? "?"} passengers + you)
+          </p>
           <NavButtons
             pending={pending}
             onBack={() => setStep(6)}
             onNext={() => {
-              if (!draft.passengerSeats) return;
               persist(8, draft);
               setStep(8);
             }}
@@ -417,17 +462,28 @@ export function PublishFlightWizard({
               onChange={(e) => {
                 const files = e.target.files;
                 if (!files?.length) return;
+                const input = e.target;
                 startTransition(async () => {
+                  setStepError(null);
                   const paths = [...(draft.photoPaths ?? [])];
                   for (const file of Array.from(files)) {
+                    if (paths.length >= MAX_FLIGHT_PHOTOS) {
+                      setStepError(`Maximum ${MAX_FLIGHT_PHOTOS} photos allowed`);
+                      break;
+                    }
                     const fd = new FormData();
                     fd.set("file", file);
                     const res = await uploadFlightDraftPhotoAction(fd);
+                    if (res.error) {
+                      setStepError(res.error);
+                      break;
+                    }
                     if (res.path) paths.push(res.path);
                   }
                   const next = { ...draft, photoPaths: paths };
                   setDraft(next);
                   await saveFlightDraftAction(8, next);
+                  input.value = "";
                 });
               }}
             />
@@ -435,15 +491,21 @@ export function PublishFlightWizard({
               {draft.photoPaths?.length ?? 0} photo(s) uploaded
             </p>
           </div>
+          {stepError ? <p className="text-sm text-destructive">{stepError}</p> : null}
           <NavButtons
             pending={pending}
             onBack={() => setStep(7)}
             onNext={() => {
-              if (
-                !draft.description ||
-                draft.description.length < 20 ||
-                (draft.photoPaths?.length ?? 0) < MIN_FLIGHT_PHOTOS
-              ) {
+              if (!draft.description || draft.description.length < 20) {
+                setStepError("Description must be at least 20 characters");
+                return;
+              }
+              if ((draft.photoPaths?.length ?? 0) < MIN_FLIGHT_PHOTOS) {
+                setStepError(`Upload at least ${MIN_FLIGHT_PHOTOS} photos`);
+                return;
+              }
+              if ((draft.photoPaths?.length ?? 0) > MAX_FLIGHT_PHOTOS) {
+                setStepError(`Maximum ${MAX_FLIGHT_PHOTOS} photos allowed`);
                 return;
               }
               persist(9, draft);
@@ -469,11 +531,12 @@ export function PublishFlightWizard({
               </label>
             ))}
           </div>
+          {stepError ? <p className="text-sm text-destructive">{stepError}</p> : null}
           <NavButtons
             pending={pending}
             onBack={() => setStep(8)}
             onNext={() => {
-              if (!draft.communicationLanguage) return;
+              if (!draft.communicationLanguage) { setStepError("Select a communication language"); return; }
               const nextStep = draft.flightType === "one_way" ? 10 : 11;
               persist(nextStep, draft);
               setStep(nextStep);
