@@ -194,7 +194,7 @@ export async function publishFlightAction(
     }
 
     for (const p of photoPaths) {
-      if (!p.startsWith(`${user.id}/draft/`)) {
+      if (p.includes("..") || !p.startsWith(`${user.id}/draft/`)) {
         return { error: "Invalid photo path" };
       }
     }
@@ -492,7 +492,10 @@ export async function submitBookingRequestAction(
           .maybeSingle();
 
         if (updateErr) {
-          if (updateErr.message.includes("No seats available")) {
+          if (
+            updateErr.code === "P0001" ||
+            updateErr.message.includes("No seats available")
+          ) {
             return { error: "No seats available on this flight" };
           }
           return { error: updateErr.message };

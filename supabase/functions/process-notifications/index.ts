@@ -68,6 +68,39 @@ function renderFlightCancelled(name: string, flightId: string): string {
   return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>The flight you requested (<strong>${escapeHtml(flightId)}</strong>) has been <strong>cancelled</strong> by the pilot.</p><p>You can browse other available flights on Gallebo.</p></body></html>`;
 }
 
+const MAX_NOTIFICATION_RETRIES = 3;
+
+async function markNotificationFailed(
+  supabase: ReturnType<typeof createAdminClient>,
+  notificationId: string,
+  immediate = false,
+): Promise<void> {
+  if (immediate) {
+    await supabase
+      .from("notification_queue")
+      .update({
+        retry_count: MAX_NOTIFICATION_RETRIES,
+        failed_at: new Date().toISOString(),
+      })
+      .eq("id", notificationId);
+    return;
+  }
+
+  const { data: current } = await supabase
+    .from("notification_queue")
+    .select("retry_count")
+    .eq("id", notificationId)
+    .single();
+
+  const retries = (current?.retry_count ?? 0) + 1;
+  const update =
+    retries >= MAX_NOTIFICATION_RETRIES
+      ? { retry_count: retries, failed_at: new Date().toISOString() }
+      : { retry_count: retries };
+
+  await supabase.from("notification_queue").update(update).eq("id", notificationId);
+}
+
 serve(async (req) => {
   const secret = Deno.env.get("CRON_SECRET");
   const auth = req.headers.get("Authorization") ?? "";
@@ -84,6 +117,7 @@ serve(async (req) => {
     .from("notification_queue")
     .select("*")
     .is("sent_at", null)
+    .is("failed_at", null)
     .order("created_at", { ascending: true })
     .limit(50);
 
@@ -95,26 +129,60 @@ serve(async (req) => {
     });
   }
 
+  if (!notifications?.length) {
+    return new Response(JSON.stringify({ ok: true, sent: 0, failed: 0 }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const userIds = [...new Set(notifications.map((n) => n.user_id))];
+  const userIdSet = new Set(userIds);
+
+  const { data: listData, error: listError } = await supabase.auth.admin.listUsers({
+    perPage: 1000,
+  });
+
+  if (listError || !listData?.users) {
+    console.error(
+      "[process-notifications] listUsers failed:",
+      listError?.message ?? "no users returned",
+    );
+    return new Response(JSON.stringify({ ok: false, error: "Failed to fetch users" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const emailById = new Map(
+    listData.users
+      .filter((u) => userIdSet.has(u.id))
+      .map((u) => [u.id, u.email ?? null]),
+  );
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, first_name, last_name")
+    .in("id", userIds);
+
+  const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
+
   let sent = 0;
   let failed = 0;
 
-  for (const notification of notifications ?? []) {
-    const userResult = await supabase.auth.admin.getUserById(notification.user_id);
-    const email = userResult.data.user?.email;
+  for (const notification of notifications) {
+    const email = emailById.get(notification.user_id) ?? null;
 
     if (!email) {
       console.warn(`[process-notifications] no email for user ${notification.user_id}`);
+      await markNotificationFailed(supabase, notification.id, true);
       failed += 1;
       continue;
     }
 
     const payload = notification.payload as Record<string, unknown>;
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("first_name, last_name")
-      .eq("id", notification.user_id)
-      .single();
+    const profile = profileById.get(notification.user_id);
 
     const displayName =
       profile?.first_name && profile?.last_name
@@ -192,6 +260,7 @@ serve(async (req) => {
 
       default:
         console.warn(`[process-notifications] unknown type: ${notification.type}`);
+        await markNotificationFailed(supabase, notification.id, true);
         failed += 1;
         continue;
     }
@@ -206,6 +275,7 @@ serve(async (req) => {
       sent += 1;
     } else {
       console.error(`[process-notifications] send failed for ${notification.id}:`, result.error);
+      await markNotificationFailed(supabase, notification.id);
       failed += 1;
     }
   }

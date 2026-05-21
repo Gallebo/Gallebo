@@ -11,6 +11,21 @@ import type {
 } from "@/lib/flights/types";
 import { createClient } from "@/lib/supabase/server";
 
+type SeatAvailabilityRow = {
+  passenger_seats: number;
+  available_seats: number;
+};
+
+function pendingBookingsFromSeatRow(row: SeatAvailabilityRow): number {
+  return Math.max(0, row.passenger_seats - row.available_seats);
+}
+
+function pendingByFlightFromSeatRows(
+  rows: Array<{ id: string } & SeatAvailabilityRow>,
+): Map<string, number> {
+  return new Map(rows.map((r) => [r.id, pendingBookingsFromSeatRow(r)]));
+}
+
 const FLIGHT_SELECT = `
   *,
   departure_airfield:airfields!flights_departure_airfield_id_fkey (
@@ -26,7 +41,7 @@ async function resolveAirfieldIdsFromLocation(
   query: string,
 ): Promise<string[]> {
   const supabase = await createClient();
-  const q = query.trim();
+  const q = query.trim().replace(/[,()]/g, "");
   if (!q) return [];
 
   const { data: direct } = await supabase
@@ -73,43 +88,95 @@ async function resolveAirfieldIdsFromLocation(
   return [...ids];
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyPublishedFlightFilters(query: any, params: FlightSearchParams, today: string) {
+  let q = query.eq("status", "published").gte("flight_date", today);
+
+  if (params.departureAirfieldId) {
+    q = q.eq("departure_airfield_id", params.departureAirfieldId);
+  }
+  if (params.arrivalAirfieldId) {
+    q = q.eq("arrival_airfield_id", params.arrivalAirfieldId);
+  }
+  if (params.dateFrom) {
+    q = q.gte("flight_date", params.dateFrom);
+  }
+  if (params.dateTo) {
+    q = q.lte("flight_date", params.dateTo);
+  }
+  if (params.flightType) {
+    q = q.eq("flight_type", params.flightType);
+  }
+  if (params.maxPrice !== undefined && !Number.isNaN(params.maxPrice)) {
+    q = q.lte("price_per_passenger_eur", params.maxPrice);
+  }
+
+  return q;
+}
+
 export async function searchPublishedFlights(
   params: FlightSearchParams,
 ): Promise<FlightListItem[]> {
   const supabase = await createClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const useMinSeatsFilter =
+    params.minSeats !== undefined && params.minSeats > 0;
 
-  let query = supabase
-    .from("flights")
-    .select(FLIGHT_SELECT)
-    .eq("status", "published")
-    .gte("flight_date", new Date().toISOString().slice(0, 10));
+  const locationAirfieldIds =
+    params.locationQuery && !params.departureAirfieldId && !params.arrivalAirfieldId
+      ? await resolveAirfieldIdsFromLocation(params.locationQuery)
+      : null;
 
-  if (params.departureAirfieldId) {
-    query = query.eq("departure_airfield_id", params.departureAirfieldId);
-  }
-  if (params.arrivalAirfieldId) {
-    query = query.eq("arrival_airfield_id", params.arrivalAirfieldId);
-  }
-  if (params.dateFrom) {
-    query = query.gte("flight_date", params.dateFrom);
-  }
-  if (params.dateTo) {
-    query = query.lte("flight_date", params.dateTo);
-  }
-  if (params.flightType) {
-    query = query.eq("flight_type", params.flightType);
-  }
-  if (params.maxPrice !== undefined && !Number.isNaN(params.maxPrice)) {
-    query = query.lte("price_per_passenger_eur", params.maxPrice);
+  if (locationAirfieldIds && locationAirfieldIds.length === 0) {
+    return [];
   }
 
-  if (params.locationQuery && !params.departureAirfieldId && !params.arrivalAirfieldId) {
-    const ids = await resolveAirfieldIdsFromLocation(params.locationQuery);
-    if (ids.length === 0) {
+  let minSeatsFlightIds: string[] | null = null;
+  let minSeatsSeatRows: Array<{ id: string } & SeatAvailabilityRow> | null = null;
+
+  if (useMinSeatsFilter) {
+    let seatQuery = applyPublishedFlightFilters(
+      supabase
+        .from("flights_with_available_seats")
+        .select("id, passenger_seats, available_seats"),
+      params,
+      today,
+    ).gte("available_seats", params.minSeats!);
+
+    if (locationAirfieldIds) {
+      seatQuery = seatQuery.or(
+        `departure_airfield_id.in.(${locationAirfieldIds.join(",")}),arrival_airfield_id.in.(${locationAirfieldIds.join(",")})`,
+      );
+    }
+
+    const sort = params.sort ?? "date";
+    if (sort === "price") {
+      seatQuery = seatQuery.order("price_per_passenger_eur", { ascending: true });
+    } else {
+      seatQuery = seatQuery.order("flight_date", { ascending: true });
+    }
+
+    const { data: seatRows, error: seatError } = await seatQuery.limit(100);
+    if (seatError || !seatRows?.length) {
       return [];
     }
+    minSeatsSeatRows = seatRows as Array<{ id: string } & SeatAvailabilityRow>;
+    minSeatsFlightIds = minSeatsSeatRows.map((r) => r.id);
+  }
+
+  let query = applyPublishedFlightFilters(
+    supabase.from("flights").select(FLIGHT_SELECT),
+    params,
+    today,
+  );
+
+  if (minSeatsFlightIds) {
+    query = query.in("id", minSeatsFlightIds);
+  }
+
+  if (locationAirfieldIds) {
     query = query.or(
-      `departure_airfield_id.in.(${ids.join(",")}),arrival_airfield_id.in.(${ids.join(",")})`,
+      `departure_airfield_id.in.(${locationAirfieldIds.join(",")}),arrival_airfield_id.in.(${locationAirfieldIds.join(",")})`,
     );
   }
 
@@ -128,18 +195,22 @@ export async function searchPublishedFlights(
     return [];
   }
 
-  const flightIds = data.map((f) => f.id);
-  const pilotIds = [...new Set(data.map((f) => f.pilot_user_id))];
+  const rows = flightRowsFromQuery(data);
+  const resultFlightIds = rows.map((f) => f.id);
+  const pilotIds = [...new Set(rows.map((f) => f.pilot_user_id))];
 
-  const { data: bookings } = await supabase
-    .from("flight_booking_requests")
-    .select("flight_id")
-    .in("flight_id", flightIds.length > 0 ? flightIds : ["00000000-0000-0000-0000-000000000000"])
-    .eq("status", "pending");
+  let pendingByFlight: Map<string, number>;
 
-  const pendingByFlight = new Map<string, number>();
-  for (const b of bookings ?? []) {
-    pendingByFlight.set(b.flight_id, (pendingByFlight.get(b.flight_id) ?? 0) + 1);
+  if (minSeatsSeatRows) {
+    pendingByFlight = pendingByFlightFromSeatRows(minSeatsSeatRows);
+  } else {
+    const placeholderId = "00000000-0000-0000-0000-000000000000";
+    const { data: seatRows } = await supabase
+      .from("flights_with_available_seats")
+      .select("id, passenger_seats, available_seats")
+      .in("id", resultFlightIds.length > 0 ? resultFlightIds : [placeholderId]);
+
+    pendingByFlight = pendingByFlightFromSeatRows(seatRows ?? []);
   }
 
   const { data: reviews } = await supabase
@@ -181,7 +252,7 @@ export async function searchPublishedFlights(
       ]),
   );
 
-  let items: FlightListItem[] = flightRowsFromQuery(data).map((row) => {
+  let items: FlightListItem[] = rows.map((row) => {
     const pending = pendingByFlight.get(row.id) ?? 0;
     const rating = ratingByPilot.get(row.pilot_user_id);
     return toFlightListItem(row, {
@@ -194,13 +265,6 @@ export async function searchPublishedFlights(
     });
   });
 
-  if (params.minSeats !== undefined && params.minSeats > 0) {
-    items = items.filter((f) => {
-      const available = f.passenger_seats - (f.pending_bookings ?? 0);
-      return available >= params.minSeats!;
-    });
-  }
-
   if (sort === "rating") {
     items.sort((a, b) => (b.pilot_avg_rating ?? 0) - (a.pilot_avg_rating ?? 0));
   }
@@ -211,23 +275,32 @@ export async function searchPublishedFlights(
 export async function getFlightById(id: string): Promise<FlightListItem | null> {
   const supabase = await createClient();
   const today = new Date().toISOString().slice(0, 10);
-  const { data, error } = await supabase
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: raw, error } = await supabase
     .from("flights")
     .select(FLIGHT_SELECT)
     .eq("id", id)
-    .eq("status", "published")
-    .gte("flight_date", today)
     .maybeSingle();
 
-  if (error || !data || !isFlightRowFromDb(data)) return null;
+  if (error || !raw || !isFlightRowFromDb(raw)) return null;
 
-  const row = data;
+  const isPilot = user?.id === raw.pilot_user_id;
+  if (!isPilot && (raw.status !== "published" || raw.flight_date < today)) {
+    return null;
+  }
 
-  const { count } = await supabase
-    .from("flight_booking_requests")
-    .select("id", { count: "exact", head: true })
-    .eq("flight_id", id)
-    .eq("status", "pending");
+  const row = raw;
+
+  const { data: seatRow } = await supabase
+    .from("flights_with_available_seats")
+    .select("passenger_seats, available_seats")
+    .eq("id", id)
+    .maybeSingle();
+
+  const pending = seatRow ? pendingBookingsFromSeatRow(seatRow) : 0;
 
   const { data: reviews } = await supabase
     .from("pilot_reviews_public")
@@ -260,7 +333,7 @@ export async function getFlightById(id: string): Promise<FlightListItem | null> 
 
   return toFlightListItem(row, {
     pilot,
-    pending_bookings: count ?? 0,
+    pending_bookings: pending,
     pilot_avg_rating: avg,
     pilot_review_count: ratings.length,
   });
@@ -297,16 +370,15 @@ export async function getFlightsForAirfield(airfieldId: string): Promise<{
     const flightIds = rows.map((r) => r.id);
     const pilotIds = [...new Set(rows.map((r) => r.pilot_user_id))];
 
-    const [{ data: pilotRows }, { data: bookings }] = await Promise.all([
+    const [{ data: pilotRows }, { data: seatRows }] = await Promise.all([
       supabase
         .from("profiles_public")
         .select("id, first_name, last_name, avatar_path")
         .in("id", pilotIds),
       supabase
-        .from("flight_booking_requests")
-        .select("flight_id")
-        .in("flight_id", flightIds)
-        .eq("status", "pending"),
+        .from("flights_with_available_seats")
+        .select("id, passenger_seats, available_seats")
+        .in("id", flightIds),
     ]);
 
     const pilotById = new Map<string, FlightPilotSummary>(
@@ -323,10 +395,7 @@ export async function getFlightsForAirfield(airfieldId: string): Promise<{
         ]),
     );
 
-    const pendingByFlight = new Map<string, number>();
-    for (const b of bookings ?? []) {
-      pendingByFlight.set(b.flight_id, (pendingByFlight.get(b.flight_id) ?? 0) + 1);
-    }
+    const pendingByFlight = pendingByFlightFromSeatRows(seatRows ?? []);
 
     return flightRowsFromQuery(rows).map((row) =>
       toFlightListItem(row, {

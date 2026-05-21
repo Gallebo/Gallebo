@@ -104,7 +104,7 @@ export const publishFlightSchema = z
     departureTime: z
       .string()
       .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Invalid time (HH:MM)"),
-    totalCostEur: z.coerce.number().positive(),
+    totalCostEur: z.coerce.number().positive().max(999999),
     passengerSeats: z.coerce.number().int().min(MIN_PASSENGER_SEATS).max(MAX_PASSENGER_SEATS),
     description: z.string().min(20).max(5000),
     communicationLanguage: flightLanguageSchema,

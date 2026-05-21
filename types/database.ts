@@ -487,24 +487,30 @@ export type Database = {
       notification_queue: {
         Row: {
           created_at: string;
+          failed_at: string | null;
           id: string;
           payload: Json;
+          retry_count: number;
           sent_at: string | null;
           type: string;
           user_id: string;
         };
         Insert: {
           created_at?: string;
+          failed_at?: string | null;
           id?: string;
           payload?: Json;
+          retry_count?: number;
           sent_at?: string | null;
           type: string;
           user_id: string;
         };
         Update: {
           created_at?: string;
+          failed_at?: string | null;
           id?: string;
           payload?: Json;
+          retry_count?: number;
           sent_at?: string | null;
           type?: string;
           user_id?: string;
@@ -687,6 +693,18 @@ export type Database = {
       };
     };
     Views: {
+      flights_with_available_seats: {
+        Row: Database["public"]["Tables"]["flights"]["Row"] & {
+          available_seats: number;
+        };
+        Insert: Database["public"]["Tables"]["flights"]["Insert"] & {
+          available_seats?: number;
+        };
+        Update: Database["public"]["Tables"]["flights"]["Update"] & {
+          available_seats?: number;
+        };
+        Relationships: Database["public"]["Tables"]["flights"]["Relationships"];
+      };
       pilot_reviews_public: {
         Row: {
           comment: string | null;
