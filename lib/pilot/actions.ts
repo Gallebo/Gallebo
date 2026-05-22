@@ -3,16 +3,11 @@
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 
-import {
-  personalInfoSchema,
-  pilotDocumentSchema,
-  pilotIbanUpdateSchema,
-} from "@/lib/auth/schemas";
+import { personalInfoSchema, pilotDocumentSchema } from "@/lib/auth/schemas";
 import { requirePilot } from "@/lib/auth/rbac";
 import { phoneToDbValue } from "@/lib/crypto/phone";
 import { weightToDbValue } from "@/lib/crypto/weight";
 import { uploadDocumentAction } from "@/lib/documents/upload";
-import { storePilotIban } from "@/lib/pilot/iban";
 import { createClient } from "@/lib/supabase/server";
 
 export type PilotActionState = { error?: string; success?: string };
@@ -128,92 +123,6 @@ export async function uploadPilotAvatarAction(
   } catch (e) {
     return {
       error: e instanceof Error ? e.message : "Upload failed",
-    };
-  }
-}
-
-export async function getPilotIbanLastFour(): Promise<{
-  lastFour: string | null;
-  error?: string;
-}> {
-  try {
-    await requirePilot();
-    const supabase = await createClient();
-    const { data, error } = await supabase.rpc("get_pilot_iban_last_four");
-
-    if (error) {
-      return { lastFour: null, error: error.message };
-    }
-
-    return { lastFour: data as string | null };
-  } catch (e) {
-    return {
-      lastFour: null,
-      error: e instanceof Error ? e.message : "Failed to read IBAN",
-    };
-  }
-}
-
-export async function updatePilotIbanAction(
-  _prev: PilotActionState,
-  formData: FormData,
-): Promise<PilotActionState> {
-  try {
-    const { user } = await requirePilot();
-
-    const ibanParsed = pilotIbanUpdateSchema.safeParse({
-      iban: formData.get("iban"),
-      accountHolderName:
-        typeof formData.get("accountHolderName") === "string" &&
-        String(formData.get("accountHolderName")).trim().length > 0
-          ? formData.get("accountHolderName")
-          : undefined,
-    });
-
-    if (!ibanParsed.success) {
-      return {
-        error: ibanParsed.error.issues[0]?.message ?? "Invalid IBAN",
-      };
-    }
-
-    const supabase = await createClient();
-    let holderName = ibanParsed.data.accountHolderName?.trim();
-    if (!holderName) {
-      const { data: pilotRow } = await supabase
-        .from("pilot_profiles")
-        .select("account_holder_name")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      const existing = pilotRow?.account_holder_name?.trim();
-      if (!existing || existing.length < 2) {
-        return { error: "Account holder name is required" };
-      }
-      holderName = existing;
-    }
-
-    const ibanResult = await storePilotIban(user.id, ibanParsed.data.iban);
-    if (ibanResult.error) {
-      return { error: ibanResult.error };
-    }
-
-    const { error: ppError } = await supabase
-      .from("pilot_profiles")
-      .upsert({
-        user_id: user.id,
-        account_holder_name: holderName,
-      });
-
-    if (ppError) {
-      return { error: ppError.message };
-    }
-
-    revalidatePath("/pilot");
-    revalidatePath("/pilot/iban");
-    return { success: "IBAN updated" };
-  } catch (e) {
-    return {
-      error: e instanceof Error ? e.message : "Failed to update IBAN",
     };
   }
 }

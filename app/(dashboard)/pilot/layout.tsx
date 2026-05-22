@@ -6,7 +6,7 @@ const links = [
   { href: "/pilot", label: "Overview" },
   { href: "/pilot/edit", label: "Personal info" },
   { href: "/pilot/documents", label: "Documents" },
-  { href: "/pilot/iban", label: "IBAN" },
+  { href: "/pilot/stripe", label: "Payouts" },
   { href: "/pilot/aircraft", label: "Aircraft" },
   { href: "/pilot/flights", label: "Flights" },
   { href: "/pilot/bookings", label: "Bookings" },

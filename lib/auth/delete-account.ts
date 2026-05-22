@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth/rbac";
 import { BUCKET_BY_TYPE } from "@/lib/documents/constants";
-import { deletePilotIban } from "@/lib/pilot/iban";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -56,16 +55,6 @@ export async function deleteAccountAction(
         }
       }
     }
-  }
-
-  const { data: pilotProfile } = await admin
-    .from("pilot_profiles")
-    .select("iban_vault_secret_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (pilotProfile?.iban_vault_secret_id) {
-    await deletePilotIban(pilotProfile.iban_vault_secret_id);
   }
 
   await admin.from("profiles").delete().eq("id", user.id);

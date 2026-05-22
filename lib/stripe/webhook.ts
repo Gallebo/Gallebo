@@ -4,6 +4,7 @@ import { insertSystemMessage } from "@/lib/chat/system";
 import { insertLedger } from "@/lib/ledger/insert";
 import { inAppCopyForType } from "@/lib/notifications/copy";
 import { queueUserNotification } from "@/lib/notifications/notify";
+import { getStripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database";
 
@@ -70,6 +71,20 @@ export async function handleCheckoutSessionCompleted(
     return;
   }
 
+  let chargeId: string | null = null;
+  if (paymentIntentId) {
+    try {
+      const stripe = getStripe();
+      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+      chargeId =
+        typeof paymentIntent.latest_charge === "string"
+          ? paymentIntent.latest_charge
+          : (paymentIntent.latest_charge?.id ?? null);
+    } catch (e) {
+      console.warn("[stripe/webhook] could not retrieve charge id:", e);
+    }
+  }
+
   const paidAt = new Date().toISOString();
 
   const { error: updateErr } = await admin
@@ -79,6 +94,7 @@ export async function handleCheckoutSessionCompleted(
       paid_at: paidAt,
       payment_intent_id: paymentIntentId,
       checkout_session_id: session.id,
+      stripe_charge_id: chargeId,
     })
     .eq("id", bookingId);
 
@@ -128,6 +144,32 @@ export async function handleCheckoutSessionCompleted(
       bookingId,
       flightId: booking.flight_id,
     });
+  }
+}
+
+/**
+ * Ažurira stripe_onboarding_complete na pilot_profiles kad se Stripe Express account
+ * aktivira ili restringira. Stripe šalje ovaj event kad pilot završi onboarding
+ * ili kad mu Stripe ograniči account (istekli dokumenti, fraud flag, itd.).
+ *
+ * NAPOMENA: Ovaj handler prima Connect event — webhook endpoint mora biti konfiguriran
+ * s "Listen to events on Connected accounts" u Stripe Dashboardu → Webhooks.
+ */
+export async function handleAccountUpdated(account: Stripe.Account): Promise<void> {
+  const isComplete =
+    account.details_submitted === true &&
+    account.charges_enabled === true &&
+    account.payouts_enabled === true;
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("pilot_profiles")
+    .update({ stripe_onboarding_complete: isComplete })
+    .eq("stripe_account_id", account.id);
+
+  if (error) {
+    console.error("[stripe/webhook] handleAccountUpdated db error:", error.message);
+    throw new Error(error.message);
   }
 }
 

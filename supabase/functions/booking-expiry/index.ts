@@ -33,7 +33,7 @@ serve(async (req) => {
   for (const b of noResponse ?? []) {
     const { error } = await supabase
       .from("flight_booking_requests")
-      .update({ status: "expired" })
+      .update({ status: "expired", payout_status: "not_applicable" })
       .eq("id", b.id)
       .eq("status", "pending");
 
@@ -87,7 +87,7 @@ serve(async (req) => {
   for (const b of unpaid ?? []) {
     const { error } = await supabase
       .from("flight_booking_requests")
-      .update({ status: "expired" })
+      .update({ status: "expired", payout_status: "not_applicable" })
       .eq("id", b.id)
       .eq("status", "accepted");
 

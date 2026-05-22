@@ -1,4 +1,5 @@
 import Stripe from "https://esm.sh/stripe@17.7.0?target=deno";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2?target=deno";
 
 /**
  * Vraća instancu Stripe klijenta ili null ako STRIPE_SECRET_KEY nije postavljen.
@@ -11,54 +12,43 @@ export function getStripeClient(): Stripe | null {
 }
 
 /**
- * Osigurava da pilot ima Stripe Express Connect account s dodanim IBAN-om.
- * Ako account već postoji, dodaje novi external account (bank account).
- * Express account type: Stripe preuzima odgovornost za ToS prihvaćanje —
- * nema potrebe za zasebnim onboarding flowom na strani platforme (MVP).
- *
- * NAPOMENA: Za punu produkcijsku upotrebu (Faza 4b) potreban je
- * stripe.accountLinks.create() flow da pilot prihvati Stripe ToS.
+ * Osigurava da pilot ima Stripe Express Connect account.
+ * Stripe upravlja IBAN-om, KYC-om i SEPA transferima.
+ * Ne prima IBAN — Stripe onboarding flow rješava unos bankovnih podataka.
  */
 export async function ensurePilotConnectAccount(
   stripe: Stripe,
+  supabase: SupabaseClient,
   params: {
     pilotUserId: string;
     email: string | undefined;
-    iban: string;
-    accountHolderName: string;
     existingAccountId: string | null;
   },
 ): Promise<{ accountId: string }> {
-  let accountId = params.existingAccountId;
-
-  if (!accountId) {
-    const account = await stripe.accounts.create({
-      type: "express",
-      country: "HR",
-      email: params.email,
-      capabilities: { transfers: { requested: true } },
-      business_type: "individual",
-      metadata: { pilot_user_id: params.pilotUserId },
-    });
-    accountId = account.id;
+  if (params.existingAccountId) {
+    return { accountId: params.existingAccountId };
   }
 
-  await stripe.accounts.createExternalAccount(accountId, {
-    external_account: {
-      object: "bank_account",
-      country: "HR",
-      currency: "eur",
-      account_holder_name: params.accountHolderName,
-      account_holder_type: "individual",
-      account_number: params.iban.replace(/\s/g, ""),
-    },
+  const account = await stripe.accounts.create({
+    type: "express",
+    country: "HR",
+    email: params.email,
+    capabilities: { transfers: { requested: true } },
+    business_type: "individual",
+    metadata: { pilot_user_id: params.pilotUserId },
   });
 
-  return { accountId };
+  await supabase
+    .from("pilot_profiles")
+    .update({ stripe_account_id: account.id })
+    .eq("user_id", params.pilotUserId);
+
+  return { accountId: account.id };
 }
 
 /**
  * Vrši Stripe transfer na pilot Connect account.
+ * source_transaction mora biti charge ID (ch_xxx).
  * idempotencyKey sprječava duplikate pri ponovnim pozivima.
  */
 export async function transferToPilot(
@@ -67,6 +57,7 @@ export async function transferToPilot(
     amountEur: number;
     connectAccountId: string;
     bookingId: string;
+    chargeId: string;
     idempotencyKey: string;
   },
 ): Promise<{ transferId: string }> {
@@ -75,6 +66,7 @@ export async function transferToPilot(
       amount: Math.round(params.amountEur * 100),
       currency: "eur",
       destination: params.connectAccountId,
+      source_transaction: params.chargeId,
       metadata: { booking_id: params.bookingId },
     },
     { idempotencyKey: params.idempotencyKey },

@@ -40,6 +40,7 @@ yarn-error.log*
 .cursor/*
 !.cursor/rules/
 !.cursor/rules/**
+.claude/
 CLAUDE.md
 .specs/
 supabase/.branches

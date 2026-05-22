@@ -162,6 +162,7 @@ export async function rejectBookingAction(
       .update({
         status: "rejected",
         pilot_responded_at: new Date().toISOString(),
+        payout_status: "not_applicable",
       })
       .eq("id", bookingId)
       .eq("status", "pending");
@@ -321,6 +322,7 @@ export async function cancelBookingAction(
             cancelled_by: user.id,
             refund_id: refundResult.refundId,
             refunded_at: now,
+            payout_status: "not_applicable",
           })
           .eq("id", bookingId);
         // Refund ledger entry is written only by handleChargeRefunded (Stripe webhook).
@@ -331,6 +333,7 @@ export async function cancelBookingAction(
             status: "cancelled",
             cancelled_at: now,
             cancelled_by: user.id,
+            payout_status: "not_applicable",
           })
           .eq("id", bookingId);
       }
@@ -342,6 +345,7 @@ export async function cancelBookingAction(
           status: "cancelled",
           cancelled_at: now,
           cancelled_by: user.id,
+          payout_status: "not_applicable",
         })
         .eq("id", bookingId);
 

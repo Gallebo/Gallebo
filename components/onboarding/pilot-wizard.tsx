@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Json } from "@/types/database";
 
-const STEP_LABELS = ["Personal", "Licence", "Medical", "Payout", "Tax"] as const;
+const STEP_LABELS = ["Personal", "Licence", "Medical", "Tax"] as const;
 
 type DraftJson = Record<string, unknown>;
 
@@ -43,7 +43,7 @@ export function PilotOnboardingWizard({
   };
 }) {
   const router = useRouter();
-  const [step, setStep] = useState(Math.min(Math.max(initialStep, 1), 5));
+  const [step, setStep] = useState(Math.min(Math.max(initialStep, 1), 4));
   const [draft, setDraft] = useState<DraftJson>(() => {
     const d = draftFromJson(initialDraft);
     return {
@@ -59,10 +59,8 @@ export function PilotOnboardingWizard({
             : "",
       licenseExpiresAt: (d.licenseExpiresAt as string) ?? "",
       medicalExpiresAt: (d.medicalExpiresAt as string) ?? "",
-      accountHolderName: (d.accountHolderName as string) ?? "",
     };
   });
-  const [iban, setIban] = useState("");
   const [licenseType, setLicenseType] = useState<"ppl_license" | "lapl_license">("ppl_license");
   const [licenseFile, setLicenseFile] = useState<File | null>(null);
   const [medicalFile, setMedicalFile] = useState<File | null>(null);
@@ -90,7 +88,7 @@ export function PilotOnboardingWizard({
       <h1 className="text-2xl font-semibold">Pilot verification</h1>
       <StepIndicator steps={[...STEP_LABELS]} current={step} />
       <p className="text-sm text-muted-foreground">
-        IBAN is stored in Vault server-side and is never returned to the browser.
+        After verification, set up your payout account in the pilot dashboard.
       </p>
       <FormMessage error={state.error} success={state.success} />
 
@@ -115,7 +113,6 @@ export function PilotOnboardingWizard({
                   weightKg: String(fd.get("weightKg") ?? ""),
                   licenseExpiresAt: draft.licenseExpiresAt,
                   medicalExpiresAt: draft.medicalExpiresAt,
-                  accountHolderName: draft.accountHolderName,
                 };
                 await persistDraft(2, nextDraft);
               });
@@ -238,52 +235,7 @@ export function PilotOnboardingWizard({
       ) : null}
 
       {step === 4 ? (
-        <StepCard
-          step={4}
-          title="Payout"
-          description="IBAN is submitted only on the final step (not stored in draft JSON)."
-        >
-          <div className="space-y-4">
-            <Input
-              value={iban}
-              onChange={(e) => setIban(e.target.value)}
-              placeholder="IBAN"
-              autoComplete="off"
-              className="font-mono"
-            />
-            <Input
-              value={String(draft.accountHolderName ?? "")}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, accountHolderName: e.target.value }))
-              }
-              placeholder="Account holder name"
-            />
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button type="button" variant="ghost" onClick={() => setStep(3)}>
-                Back
-              </Button>
-              <Button
-                type="button"
-                className="flex-1"
-                disabled={pending}
-                onClick={() =>
-                  startTransition(() =>
-                    persistDraft(5, {
-                      ...draft,
-                      accountHolderName: draft.accountHolderName,
-                    })
-                  )
-                }
-              >
-                {pending ? "Saving…" : "Save draft & continue"}
-              </Button>
-            </div>
-          </div>
-        </StepCard>
-      ) : null}
-
-      {step === 5 ? (
-        <StepCard step={5} title="Tax declaration & submit" description="Admin will review your documents">
+        <StepCard step={4} title="Tax declaration & submit" description="Admin will review your documents">
           <form
             className="space-y-4"
             onSubmit={(e) => {
@@ -314,8 +266,6 @@ export function PilotOnboardingWizard({
               fd.append("licenseExpiresAt", String(draft.licenseExpiresAt));
               fd.append("medicalFile", medicalFile);
               fd.append("medicalExpiresAt", String(draft.medicalExpiresAt));
-              fd.append("iban", iban);
-              fd.append("accountHolderName", String(draft.accountHolderName));
               fd.append("taxDeclaration", "on");
               startTransition(async () => {
                 const result = await submitPilotVerificationAction(fd);
@@ -327,18 +277,8 @@ export function PilotOnboardingWizard({
               <input name="taxDeclaration" type="checkbox" required className="mt-1" />
               I declare that my tax information is accurate for flight cost sharing.
             </label>
-            <p className="text-xs text-muted-foreground">
-              Confirm IBAN for submit: it is not reloaded from the server.
-            </p>
-            <Input
-              value={iban}
-              onChange={(e) => setIban(e.target.value)}
-              placeholder="IBAN"
-              required
-              className="font-mono"
-            />
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button type="button" variant="ghost" onClick={() => setStep(4)}>
+              <Button type="button" variant="ghost" onClick={() => setStep(3)}>
                 Back
               </Button>
               <Button type="submit" className="flex-1" disabled={pending}>

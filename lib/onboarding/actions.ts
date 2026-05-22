@@ -3,11 +3,10 @@
 import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth/rbac";
-import { airfieldRequestSchema, personalInfoSchema, pilotDocumentSchema, pilotIbanSchema } from "@/lib/auth/schemas";
+import { airfieldRequestSchema, personalInfoSchema, pilotDocumentSchema } from "@/lib/auth/schemas";
 import { phoneToDbValue } from "@/lib/crypto/phone";
 import { weightToDbValue } from "@/lib/crypto/weight";
 import { uploadDocumentAction } from "@/lib/documents/upload";
-import { storePilotIban } from "@/lib/pilot/iban";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/types/database";
 
@@ -124,30 +123,18 @@ export async function submitPilotVerificationAction(
   );
   if (medicalUpload.error) return { error: medicalUpload.error };
 
-  const ibanParsed = pilotIbanSchema.safeParse({
-    iban: formData.get("iban"),
-    accountHolderName: formData.get("accountHolderName"),
-  });
-  if (!ibanParsed.success) {
-    return { error: ibanParsed.error.issues[0]?.message ?? "Invalid IBAN" };
-  }
-
   const taxAccepted = formData.get("taxDeclaration") === "on";
   if (!taxAccepted) {
     return { error: "You must accept the tax declaration" };
   }
-
-  const ibanResult = await storePilotIban(user.id, ibanParsed.data.iban);
-  if (ibanResult.error) return { error: ibanResult.error };
 
   const supabase = await createClient();
   await supabase.from("pilot_profiles").upsert({
     user_id: user.id,
     license_expires_at: docDatesParsed.data.licenseExpiresAt,
     medical_expires_at: docDatesParsed.data.medicalExpiresAt,
-    account_holder_name: ibanParsed.data.accountHolderName,
     tax_declaration_accepted_at: new Date().toISOString(),
-    onboarding_step: 5,
+    onboarding_step: 4,
   });
 
   const { error: vrError } = await supabase.from("verification_requests").insert({

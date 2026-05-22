@@ -347,17 +347,19 @@ export type Database = {
           paid_out_at: string | null;
           passenger_amount_eur: number | null;
           passenger_user_id: string;
+          payout_after: string | null;
+          payout_failed_count: number;
+          payout_status: Database["public"]["Enums"]["payout_status_type"];
           payment_expires_at: string | null;
           payment_intent_id: string | null;
           pilot_payout_eur: number | null;
           pilot_responded_at: string | null;
           pilot_response_expires_at: string | null;
           platform_fee_eur: number | null;
-          payout_after: string | null;
-          payout_failed_count: number;
           refund_id: string | null;
           refunded_at: string | null;
           status: Database["public"]["Enums"]["flight_booking_status"];
+          stripe_charge_id: string | null;
           stripe_transfer_id: string | null;
         };
         Insert: {
@@ -372,17 +374,19 @@ export type Database = {
           paid_out_at?: string | null;
           passenger_amount_eur?: number | null;
           passenger_user_id: string;
+          payout_after?: string | null;
+          payout_failed_count?: number;
+          payout_status?: Database["public"]["Enums"]["payout_status_type"];
           payment_expires_at?: string | null;
           payment_intent_id?: string | null;
           pilot_payout_eur?: number | null;
           pilot_responded_at?: string | null;
           pilot_response_expires_at?: string | null;
           platform_fee_eur?: number | null;
-          payout_after?: string | null;
-          payout_failed_count?: number;
           refund_id?: string | null;
           refunded_at?: string | null;
           status?: Database["public"]["Enums"]["flight_booking_status"];
+          stripe_charge_id?: string | null;
           stripe_transfer_id?: string | null;
         };
         Update: {
@@ -397,17 +401,19 @@ export type Database = {
           paid_out_at?: string | null;
           passenger_amount_eur?: number | null;
           passenger_user_id?: string;
+          payout_after?: string | null;
+          payout_failed_count?: number;
+          payout_status?: Database["public"]["Enums"]["payout_status_type"];
           payment_expires_at?: string | null;
           payment_intent_id?: string | null;
           pilot_payout_eur?: number | null;
           pilot_responded_at?: string | null;
           pilot_response_expires_at?: string | null;
           platform_fee_eur?: number | null;
-          payout_after?: string | null;
-          payout_failed_count?: number;
           refund_id?: string | null;
           refunded_at?: string | null;
           status?: Database["public"]["Enums"]["flight_booking_status"];
+          stripe_charge_id?: string | null;
           stripe_transfer_id?: string | null;
         };
         Relationships: [
@@ -748,40 +754,37 @@ export type Database = {
       };
       pilot_profiles: {
         Row: {
-          account_holder_name: string | null;
           created_at: string;
-          iban_vault_secret_id: string | null;
           license_expires_at: string | null;
           medical_expires_at: string | null;
           onboarding_draft: Json | null;
           onboarding_step: number;
-          stripe_connect_account_id: string | null;
+          stripe_account_id: string | null;
+          stripe_onboarding_complete: boolean;
           tax_declaration_accepted_at: string | null;
           updated_at: string;
           user_id: string;
         };
         Insert: {
-          account_holder_name?: string | null;
           created_at?: string;
-          iban_vault_secret_id?: string | null;
           license_expires_at?: string | null;
           medical_expires_at?: string | null;
           onboarding_draft?: Json | null;
           onboarding_step?: number;
-          stripe_connect_account_id?: string | null;
+          stripe_account_id?: string | null;
+          stripe_onboarding_complete?: boolean;
           tax_declaration_accepted_at?: string | null;
           updated_at?: string;
           user_id: string;
         };
         Update: {
-          account_holder_name?: string | null;
           created_at?: string;
-          iban_vault_secret_id?: string | null;
           license_expires_at?: string | null;
           medical_expires_at?: string | null;
           onboarding_draft?: Json | null;
           onboarding_step?: number;
-          stripe_connect_account_id?: string | null;
+          stripe_account_id?: string | null;
+          stripe_onboarding_complete?: boolean;
           tax_declaration_accepted_at?: string | null;
           updated_at?: string;
           user_id?: string;
@@ -1044,18 +1047,9 @@ export type Database = {
         Args: { p_flight_id: string };
         Returns: number;
       };
-      delete_pilot_iban: { Args: { p_secret_id: string }; Returns: undefined };
-      get_pilot_iban_for_payout: {
-        Args: { p_user_id: string };
-        Returns: string | null;
-      };
       increment_payout_failed_count: {
         Args: { p_booking_id: string };
         Returns: undefined;
-      };
-      get_pilot_iban_last_four: {
-        Args: Record<string, never>;
-        Returns: string | null;
       };
       is_admin: { Args: Record<string, never>; Returns: boolean };
       pilot_payout_threshold_met: {
@@ -1065,10 +1059,6 @@ export type Database = {
       is_airfield_operator_for: {
         Args: { p_airfield_id: string };
         Returns: boolean;
-      };
-      store_pilot_iban: {
-        Args: { p_iban: string; p_user_id: string };
-        Returns: string;
       };
       swap_airfield_photo_order: {
         Args: {
@@ -1117,6 +1107,7 @@ export type Database = {
         | "payout_failed";
       flight_type: "panoramic" | "excursion" | "one_way";
       doc_review_status: "pending" | "approved" | "rejected";
+      payout_status_type: "pending" | "paid" | "failed" | "not_applicable";
       document_type:
         | "id_card"
         | "ppl_license"
@@ -1174,6 +1165,7 @@ export const Constants = {
       ],
       flight_type: ["panoramic", "excursion", "one_way"],
       doc_review_status: ["pending", "approved", "rejected"],
+      payout_status_type: ["pending", "paid", "failed", "not_applicable"],
       document_type: [
         "id_card",
         "ppl_license",

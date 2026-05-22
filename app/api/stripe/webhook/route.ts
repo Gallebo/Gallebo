@@ -4,6 +4,7 @@ import Stripe from "stripe";
 import { getStripeEnv, isStripeConfigured } from "@/lib/stripe/config";
 import { getStripe } from "@/lib/stripe/client";
 import {
+  handleAccountUpdated,
   handleChargeRefunded,
   handleCheckoutSessionCompleted,
 } from "@/lib/stripe/webhook";
@@ -48,6 +49,13 @@ export async function POST(request: Request) {
       case "charge.refunded": {
         const charge = event.data.object as Stripe.Charge;
         await handleChargeRefunded(charge);
+        break;
+      }
+      case "account.updated": {
+        // Connect event — dolazi s connected accounta.
+        // Zahtijeva "Listen to events on Connected accounts" u Stripe Dashboard → Webhooks.
+        const account = event.data.object as Stripe.Account;
+        await handleAccountUpdated(account);
         break;
       }
       default:

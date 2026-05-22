@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createAdminClient } from "../_shared/supabase.ts";
-import {
-  ensurePilotConnectAccount,
-  getStripeClient,
-  transferToPilot,
-} from "../_shared/connect.ts";
+import { ensurePilotConnectAccount, getStripeClient, transferToPilot } from "../_shared/connect.ts";
 
 const MAX_PAYOUT_RETRIES = 5;
 
@@ -57,16 +53,21 @@ serve(async (req) => {
   const supabase = createAdminClient();
   const now = new Date().toISOString();
 
+  // Step A: Join to flights to get pilot_user_id. There is no direct FK from
+  // flight_booking_requests to pilot_profiles, so pilot_profiles!inner cannot
+  // be resolved by PostgREST from this table. pilot_profiles are fetched via a
+  // separate batch query below (Step B).
   const { data: bookings, error } = await supabase
     .from("flight_booking_requests")
     .select(
       `
-      id, pilot_payout_eur, paid_out_at, payout_after, payout_failed_count,
-      flights!inner (pilot_user_id)
+      id, pilot_payout_eur, payout_after, payout_failed_count, stripe_charge_id,
+      flights!inner(pilot_user_id)
     `,
     )
     .eq("status", "completed")
-    .is("paid_out_at", null)
+    .eq("payout_status", "pending")
+    .not("stripe_charge_id", "is", null)
     .lte("payout_after", now)
     .lt("payout_failed_count", MAX_PAYOUT_RETRIES);
 
@@ -77,6 +78,24 @@ serve(async (req) => {
     });
   }
 
+  // Step B: Batch-fetch pilot_profiles for all pilots in this batch.
+  const pilotUserIds = [
+    ...new Set(
+      (bookings ?? []).map(
+        (b) => (b.flights as { pilot_user_id: string }).pilot_user_id,
+      ),
+    ),
+  ];
+
+  const { data: pilotProfiles } = await supabase
+    .from("pilot_profiles")
+    .select("user_id, stripe_account_id, stripe_onboarding_complete")
+    .in("user_id", pilotUserIds);
+
+  const profileMap = new Map(
+    (pilotProfiles ?? []).map((p) => [p.user_id, p]),
+  );
+
   const stripe = getStripeClient();
 
   let paid = 0;
@@ -85,67 +104,37 @@ serve(async (req) => {
   for (const row of bookings ?? []) {
     const bookingId = row.id as string;
     const amount = Number(row.pilot_payout_eur ?? 0);
-    const flight = row.flights as { pilot_user_id: string };
-    const pilotUserId = flight.pilot_user_id;
+    const chargeId = row.stripe_charge_id as string;
+
+    // Step C: Use profileMap — replaces the broken pilot_profiles!inner join.
+    const pilotUserId = (row.flights as { pilot_user_id: string }).pilot_user_id;
+    const pilotProfile = profileMap.get(pilotUserId);
+
+    // Skip if onboarding not complete (replicates the old .eq filter).
+    if (!pilotProfile?.stripe_onboarding_complete) continue;
 
     if (amount <= 0) {
       await supabase
         .from("flight_booking_requests")
-        .update({ paid_out_at: now })
+        .update({ payout_status: "not_applicable", paid_out_at: now })
         .eq("id", bookingId);
       continue;
     }
 
-    const { data: pilotProfile } = await supabase
-      .from("pilot_profiles")
-      .select("stripe_connect_account_id, account_holder_name, iban_vault_secret_id")
-      .eq("user_id", pilotUserId)
-      .single();
-
-    const { data: iban } = await supabase.rpc("get_pilot_iban_for_payout", {
-      p_user_id: pilotUserId,
-    });
-
-    if (!iban) {
-      try {
-        await insertLedger(supabase, {
-          booking_id: bookingId,
-          type: "payout_failed",
-          amount_eur: amount,
-          idempotency_key: `payout_failed:no_iban:${bookingId}`,
-          metadata: { reason: "missing_iban" },
-        });
-      } catch (e) {
-        console.error(`[process-payouts] insertLedger failed for ${bookingId}:`, e);
-      }
-      try {
-        await incrementPayoutFailedCount(supabase, bookingId);
-      } catch (e) {
-        console.error(`[process-payouts] increment failed for ${bookingId}:`, e);
-      }
-      failed += 1;
-      continue;
-    }
-
-    let connectAccountId = pilotProfile?.stripe_connect_account_id as string | null;
+    let connectAccountId = pilotProfile.stripe_account_id ?? null;
 
     try {
       if (stripe && !connectAccountId) {
+        // Safety net: should have an account because stripe_onboarding_complete = true,
+        // but attempt to create one if somehow missing.
+        // pilotUserId is already in scope from Step C — no inner query needed.
         const { data: authUser } = await supabase.auth.admin.getUserById(pilotUserId);
-
-        const result = await ensurePilotConnectAccount(stripe, {
+        const result = await ensurePilotConnectAccount(stripe, supabase, {
           pilotUserId,
           email: authUser.user?.email,
-          iban: String(iban),
-          accountHolderName: pilotProfile?.account_holder_name ?? "Pilot",
           existingAccountId: null,
         });
         connectAccountId = result.accountId;
-
-        await supabase
-          .from("pilot_profiles")
-          .update({ stripe_connect_account_id: connectAccountId })
-          .eq("user_id", pilotUserId);
       }
 
       let transferId = `stub_tr_${bookingId}`;
@@ -155,6 +144,7 @@ serve(async (req) => {
           amountEur: amount,
           connectAccountId,
           bookingId,
+          chargeId,
           idempotencyKey: `payout:${bookingId}`,
         });
         transferId = result.transferId;
@@ -162,7 +152,11 @@ serve(async (req) => {
 
       await supabase
         .from("flight_booking_requests")
-        .update({ paid_out_at: now, stripe_transfer_id: transferId })
+        .update({
+          payout_status: "paid",
+          paid_out_at: now,
+          stripe_transfer_id: transferId,
+        })
         .eq("id", bookingId);
 
       await insertLedger(supabase, {
@@ -173,6 +167,7 @@ serve(async (req) => {
         stripe_transfer_id: transferId,
       });
 
+      // Step D: pilotUserId is already in scope — no second DB query needed.
       await supabase.from("notification_queue").insert({
         user_id: pilotUserId,
         type: "payout_sent",
@@ -188,7 +183,7 @@ serve(async (req) => {
           booking_id: bookingId,
           type: "payout_failed",
           amount_eur: amount,
-          idempotency_key: `payout_failed:${bookingId}`,
+          idempotency_key: `payout_failed:${bookingId}:${Date.now()}`,
           metadata: { error: msg },
         });
       } catch (ledgerErr) {

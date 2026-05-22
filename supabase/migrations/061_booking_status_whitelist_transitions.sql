@@ -18,7 +18,6 @@ BEGIN
   IF (OLD.status = 'pending'   AND NEW.status IN ('accepted', 'rejected', 'expired', 'cancelled'))
   OR (OLD.status = 'accepted'  AND NEW.status IN ('confirmed', 'expired', 'cancelled'))
   OR (OLD.status = 'confirmed' AND NEW.status IN ('completed', 'cancelled'))
-  OR (OLD.status = 'cancelled' AND NEW.status = 'pending')
   THEN
     RETURN NEW;
   END IF;
