@@ -22,6 +22,12 @@ export default async function AdminLayout({
           Pilots
         </Link>
         <Link
+          href="/admin/ledger"
+          className="text-muted-foreground hover:text-foreground"
+        >
+          Ledger
+        </Link>
+        <Link
           href="/dashboard"
           className="text-muted-foreground hover:text-foreground"
         >

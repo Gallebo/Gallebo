@@ -33,7 +33,7 @@ export default async function PilotFlightsPage({
           .from("flight_booking_requests")
           .select("flight_id")
           .in("flight_id", publishedIds)
-          .eq("status", "pending")
+          .in("status", ["pending", "accepted", "confirmed"])
       : { data: [] as { flight_id: string }[] };
 
   const pendingByFlight = new Map<string, number>();
@@ -59,12 +59,20 @@ export default async function PilotFlightsPage({
         <p className="text-sm text-muted-foreground">
           Publish cost-sharing flights for passengers to discover.
         </p>
-        <Link
-          href="/pilot/flights/new"
-          className={cn(buttonVariants({ variant: "default" }), "inline-flex")}
-        >
-          Publish new flight
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href="/pilot/bookings"
+            className={cn(buttonVariants({ variant: "outline" }), "inline-flex")}
+          >
+            Booking requests
+          </Link>
+          <Link
+            href="/pilot/flights/new"
+            className={cn(buttonVariants({ variant: "default" }), "inline-flex")}
+          >
+            Publish new flight
+          </Link>
+        </div>
       </div>
 
       {flights && flights.length > 0 ? (

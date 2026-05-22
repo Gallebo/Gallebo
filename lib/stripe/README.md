@@ -1,6 +1,6 @@
-# Stripe (Faza 5+)
+# Stripe (Faza 5)
 
-Checkout and webhook handling will be implemented in a later phase.
-
-- Webhooks: server-only route handlers with signature verification
+- `STRIPE_SECRET_KEY` — server-only (Checkout, refunds, Connect transfers)
+- `STRIPE_WEBHOOK_SECRET` — `POST /api/stripe/webhook`
+- Passenger Checkout after pilot accepts; payouts via `process-payouts` edge function
 - Never expose `STRIPE_SECRET_KEY` to the client

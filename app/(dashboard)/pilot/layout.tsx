@@ -9,6 +9,7 @@ const links = [
   { href: "/pilot/iban", label: "IBAN" },
   { href: "/pilot/aircraft", label: "Aircraft" },
   { href: "/pilot/flights", label: "Flights" },
+  { href: "/pilot/bookings", label: "Bookings" },
 ];
 
 export default async function PilotDashboardLayout({

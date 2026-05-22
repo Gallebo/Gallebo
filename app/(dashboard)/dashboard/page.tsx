@@ -35,12 +35,20 @@ export default async function DashboardPage() {
         <p className="text-muted-foreground">
           Search and book shared flights across Europe.
         </p>
-        <Link
-          href="/flights"
-          className={cn(buttonVariants({ variant: "default" }), "inline-flex")}
-        >
-          Find flights
-        </Link>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/flights"
+            className={cn(buttonVariants({ variant: "default" }), "inline-flex")}
+          >
+            Find flights
+          </Link>
+          <Link
+            href="/dashboard/bookings"
+            className={cn(buttonVariants({ variant: "outline" }), "inline-flex")}
+          >
+            My bookings
+          </Link>
+        </div>
       </div>
     );
   }

@@ -19,6 +19,8 @@ const serverEnvSchema = z.object({
   CRON_SECRET: z.string().min(1).optional(),
   PHONE_ENCRYPTION_KEY: z.string().min(32).optional(),
   RESEND_API_KEY: z.string().min(1).optional(),
+  STRIPE_SECRET_KEY: z.string().min(1).optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
 });
 
 export type PublicEnv = z.infer<typeof publicEnvSchema>;
@@ -42,7 +44,13 @@ export function getServerEnv(): ServerEnv {
     CRON_SECRET: process.env.CRON_SECRET,
     PHONE_ENCRYPTION_KEY: process.env.PHONE_ENCRYPTION_KEY,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
+    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+    STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
   });
+}
+
+export function isStripeConfigured(): boolean {
+  return Boolean(getServerEnv().STRIPE_SECRET_KEY);
 }
 
 export function getAppUrl(): string {

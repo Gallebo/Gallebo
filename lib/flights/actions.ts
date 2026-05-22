@@ -403,21 +403,51 @@ export async function cancelFlightAction(
     if (!data) return { error: "Flight not found or already cancelled" };
 
     const admin = createAdminClient();
-    const { data: cancelledBookings, error: bookingErr } = await admin
+    const { data: activeBookings } = await admin
       .from("flight_booking_requests")
-      .update({ status: "cancelled" })
+      .select(
+        "passenger_user_id, id, status, payment_intent_id, passenger_amount_eur",
+      )
       .eq("flight_id", flightId)
-      .eq("status", "pending")
-      .select("passenger_user_id");
+      .in("status", ["pending", "accepted", "confirmed"]);
 
-    if (bookingErr) {
-      console.error("[cancelFlightAction] booking cancel:", bookingErr.message);
-    } else if (cancelledBookings?.length) {
-      for (const b of cancelledBookings) {
+    if (activeBookings?.length) {
+      const { createBookingRefund } = await import("@/lib/stripe/refund");
+      const now = new Date().toISOString();
+
+      for (const b of activeBookings) {
+        if (b.status === "confirmed" && b.payment_intent_id) {
+          const refundResult = await createBookingRefund(
+            b.payment_intent_id,
+            `flight_cancel:${b.id}`,
+          );
+          if (!("error" in refundResult)) {
+            await admin
+              .from("flight_booking_requests")
+              .update({
+                status: "cancelled",
+                cancelled_at: now,
+                refund_id: refundResult.refundId,
+                refunded_at: now,
+              })
+              .eq("id", b.id);
+          } else {
+            await admin
+              .from("flight_booking_requests")
+              .update({ status: "cancelled", cancelled_at: now })
+              .eq("id", b.id);
+          }
+        } else {
+          await admin
+            .from("flight_booking_requests")
+            .update({ status: "cancelled", cancelled_at: now })
+            .eq("id", b.id);
+        }
+
         const { error: notifyErr } = await admin.from("notification_queue").insert({
           user_id: b.passenger_user_id,
-          type: "flight_cancelled",
-          payload: { flightId },
+          type: "booking_cancelled_by_pilot",
+          payload: { flightId, bookingId: b.id, refundFull: true },
         });
         if (notifyErr) {
           console.error("[cancelFlightAction] notify passenger:", notifyErr.message);
@@ -463,14 +493,14 @@ export async function submitBookingRequestAction(
       return { error: "Flight not available or has already departed" };
     }
 
-    const { count } = await supabase
-      .from("flight_booking_requests")
-      .select("id", { count: "exact", head: true })
-      .eq("flight_id", flightId)
-      .eq("status", "pending");
+    const { data: availableRow } = await supabase
+      .from("flights_with_available_seats")
+      .select("available_seats")
+      .eq("id", flightId)
+      .maybeSingle();
 
-    const pending = count ?? 0;
-    if (pending >= flight.passenger_seats) {
+    const available = availableRow?.available_seats ?? 0;
+    if (available <= 0) {
       return { error: "No seats available on this flight" };
     }
 
@@ -508,8 +538,24 @@ export async function submitBookingRequestAction(
       }
     }
 
+    const admin = createAdminClient();
+    const { data: flightRow } = await admin
+      .from("flights")
+      .select("pilot_user_id")
+      .eq("id", flightId)
+      .single();
+
+    if (flightRow?.pilot_user_id) {
+      await admin.from("notification_queue").insert({
+        user_id: flightRow.pilot_user_id,
+        type: "booking_request_received",
+        payload: { flightId, passengerUserId: user.id },
+      });
+    }
+
     revalidatePath(`/flights/${flightId}`);
     revalidatePath("/flights");
+    revalidatePath("/pilot/bookings");
     return { success: "Booking request sent to the pilot" };
   } catch (e) {
     return {

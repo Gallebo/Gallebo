@@ -68,6 +68,64 @@ function renderFlightCancelled(name: string, flightId: string): string {
   return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>The flight you requested (<strong>${escapeHtml(flightId)}</strong>) has been <strong>cancelled</strong> by the pilot.</p><p>You can browse other available flights on Gallebo.</p></body></html>`;
 }
 
+function renderBookingRequestReceived(name: string, flightId: string): string {
+  const n = escapeHtml(name);
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>You have a new <strong>booking request</strong> for flight <strong>${escapeHtml(flightId)}</strong>.</p><p>Please accept or reject within 48 hours in your pilot dashboard.</p></body></html>`;
+}
+
+function renderBookingAccepted(
+  name: string,
+  flightId: string,
+  amount: string,
+  expires: string,
+): string {
+  const n = escapeHtml(name);
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your booking for flight <strong>${escapeHtml(flightId)}</strong> was <strong>accepted</strong>.</p><p>Pay <strong>€${escapeHtml(amount)}</strong> (incl. 4% platform fee) within 30 minutes: <a href="https://gallebo.app/dashboard/bookings">My bookings</a>.</p><p>Payment deadline: ${escapeHtml(expires)}</p></body></html>`;
+}
+
+function renderBookingRejected(name: string, flightId: string): string {
+  const n = escapeHtml(name);
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your booking request for flight <strong>${escapeHtml(flightId)}</strong> was <strong>not accepted</strong> by the pilot.</p></body></html>`;
+}
+
+function renderBookingExpired(name: string, flightId: string, reason: string): string {
+  const n = escapeHtml(name);
+  const r = escapeHtml(reason);
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your booking for flight <strong>${escapeHtml(flightId)}</strong> has <strong>expired</strong> (${r}).</p></body></html>`;
+}
+
+function renderPaymentConfirmed(name: string, flightId: string): string {
+  const n = escapeHtml(name);
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Payment for flight <strong>${escapeHtml(flightId)}</strong> is <strong>confirmed</strong>. Your seat is booked.</p></body></html>`;
+}
+
+function renderFlightCompleted(name: string, flightId: string): string {
+  const n = escapeHtml(name);
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Flight <strong>${escapeHtml(flightId)}</strong> was marked <strong>completed</strong>. Thank you for flying with Gallebo.</p></body></html>`;
+}
+
+function renderBookingCancelledByPilot(
+  name: string,
+  flightId: string,
+  refundFull: boolean,
+): string {
+  const n = escapeHtml(name);
+  const refund = refundFull
+    ? "A full refund will be processed."
+    : "See your booking for refund details.";
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your booking for flight <strong>${escapeHtml(flightId)}</strong> was <strong>cancelled by the pilot</strong>. ${refund}</p></body></html>`;
+}
+
+function renderBookingCancelledByPassenger(name: string, flightId: string): string {
+  const n = escapeHtml(name);
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>A passenger cancelled their booking for flight <strong>${escapeHtml(flightId)}</strong>.</p></body></html>`;
+}
+
+function renderPayoutSent(name: string, amount: string): string {
+  const n = escapeHtml(name);
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>A payout of <strong>€${escapeHtml(amount)}</strong> was sent to your registered IBAN.</p></body></html>`;
+}
+
 const MAX_NOTIFICATION_RETRIES = 3;
 
 async function markNotificationFailed(
@@ -254,6 +312,95 @@ serve(async (req) => {
         html = renderFlightCancelled(
           displayName,
           String(payload.flightId ?? ""),
+        );
+        break;
+      }
+
+      case "booking_request_received": {
+        subject = "New booking request on Gallebo";
+        html = renderBookingRequestReceived(
+          displayName,
+          String(payload.flightId ?? ""),
+        );
+        break;
+      }
+
+      case "booking_accepted": {
+        subject = "Your booking was accepted — pay within 30 minutes";
+        html = renderBookingAccepted(
+          displayName,
+          String(payload.flightId ?? ""),
+          String(payload.passengerAmountEur ?? ""),
+          payload.paymentExpiresAt
+            ? new Date(String(payload.paymentExpiresAt)).toLocaleString()
+            : "30 minutes",
+        );
+        break;
+      }
+
+      case "booking_rejected": {
+        subject = "Your booking request was not accepted";
+        html = renderBookingRejected(
+          displayName,
+          String(payload.flightId ?? ""),
+        );
+        break;
+      }
+
+      case "booking_expired_no_response": {
+        subject = "Your booking has expired";
+        html = renderBookingExpired(
+          displayName,
+          String(payload.flightId ?? ""),
+          payload.reason === "payment_timeout"
+            ? "payment not received in time"
+            : "pilot did not respond in time",
+        );
+        break;
+      }
+
+      case "payment_confirmed": {
+        subject = "Payment confirmed — your seat is booked";
+        html = renderPaymentConfirmed(
+          displayName,
+          String(payload.flightId ?? ""),
+        );
+        break;
+      }
+
+      case "flight_completed": {
+        subject = "Flight completed";
+        html = renderFlightCompleted(
+          displayName,
+          String(payload.flightId ?? ""),
+        );
+        break;
+      }
+
+      case "booking_cancelled_by_pilot": {
+        subject = "Your booking was cancelled by the pilot";
+        html = renderBookingCancelledByPilot(
+          displayName,
+          String(payload.flightId ?? ""),
+          payload.refundFull === true,
+        );
+        break;
+      }
+
+      case "booking_cancelled_by_passenger": {
+        subject = "A passenger cancelled their booking";
+        html = renderBookingCancelledByPassenger(
+          displayName,
+          String(payload.flightId ?? ""),
+        );
+        break;
+      }
+
+      case "payout_sent": {
+        subject = "Payout sent to your IBAN";
+        html = renderPayoutSent(
+          displayName,
+          String(payload.amountEur ?? ""),
         );
         break;
       }

@@ -193,6 +193,7 @@ export type Database = {
         Row: {
           created_at: string;
           id: string;
+          max_passenger_weight_kg: number | null;
           model: string;
           pilot_user_id: string;
           registration: string;
@@ -202,6 +203,7 @@ export type Database = {
         Insert: {
           created_at?: string;
           id?: string;
+          max_passenger_weight_kg?: number | null;
           model: string;
           pilot_user_id: string;
           registration: string;
@@ -211,6 +213,7 @@ export type Database = {
         Update: {
           created_at?: string;
           id?: string;
+          max_passenger_weight_kg?: number | null;
           model?: string;
           pilot_user_id?: string;
           registration?: string;
@@ -291,25 +294,76 @@ export type Database = {
       };
       flight_booking_requests: {
         Row: {
+          accepted_at: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
+          checkout_session_id: string | null;
           created_at: string;
           flight_id: string;
           id: string;
+          paid_at: string | null;
+          paid_out_at: string | null;
+          passenger_amount_eur: number | null;
           passenger_user_id: string;
+          payment_expires_at: string | null;
+          payment_intent_id: string | null;
+          pilot_payout_eur: number | null;
+          pilot_responded_at: string | null;
+          pilot_response_expires_at: string | null;
+          platform_fee_eur: number | null;
+          payout_after: string | null;
+          refund_id: string | null;
+          refunded_at: string | null;
           status: Database["public"]["Enums"]["flight_booking_status"];
+          stripe_transfer_id: string | null;
         };
         Insert: {
+          accepted_at?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          checkout_session_id?: string | null;
           created_at?: string;
           flight_id: string;
           id?: string;
+          paid_at?: string | null;
+          paid_out_at?: string | null;
+          passenger_amount_eur?: number | null;
           passenger_user_id: string;
+          payment_expires_at?: string | null;
+          payment_intent_id?: string | null;
+          pilot_payout_eur?: number | null;
+          pilot_responded_at?: string | null;
+          pilot_response_expires_at?: string | null;
+          platform_fee_eur?: number | null;
+          payout_after?: string | null;
+          refund_id?: string | null;
+          refunded_at?: string | null;
           status?: Database["public"]["Enums"]["flight_booking_status"];
+          stripe_transfer_id?: string | null;
         };
         Update: {
+          accepted_at?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          checkout_session_id?: string | null;
           created_at?: string;
           flight_id?: string;
           id?: string;
+          paid_at?: string | null;
+          paid_out_at?: string | null;
+          passenger_amount_eur?: number | null;
           passenger_user_id?: string;
+          payment_expires_at?: string | null;
+          payment_intent_id?: string | null;
+          pilot_payout_eur?: number | null;
+          pilot_responded_at?: string | null;
+          pilot_response_expires_at?: string | null;
+          platform_fee_eur?: number | null;
+          payout_after?: string | null;
+          refund_id?: string | null;
+          refunded_at?: string | null;
           status?: Database["public"]["Enums"]["flight_booking_status"];
+          stripe_transfer_id?: string | null;
         };
         Relationships: [
           {
@@ -374,11 +428,54 @@ export type Database = {
         };
         Relationships: [];
       };
+      ledger: {
+        Row: {
+          amount_eur: number;
+          booking_id: string | null;
+          created_at: string;
+          id: string;
+          idempotency_key: string;
+          metadata: Json;
+          stripe_checkout_session_id: string | null;
+          stripe_payment_intent_id: string | null;
+          stripe_refund_id: string | null;
+          stripe_transfer_id: string | null;
+          type: Database["public"]["Enums"]["ledger_entry_type"];
+        };
+        Insert: {
+          amount_eur: number;
+          booking_id?: string | null;
+          created_at?: string;
+          id?: string;
+          idempotency_key: string;
+          metadata?: Json;
+          stripe_checkout_session_id?: string | null;
+          stripe_payment_intent_id?: string | null;
+          stripe_refund_id?: string | null;
+          stripe_transfer_id?: string | null;
+          type: Database["public"]["Enums"]["ledger_entry_type"];
+        };
+        Update: {
+          amount_eur?: number;
+          booking_id?: string | null;
+          created_at?: string;
+          id?: string;
+          idempotency_key?: string;
+          metadata?: Json;
+          stripe_checkout_session_id?: string | null;
+          stripe_payment_intent_id?: string | null;
+          stripe_refund_id?: string | null;
+          stripe_transfer_id?: string | null;
+          type?: Database["public"]["Enums"]["ledger_entry_type"];
+        };
+        Relationships: [];
+      };
       flights: {
         Row: {
           aircraft_id: string | null;
           arrival_airfield_id: string;
           communication_language: Database["public"]["Enums"]["flight_language"];
+          completed_at: string | null;
           created_at: string;
           departure_airfield_id: string;
           departure_time: string;
@@ -405,6 +502,7 @@ export type Database = {
           aircraft_id?: string | null;
           arrival_airfield_id: string;
           communication_language?: Database["public"]["Enums"]["flight_language"];
+          completed_at?: string | null;
           created_at?: string;
           departure_airfield_id: string;
           departure_time: string;
@@ -431,6 +529,7 @@ export type Database = {
           aircraft_id?: string | null;
           arrival_airfield_id?: string;
           communication_language?: Database["public"]["Enums"]["flight_language"];
+          completed_at?: string | null;
           created_at?: string;
           departure_airfield_id?: string;
           departure_time?: string;
@@ -553,6 +652,7 @@ export type Database = {
           medical_expires_at: string | null;
           onboarding_draft: Json | null;
           onboarding_step: number;
+          stripe_connect_account_id: string | null;
           tax_declaration_accepted_at: string | null;
           updated_at: string;
           user_id: string;
@@ -565,6 +665,7 @@ export type Database = {
           medical_expires_at?: string | null;
           onboarding_draft?: Json | null;
           onboarding_step?: number;
+          stripe_connect_account_id?: string | null;
           tax_declaration_accepted_at?: string | null;
           updated_at?: string;
           user_id: string;
@@ -577,6 +678,7 @@ export type Database = {
           medical_expires_at?: string | null;
           onboarding_draft?: Json | null;
           onboarding_step?: number;
+          stripe_connect_account_id?: string | null;
           tax_declaration_accepted_at?: string | null;
           updated_at?: string;
           user_id?: string;
@@ -764,12 +866,28 @@ export type Database = {
       };
     };
     Functions: {
+      count_pending_bookings: {
+        Args: { p_flight_id: string };
+        Returns: number;
+      };
+      count_reserved_bookings: {
+        Args: { p_flight_id: string };
+        Returns: number;
+      };
       delete_pilot_iban: { Args: { p_secret_id: string }; Returns: undefined };
+      get_pilot_iban_for_payout: {
+        Args: { p_user_id: string };
+        Returns: string | null;
+      };
       get_pilot_iban_last_four: {
         Args: Record<string, never>;
         Returns: string | null;
       };
       is_admin: { Args: Record<string, never>; Returns: boolean };
+      pilot_payout_threshold_met: {
+        Args: { p_pilot_user_id: string };
+        Returns: boolean;
+      };
       is_airfield_operator_for: {
         Args: { p_airfield_id: string };
         Returns: boolean;
@@ -807,9 +925,22 @@ export type Database = {
       };
     };
     Enums: {
-      flight_booking_status: "pending" | "cancelled";
+      flight_booking_status:
+        | "pending"
+        | "accepted"
+        | "confirmed"
+        | "completed"
+        | "cancelled"
+        | "rejected"
+        | "expired";
       flight_language: "hr" | "en" | "it";
-      flight_status: "draft" | "published" | "cancelled";
+      flight_status: "draft" | "published" | "cancelled" | "completed";
+      ledger_entry_type:
+        | "booking_payment"
+        | "platform_fee"
+        | "pilot_payout"
+        | "refund"
+        | "payout_failed";
       flight_type: "panoramic" | "excursion" | "one_way";
       doc_review_status: "pending" | "approved" | "rejected";
       document_type:
@@ -849,9 +980,24 @@ export type Enums<EnumName extends keyof DefaultSchema["Enums"]> =
 export const Constants = {
   public: {
     Enums: {
-      flight_booking_status: ["pending", "cancelled"],
+      flight_booking_status: [
+        "pending",
+        "accepted",
+        "confirmed",
+        "completed",
+        "cancelled",
+        "rejected",
+        "expired",
+      ],
       flight_language: ["hr", "en", "it"],
-      flight_status: ["draft", "published", "cancelled"],
+      flight_status: ["draft", "published", "cancelled", "completed"],
+      ledger_entry_type: [
+        "booking_payment",
+        "platform_fee",
+        "pilot_payout",
+        "refund",
+        "payout_failed",
+      ],
       flight_type: ["panoramic", "excursion", "one_way"],
       doc_review_status: ["pending", "approved", "rejected"],
       document_type: [
