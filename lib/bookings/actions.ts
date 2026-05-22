@@ -11,6 +11,11 @@ import { checkFlightWeight } from "@/lib/bookings/weight";
 import { requirePilot, requireUser, getProfile } from "@/lib/auth/rbac";
 import { createBookingCheckoutSession } from "@/lib/stripe/checkout";
 import { createBookingRefund } from "@/lib/stripe/refund";
+import { insertSystemMessage } from "@/lib/chat/system";
+import {
+  inAppCopyForType,
+} from "@/lib/notifications/copy";
+import { queueUserNotification } from "@/lib/notifications/notify";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/types/database";
@@ -27,11 +32,22 @@ async function notify(
   type: string,
   payload: Json,
 ) {
-  await admin.from("notification_queue").insert({
-    user_id: userId,
-    type,
-    payload,
-  });
+  const payloadObj = (payload ?? {}) as Record<string, unknown>;
+  const copy = inAppCopyForType(type, payloadObj);
+  await queueUserNotification(admin, userId, type, payload, copy
+    ? {
+        title: copy.title,
+        body: copy.body,
+        bookingId:
+          typeof payloadObj.bookingId === "string"
+            ? payloadObj.bookingId
+            : undefined,
+        flightId:
+          typeof payloadObj.flightId === "string"
+            ? payloadObj.flightId
+            : undefined,
+      }
+    : undefined);
 }
 
 async function writeLedger(
@@ -113,6 +129,11 @@ export async function acceptBookingAction(
 
     if (error) return { error: error.message };
 
+    await insertSystemMessage(
+      bookingId,
+      "Booking je prihvaćen. Putnik ima 30 minuta za plaćanje.",
+    );
+
     await notify(admin, booking.passenger_user_id, "booking_accepted", {
       bookingId,
       flightId: booking.flight_id,
@@ -171,6 +192,11 @@ export async function rejectBookingAction(
       .eq("id", bookingId);
 
     if (error) return { error: error.message };
+
+    await insertSystemMessage(
+      bookingId,
+      "Booking je odbijen od strane pilota.",
+    );
 
     await notify(admin, booking.passenger_user_id, "booking_rejected", {
       bookingId,
@@ -354,6 +380,11 @@ export async function cancelBookingAction(
       if (error) return { error: error.message };
     }
 
+    await insertSystemMessage(
+      bookingId,
+      "Booking je otkazan.",
+    );
+
     const notifyType = isPilot
       ? "booking_cancelled_by_pilot"
       : "booking_cancelled_by_passenger";
@@ -433,6 +464,8 @@ export async function markFlightCompletedAction(
           payout_after: payoutAfter,
         })
         .eq("id", b.id);
+
+      await insertSystemMessage(b.id, "Let je završen.");
 
       await notify(admin, b.passenger_user_id, "flight_completed", {
         flightId,

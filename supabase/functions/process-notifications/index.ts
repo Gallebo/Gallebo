@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createAdminClient } from "../_shared/supabase.ts";
+import { sendPushToUser } from "../_shared/push.ts";
 import { sendEmail } from "../_shared/resend.ts";
 
 function escapeHtml(s: string): string {
@@ -126,6 +127,33 @@ function renderPayoutSent(name: string, amount: string): string {
   return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>A payout of <strong>€${escapeHtml(amount)}</strong> was sent to your registered IBAN.</p></body></html>`;
 }
 
+function renderFlightReminder24h(
+  name: string,
+  flightId: string,
+  flightDate: string,
+  departureTime: string,
+): string {
+  const n = escapeHtml(name);
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Reminder: your flight <strong>${escapeHtml(flightId)}</strong> on <strong>${escapeHtml(flightDate)}</strong> departs at <strong>${escapeHtml(departureTime)}</strong> (about 24 hours from now).</p><p><a href="https://gallebo.app/dashboard/bookings">View bookings</a></p></body></html>`;
+}
+
+function notificationDeepLink(
+  type: string,
+  payload: Record<string, unknown>,
+): string {
+  const bookingId = payload.bookingId;
+  const flightId = payload.flightId;
+  if (typeof bookingId === "string") {
+    return payload.role === "pilot"
+      ? `https://gallebo.app/pilot/bookings#booking-${bookingId}`
+      : `https://gallebo.app/dashboard/bookings#booking-${bookingId}`;
+  }
+  if (typeof flightId === "string") {
+    return `https://gallebo.app/flights/${flightId}`;
+  }
+  return "https://gallebo.app/dashboard";
+}
+
 const MAX_NOTIFICATION_RETRIES = 3;
 
 async function markNotificationFailed(
@@ -225,18 +253,23 @@ serve(async (req) => {
 
   const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
 
+  const { data: allSettings } = await supabase
+    .from("user_notification_settings")
+    .select("user_id, email_enabled, push_enabled")
+    .in("user_id", userIds);
+
+  const settingsByUser = new Map(
+    (allSettings ?? []).map((s) => [s.user_id, s]),
+  );
+
   let sent = 0;
   let failed = 0;
 
   for (const notification of notifications) {
     const email = emailById.get(notification.user_id) ?? null;
-
-    if (!email) {
-      console.warn(`[process-notifications] no email for user ${notification.user_id}`);
-      await markNotificationFailed(supabase, notification.id, true);
-      failed += 1;
-      continue;
-    }
+    const userSettings = settingsByUser.get(notification.user_id);
+    const emailEnabled = userSettings?.email_enabled !== false;
+    const pushEnabled = userSettings?.push_enabled !== false;
 
     const payload = notification.payload as Record<string, unknown>;
 
@@ -405,6 +438,17 @@ serve(async (req) => {
         break;
       }
 
+      case "flight_reminder_24h": {
+        subject = "Flight reminder — departs in about 24 hours";
+        html = renderFlightReminder24h(
+          displayName,
+          String(payload.flightId ?? ""),
+          String(payload.flightDate ?? ""),
+          String(payload.departureTime ?? "").slice(0, 5),
+        );
+        break;
+      }
+
       default:
         console.warn(`[process-notifications] unknown type: ${notification.type}`);
         await markNotificationFailed(supabase, notification.id, true);
@@ -412,18 +456,53 @@ serve(async (req) => {
         continue;
     }
 
-    const result = await sendEmail({ to: email, subject, html });
+    const deepLink = notificationDeepLink(notification.type, payload);
+    const pushBody =
+      notification.type === "flight_reminder_24h"
+        ? `Flight on ${String(payload.flightDate ?? "")} departs in about 24 hours.`
+        : subject;
 
-    if (result.ok) {
+    let emailOk = false;
+
+    if (emailEnabled) {
+      if (!email) {
+        console.warn(
+          `[process-notifications] no email for user ${notification.user_id}`,
+        );
+        await markNotificationFailed(supabase, notification.id, true);
+        failed += 1;
+        continue;
+      }
+
+      const result = await sendEmail({ to: email, subject, html });
+      emailOk = result.ok;
+      if (!result.ok) {
+        console.error(
+          `[process-notifications] send failed for ${notification.id}:`,
+          result.error,
+        );
+        await markNotificationFailed(supabase, notification.id);
+        failed += 1;
+        continue;
+      }
+    } else {
+      emailOk = true;
+    }
+
+    if (pushEnabled) {
+      await sendPushToUser(supabase, notification.user_id, {
+        title: subject,
+        body: pushBody,
+        url: deepLink,
+      });
+    }
+
+    if (emailOk) {
       await supabase
         .from("notification_queue")
         .update({ sent_at: new Date().toISOString() })
         .eq("id", notification.id);
       sent += 1;
-    } else {
-      console.error(`[process-notifications] send failed for ${notification.id}:`, result.error);
-      await markNotificationFailed(supabase, notification.id);
-      failed += 1;
     }
   }
 

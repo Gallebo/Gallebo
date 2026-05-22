@@ -262,6 +262,48 @@ export type Database = {
           },
         ];
       };
+      chat_messages: {
+        Row: {
+          booking_id: string;
+          content: string;
+          created_at: string;
+          id: string;
+          is_system: boolean;
+          sender_user_id: string | null;
+        };
+        Insert: {
+          booking_id: string;
+          content: string;
+          created_at?: string;
+          id?: string;
+          is_system?: boolean;
+          sender_user_id?: string | null;
+        };
+        Update: {
+          booking_id?: string;
+          content?: string;
+          created_at?: string;
+          id?: string;
+          is_system?: boolean;
+          sender_user_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_booking_id_fkey";
+            columns: ["booking_id"];
+            isOneToOne: false;
+            referencedRelation: "flight_booking_requests";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chat_messages_sender_user_id_fkey";
+            columns: ["sender_user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       documents: {
         Row: {
           expires_at: string | null;
@@ -583,6 +625,64 @@ export type Database = {
           },
         ];
       };
+      in_app_notifications: {
+        Row: {
+          body: string;
+          booking_id: string | null;
+          created_at: string;
+          flight_id: string | null;
+          id: string;
+          read_at: string | null;
+          title: string;
+          type: string;
+          user_id: string;
+        };
+        Insert: {
+          body: string;
+          booking_id?: string | null;
+          created_at?: string;
+          flight_id?: string | null;
+          id?: string;
+          read_at?: string | null;
+          title: string;
+          type: string;
+          user_id: string;
+        };
+        Update: {
+          body?: string;
+          booking_id?: string | null;
+          created_at?: string;
+          flight_id?: string | null;
+          id?: string;
+          read_at?: string | null;
+          title?: string;
+          type?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "in_app_notifications_booking_id_fkey";
+            columns: ["booking_id"];
+            isOneToOne: false;
+            referencedRelation: "flight_booking_requests";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "in_app_notifications_flight_id_fkey";
+            columns: ["flight_id"];
+            isOneToOne: false;
+            referencedRelation: "flights";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "in_app_notifications_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       notification_queue: {
         Row: {
           created_at: string;
@@ -830,6 +930,73 @@ export type Database = {
           rating?: number | null;
         };
         Relationships: [];
+      };
+      push_subscriptions: {
+        Row: {
+          auth: string;
+          created_at: string;
+          endpoint: string;
+          id: string;
+          p256dh: string;
+          user_id: string;
+        };
+        Insert: {
+          auth: string;
+          created_at?: string;
+          endpoint: string;
+          id?: string;
+          p256dh: string;
+          user_id: string;
+        };
+        Update: {
+          auth?: string;
+          created_at?: string;
+          endpoint?: string;
+          id?: string;
+          p256dh?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      user_notification_settings: {
+        Row: {
+          email_enabled: boolean;
+          in_app_enabled: boolean;
+          push_enabled: boolean;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          email_enabled?: boolean;
+          in_app_enabled?: boolean;
+          push_enabled?: boolean;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          email_enabled?: boolean;
+          in_app_enabled?: boolean;
+          push_enabled?: boolean;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_notification_settings_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       profiles_public: {
         Row: {

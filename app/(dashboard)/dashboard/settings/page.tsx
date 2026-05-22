@@ -1,26 +1,38 @@
-import { DeleteAccountForm } from "@/components/auth/delete-account-form";
+import { PushPermissionButton } from "@/components/notifications/PushPermissionButton";
+import { NotificationSettingsForm } from "@/components/notifications/NotificationSettingsForm";
+import { getNotificationSettings } from "@/lib/notifications/settings";
 import { requireUser } from "@/lib/auth/rbac";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-export const metadata = { title: "Settings — Gallebo" };
+export const metadata = { title: "Notification settings — Gallebo" };
 
-export default async function SettingsPage() {
+export default async function NotificationSettingsPage() {
   await requireUser();
+  const { settings, error } = await getNotificationSettings();
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-2xl font-semibold">Settings</h1>
-      <Card className="border-destructive/50">
-        <CardHeader>
-          <CardTitle className="text-destructive">Danger zone</CardTitle>
-          <CardDescription>
-            Permanently delete your account, documents, and stored payout data.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <DeleteAccountForm />
-        </CardContent>
-      </Card>
+    <div className="mx-auto max-w-lg space-y-8">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Notification settings
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Control email, browser push, and in-app notifications.
+        </p>
+      </div>
+
+      {error ? (
+        <p className="text-sm text-destructive">{error}</p>
+      ) : (
+        <NotificationSettingsForm initial={settings!} />
+      )}
+
+      <section className="space-y-3 rounded-lg border p-4">
+        <h2 className="font-medium">Browser push</h2>
+        <p className="text-sm text-muted-foreground">
+          Enable push on this device. You must allow notifications in your browser.
+        </p>
+        <PushPermissionButton />
+      </section>
     </div>
   );
 }

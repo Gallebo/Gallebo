@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
+import { BookingChatSection } from "@/components/bookings/BookingChatSection";
 import { BookingStatusBadge } from "@/components/bookings/booking-status-badge";
 import { CancellationModal } from "@/components/bookings/cancellation-modal";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -34,9 +35,11 @@ export type PilotBookingRow = {
 
 export function PilotBookingCard({
   booking,
+  currentUserId,
   weightWarning,
 }: {
   booking: PilotBookingRow;
+  currentUserId: string;
   weightWarning?: string | null;
 }) {
   const router = useRouter();
@@ -49,7 +52,10 @@ export function PilotBookingCard({
   const canCancel = ["pending", "accepted", "confirmed"].includes(booking.status);
 
   return (
-    <li className="rounded-lg border p-4 space-y-3">
+    <li
+      id={`booking-${booking.id}`}
+      className="rounded-lg border p-4 space-y-3 scroll-mt-24"
+    >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <BookingStatusBadge status={booking.status} />
@@ -118,6 +124,13 @@ export function PilotBookingCard({
           refundNote="Pilot cancellation always refunds the passenger in full."
         />
       ) : null}
+
+      <BookingChatSection
+        bookingId={booking.id}
+        status={booking.status}
+        currentUserId={currentUserId}
+        viewerRole="pilot"
+      />
     </li>
   );
 }

@@ -39,11 +39,34 @@ serve(async (req) => {
 
     if (!error) {
       expiredPilot += 1;
-      await supabase.from("notification_queue").insert({
-        user_id: b.passenger_user_id,
-        type: "booking_expired_no_response",
-        payload: { bookingId: b.id, flightId: b.flight_id },
+      await supabase.from("chat_messages").insert({
+        booking_id: b.id,
+        sender_user_id: null,
+        content: "Booking je istekao — pilot nije odgovorio u roku od 48 sati.",
+        is_system: true,
       });
+      const { data: settings } = await supabase
+        .from("user_notification_settings")
+        .select("email_enabled, in_app_enabled")
+        .eq("user_id", b.passenger_user_id)
+        .maybeSingle();
+      if (settings?.email_enabled !== false) {
+        await supabase.from("notification_queue").insert({
+          user_id: b.passenger_user_id,
+          type: "booking_expired_no_response",
+          payload: { bookingId: b.id, flightId: b.flight_id },
+        });
+      }
+      if (settings?.in_app_enabled !== false) {
+        await supabase.from("in_app_notifications").insert({
+          user_id: b.passenger_user_id,
+          type: "booking_expired_no_response",
+          title: "Booking expired",
+          body: "The pilot did not respond in time.",
+          booking_id: b.id,
+          flight_id: b.flight_id,
+        });
+      }
     }
   }
 
@@ -70,15 +93,38 @@ serve(async (req) => {
 
     if (!error) {
       expiredPayment += 1;
-      await supabase.from("notification_queue").insert({
-        user_id: b.passenger_user_id,
-        type: "booking_expired_no_response",
-        payload: {
-          bookingId: b.id,
-          flightId: b.flight_id,
-          reason: "payment_timeout",
-        },
+      await supabase.from("chat_messages").insert({
+        booking_id: b.id,
+        sender_user_id: null,
+        content: "Booking je istekao — plaćanje nije izvršeno u roku od 30 minuta.",
+        is_system: true,
       });
+      const { data: settings } = await supabase
+        .from("user_notification_settings")
+        .select("email_enabled, in_app_enabled")
+        .eq("user_id", b.passenger_user_id)
+        .maybeSingle();
+      if (settings?.email_enabled !== false) {
+        await supabase.from("notification_queue").insert({
+          user_id: b.passenger_user_id,
+          type: "booking_expired_no_response",
+          payload: {
+            bookingId: b.id,
+            flightId: b.flight_id,
+            reason: "payment_timeout",
+          },
+        });
+      }
+      if (settings?.in_app_enabled !== false) {
+        await supabase.from("in_app_notifications").insert({
+          user_id: b.passenger_user_id,
+          type: "booking_expired_no_response",
+          title: "Booking expired",
+          body: "Payment was not received in time.",
+          booking_id: b.id,
+          flight_id: b.flight_id,
+        });
+      }
     }
   }
 

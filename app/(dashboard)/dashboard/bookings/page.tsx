@@ -44,7 +44,11 @@ export default async function PassengerBookingsPage({
         {active.length > 0 ? (
           <ul className="space-y-4">
             {active.map((b) => (
-              <PassengerBookingCard key={b.id} booking={b} />
+              <PassengerBookingCard
+                key={b.id}
+                booking={b}
+                currentUserId={user.id}
+              />
             ))}
           </ul>
         ) : (
@@ -62,7 +66,11 @@ export default async function PassengerBookingsPage({
         {past.length > 0 ? (
           <ul className="space-y-4">
             {past.map((b) => (
-              <PassengerBookingCard key={b.id} booking={b} />
+              <PassengerBookingCard
+                key={b.id}
+                booking={b}
+                currentUserId={user.id}
+              />
             ))}
           </ul>
         ) : (

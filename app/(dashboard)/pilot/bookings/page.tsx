@@ -73,6 +73,7 @@ export default async function PilotBookingsPage() {
               <PilotBookingCard
                 key={b.id}
                 booking={b}
+                currentUserId={user.id}
                 weightWarning={weightByFlight.get(b.flight.id) ?? null}
               />
             ))}
@@ -90,6 +91,7 @@ export default async function PilotBookingsPage() {
               <PilotBookingCard
                 key={b.id}
                 booking={b}
+                currentUserId={user.id}
                 weightWarning={weightByFlight.get(b.flight.id) ?? null}
               />
             ))}
@@ -104,7 +106,11 @@ export default async function PilotBookingsPage() {
         {past.length > 0 ? (
           <ul className="space-y-4">
             {past.map((b) => (
-              <PilotBookingCard key={b.id} booking={b} />
+              <PilotBookingCard
+                key={b.id}
+                booking={b}
+                currentUserId={user.id}
+              />
             ))}
           </ul>
         ) : (

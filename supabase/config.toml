@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.process-payouts]
 verify_jwt = false
+
+[functions.send-flight-reminders]
+verify_jwt = false

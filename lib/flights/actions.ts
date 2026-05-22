@@ -19,6 +19,9 @@ import {
   type FlightDraft,
 } from "@/lib/flights/schemas";
 import { rethrowIfNextRedirect } from "@/lib/navigation/redirect-error";
+import { insertSystemMessage } from "@/lib/chat/system";
+import { inAppCopyForType } from "@/lib/notifications/copy";
+import { queueUserNotification } from "@/lib/notifications/notify";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/types/database";
@@ -504,11 +507,17 @@ export async function submitBookingRequestAction(
       return { error: "No seats available on this flight" };
     }
 
-    const { error } = await supabase.from("flight_booking_requests").insert({
-      flight_id: flightId,
-      passenger_user_id: user.id,
-      status: "pending",
-    });
+    let bookingId: string | null = null;
+
+    const { data: inserted, error } = await supabase
+      .from("flight_booking_requests")
+      .insert({
+        flight_id: flightId,
+        passenger_user_id: user.id,
+        status: "pending",
+      })
+      .select("id")
+      .maybeSingle();
 
     if (error) {
       if (error.code === "23505") {
@@ -533,9 +542,12 @@ export async function submitBookingRequestAction(
         if (!reactivated) {
           return { error: "You already have a pending request for this flight" };
         }
+        bookingId = reactivated.id;
       } else {
         return { error: error.message };
       }
+    } else {
+      bookingId = inserted?.id ?? null;
     }
 
     const admin = createAdminClient();
@@ -545,12 +557,32 @@ export async function submitBookingRequestAction(
       .eq("id", flightId)
       .single();
 
-    if (flightRow?.pilot_user_id) {
-      await admin.from("notification_queue").insert({
-        user_id: flightRow.pilot_user_id,
-        type: "booking_request_received",
-        payload: { flightId, passengerUserId: user.id },
-      });
+    if (flightRow?.pilot_user_id && bookingId) {
+      await insertSystemMessage(
+        bookingId,
+        "Zahtjev za booking je poslan pilotu.",
+      );
+
+      const payload = {
+        flightId,
+        bookingId,
+        passengerUserId: user.id,
+      } as Json;
+      const copy = inAppCopyForType("booking_request_received", payload as Record<string, unknown>);
+      await queueUserNotification(
+        admin,
+        flightRow.pilot_user_id,
+        "booking_request_received",
+        payload,
+        copy
+          ? {
+              title: copy.title,
+              body: copy.body,
+              bookingId,
+              flightId,
+            }
+          : undefined,
+      );
     }
 
     revalidatePath(`/flights/${flightId}`);

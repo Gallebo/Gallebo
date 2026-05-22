@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
+import { BookingChatSection } from "@/components/bookings/BookingChatSection";
 import { BookingStatusBadge } from "@/components/bookings/booking-status-badge";
 import { CancellationModal } from "@/components/bookings/cancellation-modal";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -31,7 +32,13 @@ export type PassengerBookingRow = {
   };
 };
 
-export function PassengerBookingCard({ booking }: { booking: PassengerBookingRow }) {
+export function PassengerBookingCard({
+  booking,
+  currentUserId,
+}: {
+  booking: PassengerBookingRow;
+  currentUserId: string;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const f = booking.flight;
@@ -46,7 +53,10 @@ export function PassengerBookingCard({ booking }: { booking: PassengerBookingRow
     passengerRefundEligible(f.flight_date);
 
   return (
-    <li className="rounded-lg border p-4 space-y-3">
+    <li
+      id={`booking-${booking.id}`}
+      className="rounded-lg border p-4 space-y-3 scroll-mt-24"
+    >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <BookingStatusBadge status={booking.status} />
@@ -120,6 +130,13 @@ export function PassengerBookingCard({ booking }: { booking: PassengerBookingRow
           />
         ) : null}
       </div>
+
+      <BookingChatSection
+        bookingId={booking.id}
+        status={booking.status}
+        currentUserId={currentUserId}
+        viewerRole="passenger"
+      />
     </li>
   );
 }

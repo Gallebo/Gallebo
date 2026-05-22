@@ -1,5 +1,8 @@
 import type Stripe from "stripe";
 
+import { insertSystemMessage } from "@/lib/chat/system";
+import { inAppCopyForType } from "@/lib/notifications/copy";
+import { queueUserNotification } from "@/lib/notifications/notify";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database";
 
@@ -45,11 +48,22 @@ async function queueNotification(
   type: string,
   payload: Json,
 ) {
-  await admin.from("notification_queue").insert({
-    user_id: userId,
-    type,
-    payload,
-  });
+  const payloadObj = (payload ?? {}) as Record<string, unknown>;
+  const copy = inAppCopyForType(type, payloadObj);
+  await queueUserNotification(admin, userId, type, payload, copy
+    ? {
+        title: copy.title,
+        body: copy.body,
+        bookingId:
+          typeof payloadObj.bookingId === "string"
+            ? payloadObj.bookingId
+            : undefined,
+        flightId:
+          typeof payloadObj.flightId === "string"
+            ? payloadObj.flightId
+            : undefined,
+      }
+    : undefined);
 }
 
 export async function handleCheckoutSessionCompleted(
@@ -133,6 +147,11 @@ export async function handleCheckoutSessionCompleted(
     .select("pilot_user_id")
     .eq("id", booking.flight_id)
     .single();
+
+  await insertSystemMessage(
+    bookingId,
+    "Plaćanje je potvrđeno. Kontakt podaci su dostupni.",
+  );
 
   await queueNotification(admin, booking.passenger_user_id, "payment_confirmed", {
     bookingId,
