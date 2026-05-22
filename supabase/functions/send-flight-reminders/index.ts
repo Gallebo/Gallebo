@@ -35,31 +35,66 @@ serve(async (req) => {
     });
   }
 
+  const flightList = flights ?? [];
+  const flightIds = flightList.map((f) => f.id);
+
+  const bookingsByFlight = new Map<
+    string,
+    { id: string; passenger_user_id: string }[]
+  >();
+
+  if (flightIds.length > 0) {
+    const { data: allBookings, error: bookingErr } = await supabase
+      .from("flight_booking_requests")
+      .select("id, passenger_user_id, flight_id")
+      .in("flight_id", flightIds)
+      .eq("status", "confirmed");
+
+    if (bookingErr) {
+      return new Response(JSON.stringify({ ok: false, error: bookingErr.message }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    for (const b of allBookings ?? []) {
+      const list = bookingsByFlight.get(b.flight_id) ?? [];
+      list.push({ id: b.id, passenger_user_id: b.passenger_user_id });
+      bookingsByFlight.set(b.flight_id, list);
+    }
+  }
+
+  const participantIds = new Set<string>();
+  for (const flight of flightList) {
+    if (flight.pilot_user_id) participantIds.add(flight.pilot_user_id);
+    for (const b of bookingsByFlight.get(flight.id) ?? []) {
+      participantIds.add(b.passenger_user_id);
+    }
+  }
+
   const dayStart = new Date();
   dayStart.setUTCHours(0, 0, 0, 0);
 
-  for (const flight of flights ?? []) {
-    const { data: bookings } = await supabase
-      .from("flight_booking_requests")
-      .select("id, passenger_user_id")
-      .eq("flight_id", flight.id)
-      .eq("status", "confirmed");
+  const alreadyReminded = new Set<string>();
+  const participantIdList = [...participantIds];
+  if (participantIdList.length > 0) {
+    const { data: existingReminders } = await supabase
+      .from("notification_queue")
+      .select("user_id")
+      .eq("type", "flight_reminder_24h")
+      .gte("created_at", dayStart.toISOString())
+      .in("user_id", participantIdList);
 
-    const participants = new Set<string>();
-    if (flight.pilot_user_id) participants.add(flight.pilot_user_id);
+    for (const row of existingReminders ?? []) {
+      alreadyReminded.add(row.user_id);
+    }
+  }
 
-    for (const b of bookings ?? []) {
-      participants.add(b.passenger_user_id);
+  for (const flight of flightList) {
+    const bookings = bookingsByFlight.get(flight.id) ?? [];
 
-      const { data: existing } = await supabase
-        .from("notification_queue")
-        .select("id")
-        .eq("user_id", b.passenger_user_id)
-        .eq("type", "flight_reminder_24h")
-        .gte("created_at", dayStart.toISOString())
-        .limit(1);
-
-      if (existing?.length) continue;
+    for (const b of bookings) {
+      if (alreadyReminded.has(b.passenger_user_id)) continue;
 
       const payload = {
         bookingId: b.id,
@@ -93,52 +128,44 @@ serve(async (req) => {
         });
       }
 
+      alreadyReminded.add(b.passenger_user_id);
       queued += 1;
     }
 
-    if (flight.pilot_user_id) {
-      const { data: existingPilot } = await supabase
-        .from("notification_queue")
-        .select("id")
+    if (flight.pilot_user_id && !alreadyReminded.has(flight.pilot_user_id)) {
+      const payload = {
+        flightId: flight.id,
+        flightDate: flight.flight_date,
+        departureTime: flight.departure_time,
+        role: "pilot",
+      };
+
+      const { data: pilotSettings } = await supabase
+        .from("user_notification_settings")
+        .select("email_enabled, in_app_enabled")
         .eq("user_id", flight.pilot_user_id)
-        .eq("type", "flight_reminder_24h")
-        .gte("created_at", dayStart.toISOString())
-        .limit(1);
+        .maybeSingle();
 
-      if (!existingPilot?.length) {
-        const payload = {
-          flightId: flight.id,
-          flightDate: flight.flight_date,
-          departureTime: flight.departure_time,
-          role: "pilot",
-        };
-
-        const { data: pilotSettings } = await supabase
-          .from("user_notification_settings")
-          .select("email_enabled, in_app_enabled")
-          .eq("user_id", flight.pilot_user_id)
-          .maybeSingle();
-
-        if (pilotSettings?.email_enabled !== false) {
-          await supabase.from("notification_queue").insert({
-            user_id: flight.pilot_user_id,
-            type: "flight_reminder_24h",
-            payload,
-          });
-        }
-
-        if (pilotSettings?.in_app_enabled !== false) {
-          await supabase.from("in_app_notifications").insert({
-            user_id: flight.pilot_user_id,
-            type: "flight_reminder_24h",
-            title: "Flight reminder",
-            body: `You have a flight on ${flight.flight_date} in about 24 hours.`,
-            flight_id: flight.id,
-          });
-        }
-
-        queued += 1;
+      if (pilotSettings?.email_enabled !== false) {
+        await supabase.from("notification_queue").insert({
+          user_id: flight.pilot_user_id,
+          type: "flight_reminder_24h",
+          payload,
+        });
       }
+
+      if (pilotSettings?.in_app_enabled !== false) {
+        await supabase.from("in_app_notifications").insert({
+          user_id: flight.pilot_user_id,
+          type: "flight_reminder_24h",
+          title: "Flight reminder",
+          body: `You have a flight on ${flight.flight_date} in about 24 hours.`,
+          flight_id: flight.id,
+        });
+      }
+
+      alreadyReminded.add(flight.pilot_user_id);
+      queued += 1;
     }
   }
 

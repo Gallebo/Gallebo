@@ -50,32 +50,6 @@ async function notify(
     : undefined);
 }
 
-async function writeLedger(
-  admin: ReturnType<typeof createAdminClient>,
-  entry: {
-    booking_id: string;
-    type: "refund" | "pilot_payout" | "payout_failed";
-    amount_eur: number;
-    idempotency_key: string;
-    stripe_refund_id?: string;
-    stripe_transfer_id?: string;
-    metadata?: Record<string, unknown>;
-  },
-) {
-  const { error } = await admin.from("ledger").insert({
-    booking_id: entry.booking_id,
-    type: entry.type,
-    amount_eur: entry.amount_eur,
-    idempotency_key: entry.idempotency_key,
-    stripe_refund_id: entry.stripe_refund_id ?? null,
-    stripe_transfer_id: entry.stripe_transfer_id ?? null,
-    metadata: (entry.metadata ?? {}) as Record<string, never>,
-  });
-  if (error && error.code !== "23505") {
-    console.error("[bookings/ledger]", error.message);
-  }
-}
-
 export async function acceptBookingAction(
   bookingId: string,
 ): Promise<BookingActionState> {
@@ -189,7 +163,8 @@ export async function rejectBookingAction(
         status: "rejected",
         pilot_responded_at: new Date().toISOString(),
       })
-      .eq("id", bookingId);
+      .eq("id", bookingId)
+      .eq("status", "pending");
 
     if (error) return { error: error.message };
 
@@ -348,14 +323,7 @@ export async function cancelBookingAction(
             refunded_at: now,
           })
           .eq("id", bookingId);
-
-        await writeLedger(admin, {
-          booking_id: bookingId,
-          type: "refund",
-          amount_eur: Number(booking.passenger_amount_eur ?? 0),
-          idempotency_key: `refund:cancel:${bookingId}`,
-          stripe_refund_id: refundResult.refundId,
-        });
+        // Refund ledger entry is written only by handleChargeRefunded (Stripe webhook).
       } else {
         await admin
           .from("flight_booking_requests")
@@ -472,6 +440,12 @@ export async function markFlightCompletedAction(
         bookingId: b.id,
       });
     }
+
+    // Spec faza 5: "Let oznacen kao zavrsen — oboje primaju potvrdu"
+    await notify(admin, user.id, "flight_completed", {
+      flightId,
+      role: "pilot",
+    });
 
     revalidatePath("/pilot/flights");
     revalidatePath("/pilot/bookings");

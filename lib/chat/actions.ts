@@ -5,7 +5,7 @@ import { requireUser } from "@/lib/auth/rbac";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
-const CHAT_STATUSES = ["accepted", "confirmed", "completed"] as const;
+const CHAT_STATUSES = ["confirmed", "completed"] as const;
 
 export type ChatMessageRow = {
   id: string;
@@ -57,14 +57,13 @@ export async function getMessagesAction(
   try {
     const { booking } = await assertBookingParticipant(bookingId);
 
-    if (
-      !CHAT_STATUSES.includes(
-        booking.status as (typeof CHAT_STATUSES)[number],
-      )
-    ) {
-      return { messages: [], chatLocked: true };
-    }
+    const chatLocked = !CHAT_STATUSES.includes(
+      booking.status as (typeof CHAT_STATUSES)[number],
+    );
 
+    // Uvijek dohvati poruke (RLS SELECT policy ne provjerava lock status).
+    // Za expired/rejected/cancelled bookinge korisnik može čitati povijest
+    // (uključujući sistemske poruke), ali chatLocked: true sprječava novi unos.
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("chat_messages")
@@ -73,7 +72,7 @@ export async function getMessagesAction(
       .order("created_at", { ascending: true });
 
     if (error) return { error: error.message };
-    return { messages: data ?? [], chatLocked: false };
+    return { messages: data ?? [], chatLocked };
   } catch (e) {
     return {
       error: e instanceof Error ? e.message : "Failed to load messages",

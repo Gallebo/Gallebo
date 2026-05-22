@@ -9,6 +9,7 @@ SELECT cron.schedule(
   '0 10 * * *',
   $$
     SELECT net.http_post(
+      -- DEPRECATED: hardcoded URL overridden by 063_fix_cron_urls.sql which uses Vault
       url := 'https://vdtprfojirdayvfwnver.supabase.co/functions/v1/send-flight-reminders',
       headers := jsonb_build_object(
         'Content-Type', 'application/json',

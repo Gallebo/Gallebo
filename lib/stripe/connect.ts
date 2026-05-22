@@ -1,3 +1,8 @@
+// TODO: DEAD CODE — This file is not used anywhere in the application.
+// The real Stripe Connect implementation is in supabase/functions/_shared/connect.ts.
+// Function signatures here differ from the real implementation.
+// Delete this file or complete it as part of the Stripe Connect payout implementation.
+
 import { isStripeConfigured } from "@/lib/stripe/config";
 import { getStripe } from "@/lib/stripe/client";
 
@@ -17,7 +22,7 @@ export async function ensurePilotConnectAccount(params: {
 
   if (!accountId) {
     const account = await stripe.accounts.create({
-      type: "custom",
+      type: "express",
       country: "HR",
       email: params.email,
       capabilities: {

@@ -223,27 +223,21 @@ serve(async (req) => {
   }
 
   const userIds = [...new Set(notifications.map((n) => n.user_id))];
-  const userIdSet = new Set(userIds);
 
-  const { data: listData, error: listError } = await supabase.auth.admin.listUsers({
-    perPage: 1000,
-  });
-
-  if (listError || !listData?.users) {
-    console.error(
-      "[process-notifications] listUsers failed:",
-      listError?.message ?? "no users returned",
-    );
-    return new Response(JSON.stringify({ ok: false, error: "Failed to fetch users" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  const emailById = new Map(
-    listData.users
-      .filter((u) => userIdSet.has(u.id))
-      .map((u) => [u.id, u.email ?? null]),
+  const emailById = new Map<string, string | null>();
+  await Promise.all(
+    userIds.map(async (id) => {
+      const { data, error: userError } = await supabase.auth.admin.getUserById(id);
+      if (userError) {
+        console.error(
+          `[process-notifications] getUserById failed for ${id}:`,
+          userError.message,
+        );
+        emailById.set(id, null);
+        return;
+      }
+      emailById.set(id, data.user?.email ?? null);
+    }),
   );
 
   const { data: profiles } = await supabase
@@ -278,7 +272,9 @@ serve(async (req) => {
     const displayName =
       profile?.first_name && profile?.last_name
         ? `${profile.first_name} ${profile.last_name}`
-        : email.split("@")[0];
+        : email
+          ? email.split("@")[0]
+          : "User";
 
     let subject = "Gallebo notification";
     let html = "";

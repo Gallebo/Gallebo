@@ -1,8 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import Stripe from "https://esm.sh/stripe@17.7.0?target=deno";
 import { createAdminClient } from "../_shared/supabase.ts";
+import {
+  ensurePilotConnectAccount,
+  getStripeClient,
+  transferToPilot,
+} from "../_shared/connect.ts";
 
-const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+const MAX_PAYOUT_RETRIES = 5;
 
 async function insertLedger(
   supabase: ReturnType<typeof createAdminClient>,
@@ -15,7 +19,7 @@ async function insertLedger(
     metadata?: Record<string, unknown>;
   },
 ) {
-  await supabase.from("ledger").insert({
+  const { error } = await supabase.from("ledger").insert({
     booking_id: entry.booking_id,
     type: entry.type,
     amount_eur: entry.amount_eur,
@@ -23,6 +27,21 @@ async function insertLedger(
     stripe_transfer_id: entry.stripe_transfer_id ?? null,
     metadata: entry.metadata ?? {},
   });
+  if (error && error.code !== "23505") {
+    throw new Error(`Ledger insert failed: ${error.message}`);
+  }
+}
+
+async function incrementPayoutFailedCount(
+  supabase: ReturnType<typeof createAdminClient>,
+  bookingId: string,
+) {
+  const { error } = await supabase.rpc("increment_payout_failed_count", {
+    p_booking_id: bookingId,
+  });
+  if (error) {
+    throw new Error(`increment_payout_failed_count failed: ${error.message}`);
+  }
 }
 
 serve(async (req) => {
@@ -42,13 +61,14 @@ serve(async (req) => {
     .from("flight_booking_requests")
     .select(
       `
-      id, pilot_payout_eur, paid_out_at, payout_after,
+      id, pilot_payout_eur, paid_out_at, payout_after, payout_failed_count,
       flights!inner (pilot_user_id)
     `,
     )
     .eq("status", "completed")
     .is("paid_out_at", null)
-    .lte("payout_after", now);
+    .lte("payout_after", now)
+    .lt("payout_failed_count", MAX_PAYOUT_RETRIES);
 
   if (error) {
     return new Response(JSON.stringify({ ok: false, error: error.message }), {
@@ -57,9 +77,7 @@ serve(async (req) => {
     });
   }
 
-  const stripe = stripeKey
-    ? new Stripe(stripeKey, { apiVersion: "2026-04-22.dahlia" })
-    : null;
+  const stripe = getStripeClient();
 
   let paid = 0;
   let failed = 0;
@@ -80,9 +98,7 @@ serve(async (req) => {
 
     const { data: pilotProfile } = await supabase
       .from("pilot_profiles")
-      .select(
-        "stripe_connect_account_id, account_holder_name, iban_vault_secret_id",
-      )
+      .select("stripe_connect_account_id, account_holder_name, iban_vault_secret_id")
       .eq("user_id", pilotUserId)
       .single();
 
@@ -91,47 +107,40 @@ serve(async (req) => {
     });
 
     if (!iban) {
-      await insertLedger(supabase, {
-        booking_id: bookingId,
-        type: "payout_failed",
-        amount_eur: amount,
-        idempotency_key: `payout_failed:no_iban:${bookingId}`,
-        metadata: { reason: "missing_iban" },
-      });
+      try {
+        await insertLedger(supabase, {
+          booking_id: bookingId,
+          type: "payout_failed",
+          amount_eur: amount,
+          idempotency_key: `payout_failed:no_iban:${bookingId}`,
+          metadata: { reason: "missing_iban" },
+        });
+      } catch (e) {
+        console.error(`[process-payouts] insertLedger failed for ${bookingId}:`, e);
+      }
+      try {
+        await incrementPayoutFailedCount(supabase, bookingId);
+      } catch (e) {
+        console.error(`[process-payouts] increment failed for ${bookingId}:`, e);
+      }
       failed += 1;
       continue;
     }
 
-    let connectAccountId = pilotProfile?.stripe_connect_account_id as
-      | string
-      | null;
+    let connectAccountId = pilotProfile?.stripe_connect_account_id as string | null;
 
     try {
       if (stripe && !connectAccountId) {
-        const { data: authUser } = await supabase.auth.admin.getUserById(
-          pilotUserId,
-        );
-        const account = await stripe.accounts.create({
-          type: "custom",
-          country: "HR",
-          email: authUser.user?.email ?? undefined,
-          capabilities: { transfers: { requested: true } },
-          business_type: "individual",
-          metadata: { pilot_user_id: pilotUserId },
-        });
-        connectAccountId = account.id;
+        const { data: authUser } = await supabase.auth.admin.getUserById(pilotUserId);
 
-        await stripe.accounts.createExternalAccount(connectAccountId, {
-          external_account: {
-            object: "bank_account",
-            country: "HR",
-            currency: "eur",
-            account_holder_name:
-              pilotProfile?.account_holder_name ?? "Pilot",
-            account_holder_type: "individual",
-            account_number: String(iban).replace(/\s/g, ""),
-          },
+        const result = await ensurePilotConnectAccount(stripe, {
+          pilotUserId,
+          email: authUser.user?.email,
+          iban: String(iban),
+          accountHolderName: pilotProfile?.account_holder_name ?? "Pilot",
+          existingAccountId: null,
         });
+        connectAccountId = result.accountId;
 
         await supabase
           .from("pilot_profiles")
@@ -142,24 +151,18 @@ serve(async (req) => {
       let transferId = `stub_tr_${bookingId}`;
 
       if (stripe && connectAccountId) {
-        const transfer = await stripe.transfers.create(
-          {
-            amount: Math.round(amount * 100),
-            currency: "eur",
-            destination: connectAccountId,
-            metadata: { booking_id: bookingId },
-          },
-          { idempotencyKey: `payout:${bookingId}` },
-        );
-        transferId = transfer.id;
+        const result = await transferToPilot(stripe, {
+          amountEur: amount,
+          connectAccountId,
+          bookingId,
+          idempotencyKey: `payout:${bookingId}`,
+        });
+        transferId = result.transferId;
       }
 
       await supabase
         .from("flight_booking_requests")
-        .update({
-          paid_out_at: now,
-          stripe_transfer_id: transferId,
-        })
+        .update({ paid_out_at: now, stripe_transfer_id: transferId })
         .eq("id", bookingId);
 
       await insertLedger(supabase, {
@@ -180,13 +183,28 @@ serve(async (req) => {
     } catch (e) {
       const msg = e instanceof Error ? e.message : "transfer failed";
       console.error(`[process-payouts] ${bookingId}:`, msg);
-      await insertLedger(supabase, {
-        booking_id: bookingId,
-        type: "payout_failed",
-        amount_eur: amount,
-        idempotency_key: `payout_failed:${bookingId}`,
-        metadata: { error: msg },
-      });
+      try {
+        await insertLedger(supabase, {
+          booking_id: bookingId,
+          type: "payout_failed",
+          amount_eur: amount,
+          idempotency_key: `payout_failed:${bookingId}`,
+          metadata: { error: msg },
+        });
+      } catch (ledgerErr) {
+        console.error(
+          `[process-payouts] insertLedger failed for ${bookingId}:`,
+          ledgerErr,
+        );
+      }
+      try {
+        await incrementPayoutFailedCount(supabase, bookingId);
+      } catch (incErr) {
+        console.error(
+          `[process-payouts] increment failed for ${bookingId}:`,
+          incErr,
+        );
+      }
       failed += 1;
     }
   }

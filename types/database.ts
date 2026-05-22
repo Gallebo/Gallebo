@@ -354,6 +354,7 @@ export type Database = {
           pilot_response_expires_at: string | null;
           platform_fee_eur: number | null;
           payout_after: string | null;
+          payout_failed_count: number;
           refund_id: string | null;
           refunded_at: string | null;
           status: Database["public"]["Enums"]["flight_booking_status"];
@@ -378,6 +379,7 @@ export type Database = {
           pilot_response_expires_at?: string | null;
           platform_fee_eur?: number | null;
           payout_after?: string | null;
+          payout_failed_count?: number;
           refund_id?: string | null;
           refunded_at?: string | null;
           status?: Database["public"]["Enums"]["flight_booking_status"];
@@ -402,6 +404,7 @@ export type Database = {
           pilot_response_expires_at?: string | null;
           platform_fee_eur?: number | null;
           payout_after?: string | null;
+          payout_failed_count?: number;
           refund_id?: string | null;
           refunded_at?: string | null;
           status?: Database["public"]["Enums"]["flight_booking_status"];
@@ -1045,6 +1048,10 @@ export type Database = {
       get_pilot_iban_for_payout: {
         Args: { p_user_id: string };
         Returns: string | null;
+      };
+      increment_payout_failed_count: {
+        Args: { p_booking_id: string };
+        Returns: undefined;
       };
       get_pilot_iban_last_four: {
         Args: Record<string, never>;
