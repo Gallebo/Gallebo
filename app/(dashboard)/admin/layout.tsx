@@ -1,6 +1,6 @@
-import Link from "next/link";
-
+import { AdminSidebar } from "@/components/admin/admin-sidebar";
 import { requireAdmin } from "@/lib/auth/rbac";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export default async function AdminLayout({
   children,
@@ -9,32 +9,20 @@ export default async function AdminLayout({
 }) {
   await requireAdmin();
 
+  const admin = createAdminClient();
+  const { count: kycCount } = await admin
+    .from("verification_requests")
+    .select("id", { count: "exact", head: true })
+    .is("reviewed_at", null);
+
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <nav className="mb-8 flex gap-4 border-b pb-4 text-sm">
-        <Link href="/admin" className="font-medium text-primary">
-          Queue
-        </Link>
-        <Link
-          href="/admin/pilots"
-          className="text-muted-foreground hover:text-foreground"
-        >
-          Pilots
-        </Link>
-        <Link
-          href="/admin/ledger"
-          className="text-muted-foreground hover:text-foreground"
-        >
-          Ledger
-        </Link>
-        <Link
-          href="/dashboard"
-          className="text-muted-foreground hover:text-foreground"
-        >
-          Dashboard
-        </Link>
-      </nav>
-      {children}
+    <div className="admin-shell">
+      <AdminSidebar kycCount={kycCount ?? 0} />
+      <main className="admin-main">
+        <div className="mx-auto max-w-6xl px-6 py-8 lg:px-10 lg:py-10">
+          {children}
+        </div>
+      </main>
     </div>
   );
 }

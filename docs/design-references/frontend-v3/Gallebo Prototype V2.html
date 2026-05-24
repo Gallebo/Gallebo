@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Gallebo V2 — Fly Together</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,500&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<style>
+  :root {
+    /* V2 palette — per spec */
+    --bg: #FBFAF7;
+    --surface: #ffffff;
+    --surface-alt: #F4F1EA;
+    --ink: #0F172A;
+    --ink-2: #374151;
+    --ink-3: #6B7280;
+    --inverse: #0F172A;
+    --inverse-ink: #FBFAF7;
+    --line: #EAE5D8;
+    --line-strong: #D5CEBC;
+    --primary: #0056B3;
+    --primary-ink: #ffffff;
+    --primary-soft: #E6EEF8;
+    --primary-deep: #003E84;
+    --coral: #FF8C42;
+    --coral-soft: #FFE7D5;
+    --turquoise: #06B6D4;
+    --turquoise-soft: #CFF4FB;
+    --sun: #E8B13D;
+    --success: #2D8467;
+    --danger: #C44A3A;
+
+    /* Type families */
+    --font-display: 'Fraunces', 'Instrument Serif', 'Times New Roman', serif;
+    --font-body: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+    --shadow-sm: 0 1px 2px rgba(15,23,42,.06);
+    --shadow-md: 0 10px 30px -12px rgba(15,23,42,.14), 0 2px 6px rgba(15,23,42,.04);
+    --shadow-lg: 0 30px 80px -28px rgba(15,23,42,.28), 0 4px 10px rgba(15,23,42,.06);
+    --shadow-coral: 0 12px 28px -10px rgba(255,140,66,.4);
+    --shadow-primary: 0 12px 28px -10px rgba(0,86,179,.35);
+
+    --radius-sm: 6px;
+    --radius: 10px;
+    --radius-lg: 18px;
+    --radius-xl: 28px;
+
+    /* Motion */
+    --ease-out: cubic-bezier(.2,.8,.2,1);
+    --ease-in-out: cubic-bezier(.65,0,.35,1);
+    --d-fast: 180ms;
+    --d-base: 280ms;
+    --d-slow: 480ms;
+
+    color-scheme: light;
+  }
+
+  /* ── Dark theme ───────────────────────────────────────── */
+  [data-theme="dark"] {
+    --bg: #0D1318;
+    --surface: #161D24;
+    --surface-alt: #1E262E;
+    --ink: #F2EEE4;
+    --ink-2: #C7C3B9;
+    --ink-3: #8B8980;
+    --inverse: #05090F;
+    --inverse-ink: #F2EEE4;
+    --sky-ink: #F2EEE4;
+    --sky-ink-soft: rgba(242,238,228,.82);
+    --sky-ink-mute: rgba(242,238,228,.62);
+    --sky-ink-line: rgba(242,238,228,.45);
+    --line: #2A333B;
+    --line-strong: #3C4651;
+    --primary: #4F94E6;
+    --primary-ink: #0A1622;
+    --primary-soft: rgba(79,148,230,.16);
+    --primary-deep: #82B3EE;
+    --coral: #FF9E60;
+    --coral-soft: rgba(255,158,96,.18);
+    --turquoise: #2BD3EE;
+    --turquoise-soft: rgba(43,211,238,.16);
+    --sun: #F0C25A;
+    --success: #4DB28F;
+    --danger: #E26959;
+
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.5);
+    --shadow-md: 0 10px 30px -12px rgba(0,0,0,.6), 0 2px 6px rgba(0,0,0,.4);
+    --shadow-lg: 0 30px 80px -28px rgba(0,0,0,.85), 0 4px 10px rgba(0,0,0,.5);
+    --shadow-coral: 0 12px 28px -10px rgba(255,158,96,.45);
+    --shadow-primary: 0 12px 28px -10px rgba(79,148,230,.55);
+
+    color-scheme: dark;
+  }
+  [data-theme="dark"] ::selection { background: var(--primary); color: var(--primary-ink); }
+  [data-theme="dark"] ::-webkit-scrollbar-thumb { background: var(--line-strong); border-color: var(--bg); }
+
+  /* Map grid — invert subtly for dark */
+  [data-theme="dark"] .map-grid {
+    background-image:
+      linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+  }
+
+  /* Sky gradient — Adriatic night */
+  [data-theme="dark"] .sky-gradient {
+    background:
+      radial-gradient(120% 80% at 50% 110%, rgba(255,158,96,.10), transparent 55%),
+      radial-gradient(90% 70% at 85% 5%, rgba(43,211,238,.14), transparent 60%),
+      linear-gradient(180deg, #0B1726 0%, #11202F 45%, #1B2030 100%);
+  }
+  [data-theme="dark"] .sea-gradient {
+    background: linear-gradient(180deg, #06223D 0%, #04162A 50%, #02091A 100%);
+  }
+
+  /* Photo placeholder — darker stylised gradient */
+  [data-theme="dark"] .photo-placeholder {
+    background:
+      radial-gradient(80% 60% at 50% 90%, rgba(255,158,96,.22), transparent 60%),
+      radial-gradient(60% 40% at 20% 10%, rgba(43,211,238,.18), transparent 60%),
+      linear-gradient(160deg, #1B2B3C 0%, #2A3A4B 40%, #4A3B2A 100%);
+  }
+  [data-theme="dark"] .photo-placeholder::before {
+    background-image:
+      repeating-linear-gradient(45deg, rgba(255,255,255,.03) 0 2px, transparent 2px 4px);
+  }
+
+  /* Img placeholder stripes — darker */
+  [data-theme="dark"] .img-placeholder {
+    background-image: repeating-linear-gradient(
+      135deg,
+      var(--surface-alt) 0px, var(--surface-alt) 14px,
+      var(--surface) 14px, var(--surface) 28px
+    );
+  }
+
+  /* Coral button: in dark mode the ink should stay readable */
+  [data-theme="dark"] .btn-coral { color: #1a0b00; }
+  [data-theme="dark"] .btn-secondary { color: var(--ink); border-color: var(--ink-2); }
+  [data-theme="dark"] .btn-secondary:hover { background: var(--ink); color: var(--bg); }
+
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); transition: background 320ms var(--ease-out), color 320ms var(--ease-out); }
+  body {
+    font-family: var(--font-body);
+    font-feature-settings: 'ss01', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+  * { box-sizing: border-box; }
+  button { font-family: inherit; }
+  .mono { font-family: var(--font-mono); }
+  .serif { font-family: var(--font-display); }
+
+  /* V2 Typography — editorial Fraunces with opsz */
+  .display {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 0.96;
+    font-variation-settings: "opsz" 144, "SOFT" 0;
+  }
+  .display em { font-style: italic; font-weight: 400; }
+  .h1 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.015em;
+    line-height: 1.04;
+    font-variation-settings: "opsz" 96;
+  }
+  .h1 em { font-style: italic; font-weight: 400; }
+  .h2 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.012em;
+    line-height: 1.1;
+    font-variation-settings: "opsz" 72;
+  }
+  .h2 em { font-style: italic; font-weight: 400; }
+  .h3 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+    font-variation-settings: "opsz" 36;
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 500;
+    color: var(--ink-3);
+  }
+  .body { font-size: 17px; line-height: 1.65; color: var(--ink-2); }
+  .small { font-size: 13px; color: var(--ink-3); }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 8px; border: 2px solid var(--bg); }
+
+  :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+  ::selection { background: var(--primary); color: #fff; }
+
+  /* ── Motion keyframes ─────────────────────────────────── */
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes drift { 0%, 100% { transform: translate(0,0); } 50% { transform: translate(8px, -10px); } }
+  @keyframes drift2 { 0%, 100% { transform: translate(0,0); } 50% { transform: translate(-6px, 8px); } }
+  @keyframes flyPath {
+    0% { offset-distance: 0%; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { offset-distance: 100%; opacity: 0; }
+  }
+  @keyframes dashFlow {
+    to { stroke-dashoffset: -100; }
+  }
+  @keyframes drawIn {
+    from { stroke-dashoffset: 1000; }
+    to { stroke-dashoffset: 0; }
+  }
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  @keyframes pulseRing {
+    0% { transform: scale(0.7); opacity: 0.8; }
+    100% { transform: scale(2.4); opacity: 0; }
+  }
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes slideRight {
+    from { opacity: 0; transform: translateX(-12px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes wingBeat {
+    0%, 100% { transform: scaleY(1); }
+    50% { transform: scaleY(0.85); }
+  }
+
+  .page-enter { animation: fadeUp 540ms var(--ease-out) both; }
+  .reveal-up {
+    opacity: 0;
+    transform: translateY(48px);
+    filter: blur(6px);
+    transition: opacity 1000ms var(--ease-out),
+                transform 1100ms var(--ease-out),
+                filter 800ms var(--ease-out);
+  }
+  .reveal-up.visible { opacity: 1; transform: none; filter: blur(0); }
+
+  /* Reveal stagger — children with data-stagger get cascaded delays */
+  .reveal-up [data-stagger] {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 900ms var(--ease-out), transform 900ms var(--ease-out);
+    transition-delay: calc(var(--stagger-i, 0) * 90ms);
+  }
+  .reveal-up.visible [data-stagger] { opacity: 1; transform: none; }
+
+  /* Stronger variant — bigger travel + scale, for hero/section breaks */
+  .reveal-rise {
+    opacity: 0;
+    transform: translateY(64px) scale(0.985);
+    filter: blur(8px);
+    transition: opacity 1200ms var(--ease-out),
+                transform 1300ms var(--ease-out),
+                filter 900ms var(--ease-out);
+  }
+  .reveal-rise.visible { opacity: 1; transform: none; filter: blur(0); }
+
+  /* Hero-to-section fade — soft dissolve at section bottom */
+  .section-fade-bottom { position: relative; }
+  .section-fade-bottom::after {
+    content: ''; position: absolute; left: 0; right: 0; bottom: -1px;
+    height: 260px; pointer-events: none; z-index: 1;
+    background: linear-gradient(180deg, transparent 0%, var(--bg) 92%, var(--bg) 100%);
+  }
+  /* And matching fade-in at top of following section */
+  .section-fade-top { position: relative; }
+  .section-fade-top::before {
+    content: ''; position: absolute; left: 0; right: 0; top: 0;
+    height: 80px; pointer-events: none; z-index: 1;
+    background: linear-gradient(180deg, var(--bg) 0%, transparent 100%);
+  }
+
+  /* Scroll-driven parallax on hero content (modern browsers only) */
+  @supports (animation-timeline: view()) {
+    .scroll-parallax {
+      animation: scrollParallax linear both;
+      animation-timeline: view();
+      animation-range: cover 0% cover 100%;
+      will-change: transform, opacity;
+    }
+  }
+  @keyframes scrollParallax {
+    0% { transform: translateY(0); opacity: 1; }
+    50% { transform: translateY(-40px); opacity: 1; }
+    100% { transform: translateY(-120px); opacity: 0.2; }
+  }
+
+  /* Wipe-in for section dividers / underlines on scroll */
+  @supports (animation-timeline: view()) {
+    .scroll-wipe {
+      animation: scrollWipe linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 35%;
+    }
+  }
+  @keyframes scrollWipe {
+    0% { transform: scaleX(0); opacity: 0; }
+    100% { transform: scaleX(1); opacity: 1; }
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  }
+  body.motion-off *, body.motion-off *::before, body.motion-off *::after {
+    animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important;
+  }
+
+  /* Map placeholder */
+  .map-grid {
+    background-image:
+      linear-gradient(rgba(15,23,42,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(15,23,42,.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    background-position: -1px -1px;
+  }
+
+  /* V2 sky gradient — Adriatic dawn */
+  .sky-gradient {
+    background:
+      radial-gradient(120% 80% at 50% 110%, rgba(255,140,66,.18), transparent 55%),
+      radial-gradient(90% 70% at 85% 5%, rgba(6,182,212,.16), transparent 60%),
+      linear-gradient(180deg, #BFD9EE 0%, #DDE6E8 45%, #F2DCC0 100%);
+  }
+  .sea-gradient {
+    background: linear-gradient(180deg, #0056B3 0%, #064C97 50%, #032C5E 100%);
+  }
+
+  /* Image placeholder stripes */
+  .img-placeholder {
+    background-image: repeating-linear-gradient(
+      135deg,
+      var(--surface-alt) 0px, var(--surface-alt) 14px,
+      var(--surface) 14px, var(--surface) 28px
+    );
+    position: relative;
+    overflow: hidden;
+  }
+  .img-placeholder::after {
+    content: attr(data-label);
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink-3); letter-spacing: 0.08em; text-transform: uppercase;
+  }
+
+  /* Photo placeholder — coastline-ish gradient with grain */
+  .photo-placeholder {
+    position: relative;
+    background:
+      radial-gradient(80% 60% at 50% 90%, rgba(255,140,66,.25), transparent 60%),
+      radial-gradient(60% 40% at 20% 10%, rgba(6,182,212,.2), transparent 60%),
+      linear-gradient(160deg, #5B7DA0 0%, #8FA6BD 40%, #C9A77B 100%);
+    overflow: hidden;
+  }
+  .photo-placeholder::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      repeating-linear-gradient(45deg, rgba(255,255,255,.04) 0 2px, transparent 2px 4px);
+    pointer-events: none;
+  }
+  .photo-placeholder::after {
+    content: attr(data-label);
+    position: absolute; left: 16px; bottom: 14px;
+    font-family: var(--font-mono); font-size: 10.5px;
+    color: rgba(255,255,255,.85); letter-spacing: 0.12em; text-transform: uppercase;
+    background: rgba(15,23,42,.35);
+    padding: 5px 9px; border-radius: 4px;
+    backdrop-filter: blur(6px);
+  }
+
+  /* ── Buttons V2 ───────────────────────────────────────── */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 13px 20px; border-radius: 10px; border: 1px solid transparent;
+    font-weight: 500; font-size: 14.5px; letter-spacing: -0.005em;
+    cursor: default; white-space: nowrap;
+    transition: transform var(--d-fast) var(--ease-out),
+                box-shadow var(--d-base) var(--ease-out),
+                background var(--d-base), color var(--d-base), border-color var(--d-base);
+    position: relative; overflow: hidden;
+  }
+  .btn .arrow-wrap { display: inline-flex; transition: transform var(--d-base) var(--ease-out); }
+  .btn:hover { transform: translateY(-2px); }
+  .btn:hover .arrow-wrap { transform: translateX(4px); }
+  .btn:active { transform: translateY(0); }
+  .btn-primary { background: var(--primary); color: var(--primary-ink); }
+  .btn-primary:hover { box-shadow: var(--shadow-primary); background: var(--primary-deep); }
+  .btn-coral { background: var(--coral); color: #1a0b00; }
+  .btn-coral:hover { box-shadow: var(--shadow-coral); background: #FF7A28; }
+  .btn-secondary { background: transparent; color: var(--ink); border-color: var(--ink); }
+  .btn-secondary:hover { background: var(--ink); color: var(--bg); }
+  .btn-ghost { background: transparent; color: var(--ink-2); }
+  .btn-ghost:hover { color: var(--ink); }
+  .btn-lg { padding: 17px 28px; font-size: 15px; }
+  .btn-sm { padding: 9px 14px; font-size: 13px; }
+  .btn[disabled] { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+
+  /* Card variants */
+  .card-flat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); }
+  .card-elev { background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); border: 1px solid color-mix(in srgb, var(--line) 50%, transparent); }
+  .card-outl { background: transparent; border: 1px solid var(--ink-3); border-radius: var(--radius-lg); }
+
+  /* Step indicator */
+  .step-bar { display: flex; gap: 6px; align-items: center; }
+  .step-bar .seg { height: 4px; flex: 1; background: var(--line); border-radius: 999px; overflow: hidden; }
+  .step-bar .seg-fill { height: 100%; background: var(--primary); width: 0%; transition: width 700ms var(--ease-out); }
+  .step-bar .seg.done .seg-fill { width: 100%; }
+  .step-bar .seg.active .seg-fill { width: 60%; }
+
+  /* Inputs */
+  .input {
+    width: 100%; padding: 13px 16px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 10px; font: inherit; font-size: 14.5px; color: var(--ink);
+    transition: border-color 160ms, box-shadow 160ms, background 160ms;
+  }
+  .input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent); }
+  .input::placeholder { color: var(--ink-3); }
+  .input.error { border-color: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 14%, transparent); }
+  .field-label { font-size: 12px; font-weight: 500; color: var(--ink-2); margin-bottom: 6px; display: block; letter-spacing: -0.005em; }
+  .field-error { color: var(--danger); font-size: 12px; margin-top: 6px; }
+
+  /* Badges */
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 9px; border-radius: 999px;
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+  }
+  .badge-primary { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 30%, transparent); background: var(--primary-soft); }
+  .badge-success { color: var(--success); border-color: color-mix(in srgb, var(--success) 30%, transparent); background: color-mix(in srgb, var(--success) 12%, transparent); }
+  .badge-coral { color: #b04a14; border-color: color-mix(in srgb, var(--coral) 40%, transparent); background: var(--coral-soft); }
+  .badge-turquoise { color: #036A7E; border-color: color-mix(in srgb, var(--turquoise) 40%, transparent); background: var(--turquoise-soft); }
+  .badge-dot { width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
+  .badge-dot.pulse { position: relative; }
+  .badge-dot.pulse::after {
+    content: ''; position: absolute; inset: -2px; border-radius: 999px; background: currentColor;
+    animation: pulseRing 1.6s var(--ease-out) infinite;
+  }
+
+  /* Container */
+  .container { max-width: 1280px; margin: 0 auto; padding: 0 32px; }
+  @media (max-width: 720px) { .container { padding: 0 20px; } }
+
+  /* Misc */
+  .divider { height: 1px; background: var(--line); width: 100%; }
+  .hidden { display: none; }
+
+  /* Flight card V2 — hover lift + coral accent reveal */
+  .flight-card-v2 {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: transform var(--d-base) var(--ease-out),
+                box-shadow var(--d-base) var(--ease-out),
+                border-color var(--d-base);
+  }
+  .flight-card-v2::before {
+    content: '';
+    position: absolute; top: 0; left: 0; height: 3px; width: 0;
+    background: var(--coral);
+    transition: width 420ms var(--ease-out);
+    z-index: 2;
+  }
+  .flight-card-v2:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: transparent;
+  }
+  .flight-card-v2:hover::before { width: 100%; }
+  .flight-card-v2 .aircraft-icon { transition: transform 600ms var(--ease-out); }
+  .flight-card-v2:hover .aircraft-icon { transform: rotate(-12deg) translate(2px, -2px); }
+  .flight-card-v2 .stars-stagger > * { opacity: 0; transform: scale(0.6); transition: opacity 200ms, transform 200ms var(--ease-out); }
+  .flight-card-v2:hover .stars-stagger > * { opacity: 1; transform: scale(1); }
+  .flight-card-v2:hover .stars-stagger > *:nth-child(1) { transition-delay: 40ms; }
+  .flight-card-v2:hover .stars-stagger > *:nth-child(2) { transition-delay: 80ms; }
+  .flight-card-v2:hover .stars-stagger > *:nth-child(3) { transition-delay: 120ms; }
+  .flight-card-v2:hover .stars-stagger > *:nth-child(4) { transition-delay: 160ms; }
+  .flight-card-v2:hover .stars-stagger > *:nth-child(5) { transition-delay: 200ms; }
+
+  /* Underline link */
+  .nav-link {
+    position: relative;
+  }
+  .nav-link::after {
+    content: ''; position: absolute; left: 0; right: 100%; bottom: -2px; height: 1.5px;
+    background: var(--ink); transition: right var(--d-base) var(--ease-out);
+  }
+  .nav-link:hover::after, .nav-link.active::after { right: 0; }
+
+  /* Trust badge — entrance */
+  .trust-in { animation: scaleIn 500ms var(--ease-out) both; }
+  .trust-in:nth-child(1) { animation-delay: 80ms; }
+  .trust-in:nth-child(2) { animation-delay: 180ms; }
+  .trust-in:nth-child(3) { animation-delay: 280ms; }
+  .trust-in:nth-child(4) { animation-delay: 380ms; }
+
+  /* Headline stagger */
+  .stagger-word { display: inline-block; opacity: 0; transform: translateY(0.4em); animation: fadeUp 720ms var(--ease-out) both; }
+
+  /* Card hover lift (generic) */
+  .lift-on-hover { transition: transform var(--d-base) var(--ease-out), box-shadow var(--d-base) var(--ease-out); }
+  .lift-on-hover:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+</style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script>
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "primaryColor": "#0056B3",
+      "accentColor": "#FF8C42",
+      "headlineFont": "instrument",
+      "heroVariant": "cinematic",
+      "motion": "full",
+      "lang": "en",
+      "airfieldHero": "photo",
+      "airfieldEvents": "populated",
+      "theme": "light"
+    }/*EDITMODE-END*/;
+    window.__TWEAK_DEFAULTS = TWEAK_DEFAULTS;
+  </script>
+
+  <script type="text/babel" src="src/tweaks-panel.jsx"></script>
+  <script type="text/babel" src="src/ios-frame.jsx"></script>
+  <script type="text/babel" src="src/data.jsx"></script>
+  <script type="text/babel" src="src/auth.jsx"></script>
+  <script type="text/babel" src="src/booking.jsx"></script>
+  <script type="text/babel" src="src/mobile.jsx"></script>
+  <script type="text/babel" src="src/v2/i18n.jsx"></script>
+  <script type="text/babel" src="src/v2/components.jsx"></script>
+  <script type="text/babel" src="src/v2/landing.jsx"></script>
+  <script type="text/babel" src="src/v2/listing.jsx"></script>
+  <script type="text/babel" src="src/v2/detail.jsx"></script>
+  <script type="text/babel" src="src/v2/airfield.jsx"></script>
+  <script type="text/babel" src="src/v2/pilot-dashboard.jsx"></script>
+  <script type="text/babel" src="src/v2/passenger-dashboard.jsx"></script>
+  <script type="text/babel" src="src/v2/admin-dashboard.jsx"></script>
+  <script type="text/babel" src="src/v2/app.jsx"></script>
+</body>
+</html>

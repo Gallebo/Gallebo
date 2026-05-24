@@ -1,122 +1,62 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PilotDocumentRenewalForm } from "@/components/pilot/pilot-document-renewal-form";
-import { requirePilot } from "@/lib/auth/rbac";
-import { daysUntilIsoDate, isExpiryWarning } from "@/lib/pilot/review-stats";
-import { createClient } from "@/lib/supabase/server";
+import Link from "next/link";
 
-export const metadata = { title: "Pilot documents — Gallebo" };
+import { PilotDocumentRenewalForm } from "@/components/pilot/pilot-document-renewal-form";
+import { PilotDocumentRowCard } from "@/components/pilot/pilot-document-row";
+import { PilotPageHeader } from "@/components/pilot/pilot-page-header";
+import { requirePilot } from "@/lib/auth/rbac";
+import { getPilotDocuments } from "@/lib/pilot/queries";
+
+export const metadata = { title: "Documents — Gallebo" };
 
 export default async function PilotDocumentsPage() {
   const { user } = await requirePilot();
-  const supabase = await createClient();
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("status")
-    .eq("id", user.id)
-    .single();
-
-  const { data: pilotProfile } = await supabase
-    .from("pilot_profiles")
-    .select("license_expires_at, medical_expires_at")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  const { data: recentDocs } = await supabase
-    .from("documents")
-    .select("id, type, uploaded_at, review_status, expires_at")
-    .eq("user_id", user.id)
-    .in("type", ["ppl_license", "lapl_license", "medical_certificate"])
-    .order("uploaded_at", { ascending: false })
-    .limit(12);
-
-  const licDays = daysUntilIsoDate(pilotProfile?.license_expires_at ?? null);
-  const medDays = daysUntilIsoDate(pilotProfile?.medical_expires_at ?? null);
-  const licWarn = isExpiryWarning(licDays);
-  const medWarn = isExpiryWarning(medDays);
+  const documents = await getPilotDocuments(user.id);
 
   return (
-    <div className="max-w-2xl space-y-8">
-      <Card>
-        <CardHeader>
-          <CardTitle>Verification status</CardTitle>
-          <CardDescription>Current platform status.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="capitalize">{profile?.status ?? "unknown"}</p>
-        </CardContent>
-      </Card>
+    <div>
+      <PilotPageHeader
+        eyebrow="Verification"
+        title="Documents"
+        description="Your pilot licence, medical, and aircraft paperwork. Reviewed by Didit."
+      />
 
-      <Card className={licWarn || medWarn ? "border-destructive/50" : ""}>
-        <CardHeader>
-          <CardTitle>Licence &amp; medical</CardTitle>
-          <CardDescription>Dates saved on your pilot profile.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <div className="flex justify-between gap-4">
-            <span className="text-muted-foreground">PPL / LAPL expiry</span>
-            <span>
-              {pilotProfile?.license_expires_at ?? "—"}
-              {licWarn ? (
-                <span className="ml-2 text-destructive">(within 30 days)</span>
-              ) : null}
-            </span>
-          </div>
-          <div className="flex justify-between gap-4">
-            <span className="text-muted-foreground">Medical expiry</span>
-            <span>
-              {pilotProfile?.medical_expires_at ?? "—"}
-              {medWarn ? (
-                <span className="ml-2 text-destructive">(within 30 days)</span>
-              ) : null}
-            </span>
-          </div>
-          {(licWarn || medWarn) && (
-            <p className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-destructive">
-              At least one document expires within 30 days. Upload renewed files below.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+      <div className="mb-8 flex flex-col gap-3">
+        {documents.map((doc) => (
+          <PilotDocumentRowCard key={doc.id} doc={doc} />
+        ))}
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent uploads</CardTitle>
-          <CardDescription>Latest pilot documents you submitted.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {recentDocs && recentDocs.length > 0 ? (
-            <ul className="space-y-2 text-sm">
-              {recentDocs.map((d) => (
-                <li
-                  key={d.id}
-                  className="flex flex-wrap justify-between gap-2 border-b pb-2 last:border-0"
-                >
-                  <span className="font-mono text-xs">{d.type}</span>
-                  <span className="text-muted-foreground">{d.review_status}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {d.uploaded_at?.slice(0, 10)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-muted-foreground">No documents found.</p>
-          )}
-        </CardContent>
-      </Card>
+      <Link
+        href="#upload"
+        className="mb-10 inline-flex rounded-full border px-5 py-2.5 text-[14px] font-semibold no-underline transition-colors hover:bg-[var(--surface-alt)]"
+        style={{ borderColor: "var(--line)", color: "var(--ink)" }}
+      >
+        Upload new document
+      </Link>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Upload renewals</CardTitle>
-          <CardDescription>
-            Submit new licence and medical files. Admin will review pending uploads.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <PilotDocumentRenewalForm />
-        </CardContent>
-      </Card>
+      <section id="upload" className="rounded-xl border p-6" style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
+        <h2 className="mb-1 text-[15px] font-semibold" style={{ color: "var(--ink)" }}>
+          Upload renewals
+        </h2>
+        <p className="mb-4 text-[13px]" style={{ color: "var(--ink-3)" }}>
+          Submit updated licence or medical files for admin review.
+        </p>
+        <PilotDocumentRenewalForm />
+      </section>
+
+      <p className="mt-6 text-[13px]" style={{ color: "var(--ink-3)" }}>
+        <Link href="/pilot/stripe" className="underline" style={{ color: "var(--primary-v2)" }}>
+          Payout settings
+        </Link>
+        {" · "}
+        <Link href="/pilot/aircraft" className="underline" style={{ color: "var(--primary-v2)" }}>
+          Aircraft
+        </Link>
+        {" · "}
+        <Link href="/pilot/edit" className="underline" style={{ color: "var(--primary-v2)" }}>
+          Personal info
+        </Link>
+      </p>
     </div>
   );
 }

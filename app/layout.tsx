@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
+import { Fraunces, Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 
-import { SiteFooter } from "@/components/layout/site-footer";
+import { SiteFooterGate } from "@/components/layout/site-footer-gate";
 import { SiteHeader } from "@/components/layout/site-header";
+import { ThemeProvider } from "@/components/theme/theme-provider";
 
 import "./globals.css";
 
@@ -22,6 +23,13 @@ const playfair = Playfair_Display({
   weight: ["600", "700"],
 });
 
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
+});
+
 export const metadata: Metadata = {
   title: {
     default: "Gallebo — Share the cost of private flights",
@@ -38,6 +46,8 @@ export const metadata: Metadata = {
   },
 };
 
+const themeInitScript = `(function(){try{var t=localStorage.getItem('gallebo-theme');if(t==='dark'){document.documentElement.classList.add('dark');}else if(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.classList.add('dark');}}catch(e){}})();`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -46,12 +56,18 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} ${fraunces.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="flex min-h-full flex-col font-sans">
-        <SiteHeader />
-        <main className="flex-1">{children}</main>
-        <SiteFooter />
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
+      <body className="flex min-h-dvh flex-col font-sans bg-[var(--bg)] text-[var(--ink)] transition-colors duration-300">
+        <ThemeProvider>
+          <SiteHeader />
+          <main className="flex min-h-0 flex-1 flex-col">{children}</main>
+          <SiteFooterGate />
+        </ThemeProvider>
       </body>
     </html>
   );

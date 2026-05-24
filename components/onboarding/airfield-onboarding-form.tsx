@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -26,6 +26,7 @@ export function AirfieldOnboardingForm() {
     submitAirfieldRequestAction,
     initialState
   );
+  const [, startTransition] = useTransition();
   const form = useForm<z.input<typeof airfieldFormSchema>>({
     resolver: zodResolver(airfieldFormSchema),
     defaultValues: {
@@ -70,7 +71,9 @@ export function AirfieldOnboardingForm() {
               fd.append("contactPhone", data.contactPhone);
               fd.append("type", "airfield_operating_license");
               fd.append("file", data.file);
-              formAction(fd);
+              startTransition(() => {
+                formAction(fd);
+              });
             })}
           >
             <Input placeholder="Airfield name" {...form.register("airfieldName")} />

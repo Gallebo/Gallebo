@@ -48,7 +48,35 @@ export async function loginAction(
   }
 
   const next = formData.get("next");
-  redirect(typeof next === "string" && next.startsWith("/") ? next : "/dashboard");
+  if (typeof next === "string" && next.startsWith("/")) {
+    redirect(next);
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, status")
+      .eq("id", user.id)
+      .single();
+
+    if (profile?.status === "verified" && profile.role === "admin") {
+      redirect("/admin");
+    }
+    if (profile?.status === "verified" && profile.role === "pilot") {
+      redirect("/pilot");
+    }
+    if (profile?.status === "verified" && profile.role === "passenger") {
+      redirect("/passenger");
+    }
+    if (profile?.status === "verified" && profile.role === "airfield_operator") {
+      redirect("/airfield");
+    }
+  }
+
+  redirect("/dashboard");
 }
 
 export async function registerAction(

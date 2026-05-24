@@ -4,6 +4,467 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ── Gallebo V2 Design System ─────────────────────────────── */
+
+/* Design tokens — light (V2 palette per spec) */
+:root {
+  /* Brand colours */
+  --coral:        #FF8C42;
+  --coral-soft:   #FFE7D5;
+  --coral-ink:    #1a0b00;
+  --sun:          #E8B13D;
+  --turquoise:    #06B6D4;
+  --turquoise-soft: #CFF4FB;
+  --success:      #2D8467;
+  --danger:       #C44A3A;
+
+  /* Primary blue */
+  --primary-v2:   #0056B3;
+  --primary-ink:  #ffffff;
+  --primary-soft: #E6EEF8;
+  --primary-deep: #003E84;
+
+  /* Neutral canvas */
+  --bg:           #FBFAF7;
+  --surface:      #FFFFFF;
+  --surface-alt:  #F4F1EA;
+  --inverse:      #0F172A;
+  --inverse-ink:  #FBFAF7;
+  --line:         #EAE5D8;
+  --line-strong:  #D5CEBC;
+
+  /* Ink scale */
+  --ink:          #0F172A;
+  --ink-2:        #374151;
+  --ink-3:        #6B7280;
+
+  /* Typography */
+  --font-display: var(--font-fraunces), var(--font-playfair), "Georgia", "Times New Roman", serif;
+  --font-mono-v2: var(--font-geist-mono), "JetBrains Mono", "ui-monospace", monospace;
+
+  /* Shadows */
+  --shadow-sm:    0 1px 2px rgba(15,23,42,.06);
+  --shadow-md:    0 10px 30px -12px rgba(15,23,42,.14), 0 2px 6px rgba(15,23,42,.04);
+  --shadow-lg:    0 30px 80px -28px rgba(15,23,42,.28), 0 4px 10px rgba(15,23,42,.06);
+  --shadow-coral: 0 12px 28px -10px rgba(255,140,66,.4);
+  --shadow-primary: 0 12px 28px -10px rgba(0,86,179,.35);
+
+  /* Radii */
+  --radius-sm:    6px;
+  --radius-base:  10px;
+  --radius-lg:    18px;
+  --radius-xl:    28px;
+
+  /* Motion */
+  --ease-out:     cubic-bezier(.2,.8,.2,1);
+  --ease-in-out:  cubic-bezier(.65,0,.35,1);
+  --d-fast:       180ms;
+  --d-med:        280ms;
+  --d-slow:       480ms;
+
+  /* App shell */
+  --header-height: 72px;
+
+  /* Admin dashboard (sidebar stays navy in light + dark) */
+  --admin-sidebar-bg: #0E1628;
+  --admin-sidebar-border: rgba(255, 255, 255, 0.08);
+  --admin-sidebar-muted: rgba(255, 255, 255, 0.45);
+  --admin-sidebar-active-bg: rgba(255, 140, 66, 0.16);
+}
+
+/* Dark mode token overrides (Adriatic night) */
+.dark {
+  --bg:           #0D1318;
+  --surface:      #161D24;
+  --surface-alt:  #1E262E;
+  --inverse:      #05090F;
+  --inverse-ink:  #F2EEE4;
+  --line:         #2A333B;
+  --line-strong:  #3C4651;
+
+  --ink:          #F2EEE4;
+  --ink-2:        #C7C3B9;
+  --ink-3:        #8B8980;
+
+  --primary-v2:   #4F94E6;
+  --primary-ink:  #0A1622;
+  --primary-soft: rgba(79,148,230,.16);
+  --primary-deep: #82B3EE;
+
+  --coral:        #FF9E60;
+  --coral-soft:   rgba(255,158,96,.18);
+  --coral-ink:    #1a0b00;
+  --turquoise:    #2BD3EE;
+  --turquoise-soft: rgba(43,211,238,.16);
+  --sun:          #F0C25A;
+  --success:      #4DB28F;
+  --danger:       #E26959;
+
+  --shadow-sm:    0 1px 2px rgba(0,0,0,.5);
+  --shadow-md:    0 10px 30px -12px rgba(0,0,0,.6), 0 2px 6px rgba(0,0,0,.4);
+  --shadow-lg:    0 30px 80px -28px rgba(0,0,0,.85), 0 4px 10px rgba(0,0,0,.5);
+  --shadow-coral: 0 12px 28px -10px rgba(255,158,96,.45);
+  --shadow-primary: 0 12px 28px -10px rgba(79,148,230,.55);
+
+  --admin-sidebar-bg: #080C12;
+  --admin-sidebar-border: rgba(255, 255, 255, 0.06);
+}
+
+/* ── Keyframe animations ──────────────────────────────────── */
+@keyframes drift {
+  0%,100% { transform: translateX(0) translateY(0); }
+  33%     { transform: translateX(8px) translateY(-4px); }
+  66%     { transform: translateX(-5px) translateY(3px); }
+}
+@keyframes drift2 {
+  0%,100% { transform: translateX(0) translateY(0); }
+  33%     { transform: translateX(-10px) translateY(5px); }
+  66%     { transform: translateX(6px) translateY(-3px); }
+}
+@keyframes flyPath {
+  0%   { offset-distance: 0%; opacity: 0; }
+  5%   { opacity: 1; }
+  95%  { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+@keyframes dashFlow {
+  to { stroke-dashoffset: -40; }
+}
+@keyframes drawIn {
+  from { stroke-dashoffset: 1000; }
+  to   { stroke-dashoffset: 0; }
+}
+@keyframes fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(32px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideRight {
+  from { opacity: 0; transform: translateX(-18px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes pulse-ring {
+  0%   { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+@keyframes stagger-word-in {
+  from { opacity: 0; transform: translateY(22px) skewY(1.5deg); }
+  to   { opacity: 1; transform: translateY(0) skewY(0deg); }
+}
+
+/* ── Stagger-word (hero headline) ────────────────────────── */
+.gallebo-stagger-word {
+  display: inline-block;
+  animation: stagger-word-in 800ms var(--ease-out) both;
+}
+
+/* Block/flex containers — animation only, preserves layout */
+.gallebo-stagger-in {
+  animation: stagger-word-in 800ms var(--ease-out) both;
+}
+
+/* ── Scroll reveal ───────────────────────────────────────── */
+.gallebo-reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 640ms var(--ease-out), transform 640ms var(--ease-out);
+}
+.gallebo-reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.gallebo-reveal [data-stagger] {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 500ms var(--ease-out), transform 500ms var(--ease-out);
+  transition-delay: calc(var(--stagger-i, 0) * 90ms);
+}
+.gallebo-reveal.visible [data-stagger] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Section fades ───────────────────────────────────────── */
+.gallebo-section-fade-bottom {
+  -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+}
+.gallebo-section-fade-top {
+  -webkit-mask-image: linear-gradient(to top, black 80%, transparent 100%);
+  mask-image: linear-gradient(to top, black 80%, transparent 100%);
+}
+
+/* ── Flight card v2 ──────────────────────────────────────── */
+.gallebo-flight-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  overflow: hidden;
+  transition: box-shadow var(--d-med) var(--ease-out),
+              transform var(--d-med) var(--ease-out);
+  cursor: pointer;
+}
+.gallebo-flight-card:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-3px);
+}
+
+/* ── Map grid placeholder ────────────────────────────────── */
+.gallebo-map-grid {
+  background: repeating-linear-gradient(
+    0deg, transparent 0, transparent 27px, var(--line) 27px, var(--line) 28px
+  ),
+  repeating-linear-gradient(
+    90deg, transparent 0, transparent 27px, var(--line) 27px, var(--line) 28px
+  );
+}
+
+/* ── FAQ accordion ───────────────────────────────────────── */
+.gallebo-faq-answer {
+  animation: fade 220ms var(--ease-out) both, slideUp 220ms var(--ease-out) both;
+}
+
+/* ── Seagull logo pulse dot ──────────────────────────────── */
+.gallebo-pulse-ring {
+  animation: pulse-ring 2s ease-out infinite;
+}
+
+/* ── Photo placeholder (striped) ─────────────────────────── */
+.gallebo-photo-placeholder {
+  position: relative;
+  background:
+    linear-gradient(160deg, #c8d8f0 0%, #a8c2e8 40%, #7ab0e0 70%, #5896d4 100%);
+  overflow: hidden;
+}
+.gallebo-photo-placeholder::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 18px,
+    rgba(255,255,255,.07) 18px,
+    rgba(255,255,255,.07) 20px
+  );
+}
+
+/* ── Sea gradient (CTA) ──────────────────────────────────── */
+.gallebo-sea-gradient {
+  background: linear-gradient(
+    135deg,
+    #0056B3 0%,
+    #0A4D8C 30%,
+    #036A7E 65%,
+    #06B6D4 100%
+  );
+}
+
+/* ── Sky gradient (Adriatic night — dark mode hero/sections) */
+.gallebo-sky-gradient {
+  background:
+    radial-gradient(120% 80% at 50% 110%, rgba(255,158,96,.10), transparent 55%),
+    radial-gradient(90% 70% at 85% 5%, rgba(43,211,238,.14), transparent 60%),
+    linear-gradient(180deg, #0B1726 0%, #11202F 45%, #1B2030 100%);
+}
+
+/* ── V2 button utilities ──────────────────────────────────── */
+.btn-v2 {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 20px;
+  border-radius: var(--radius-base);
+  border: 1px solid transparent;
+  font-weight: 500;
+  font-size: 14.5px;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    transform var(--d-fast) var(--ease-out),
+    box-shadow var(--d-med) var(--ease-out),
+    background var(--d-med),
+    color var(--d-med),
+    border-color var(--d-med);
+  text-decoration: none;
+}
+.btn-v2:hover { transform: translateY(-2px); }
+.btn-v2:active { transform: translateY(0); }
+.btn-v2-primary {
+  background: var(--primary-v2);
+  color: var(--primary-ink);
+}
+.btn-v2-primary:hover {
+  box-shadow: var(--shadow-primary);
+  background: var(--primary-deep);
+}
+.btn-v2-coral {
+  background: var(--coral);
+  color: var(--coral-ink);
+}
+.btn-v2-coral:hover {
+  box-shadow: var(--shadow-coral);
+  background: #FF7A28;
+}
+.btn-v2-secondary {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--ink);
+}
+.btn-v2-secondary:hover {
+  background: var(--ink);
+  color: var(--bg);
+}
+.btn-v2-ghost {
+  background: transparent;
+  color: var(--ink-2);
+}
+.btn-v2-ghost:hover { color: var(--ink); }
+.btn-v2-lg { padding: 17px 28px; font-size: 15px; }
+.btn-v2-sm { padding: 9px 14px; font-size: 13px; }
+
+/* ── V2 badge utilities ───────────────────────────────────── */
+.badge-v2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-family: var(--font-mono-v2);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-2);
+}
+.badge-v2-primary {
+  color: var(--primary-v2);
+  border-color: color-mix(in srgb, var(--primary-v2) 30%, transparent);
+  background: var(--primary-soft);
+}
+.badge-v2-coral {
+  color: #b04a14;
+  border-color: color-mix(in srgb, var(--coral) 40%, transparent);
+  background: var(--coral-soft);
+}
+.badge-v2-success {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 30%, transparent);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+}
+.badge-v2-turquoise {
+  color: #036A7E;
+  border-color: color-mix(in srgb, var(--turquoise) 40%, transparent);
+  background: var(--turquoise-soft);
+}
+.dark .badge-v2-turquoise { color: var(--turquoise); }
+
+/* ── V2 nav link (underline animation) ───────────────────── */
+.nav-link-v2 {
+  position: relative;
+  text-decoration: none;
+  color: inherit;
+}
+.nav-link-v2::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 100%;
+  bottom: -2px;
+  height: 1.5px;
+  background: var(--ink);
+  transition: right var(--d-med) var(--ease-out);
+}
+.nav-link-v2:hover::after,
+.nav-link-v2.active::after { right: 0; }
+
+/* ── V2 flight card (coral accent on hover) ──────────────── */
+.flight-card-v2 {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition:
+    transform var(--d-med) var(--ease-out),
+    box-shadow var(--d-med) var(--ease-out),
+    border-color var(--d-med);
+}
+.flight-card-v2::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  height: 3px; width: 0;
+  background: var(--coral);
+  transition: width 420ms var(--ease-out);
+  z-index: 2;
+}
+.flight-card-v2:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+  border-color: transparent;
+}
+.flight-card-v2:hover::before { width: 100%; }
+
+/* ── Admin dashboard shell ───────────────────────────────── */
+.admin-shell {
+  display: flex;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: calc(100dvh - var(--header-height));
+  background: var(--bg);
+}
+
+.admin-sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 248px;
+  flex-shrink: 0;
+  align-self: stretch;
+  min-height: 100%;
+  background: var(--admin-sidebar-bg);
+  color: var(--inverse-ink);
+  border-right: 1px solid var(--admin-sidebar-border);
+}
+
+.admin-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 100%;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+/* ── Theme toggle transition ─────────────────────────────── */
+html {
+  transition: background 320ms var(--ease-out), color 320ms var(--ease-out);
+}
+
+/* ── Dark: map grid invert ───────────────────────────────── */
+.dark .gallebo-map-grid {
+  background:
+    repeating-linear-gradient(0deg, transparent 0, transparent 27px, rgba(255,255,255,.06) 27px, rgba(255,255,255,.06) 28px),
+    repeating-linear-gradient(90deg, transparent 0, transparent 27px, rgba(255,255,255,.06) 27px, rgba(255,255,255,.06) 28px);
+}
+
+/* ── Dark: photo placeholder ─────────────────────────────── */
+.dark .gallebo-photo-placeholder {
+  background:
+    radial-gradient(80% 60% at 50% 90%, rgba(255,158,96,.22), transparent 60%),
+    radial-gradient(60% 40% at 20% 10%, rgba(43,211,238,.18), transparent 60%),
+    linear-gradient(160deg, #1B2B3C 0%, #2A3A4B 40%, #4A3B2A 100%);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

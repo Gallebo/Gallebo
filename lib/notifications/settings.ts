@@ -79,7 +79,7 @@ export async function updateNotificationSettings(
 
     if (error) return { error: error.message };
 
-    revalidatePath("/dashboard/settings");
+    revalidatePath("/passenger/profile");
     return { success: "Settings saved" };
   } catch (e) {
     return {

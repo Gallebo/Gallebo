@@ -30,7 +30,7 @@ export default async function BookingSuccessPage({
       </p>
       <div className="flex flex-wrap justify-center gap-3">
         <Link
-          href="/dashboard/bookings"
+          href="/passenger/bookings"
           className={cn(buttonVariants({ variant: "default" }))}
         >
           My bookings

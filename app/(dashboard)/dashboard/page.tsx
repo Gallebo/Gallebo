@@ -27,48 +27,12 @@ export default async function DashboardPage() {
     redirect("/admin");
   }
 
-  if (profile.status === "verified" && profile.role === "passenger") {
-    return (
-      <div className="space-y-6">
-        <StatusBanner status="verified" />
-        <ProfileCard profile={profile} email={authUser?.email ?? ""} />
-        <p className="text-muted-foreground">
-          Search and book shared flights across Europe.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <Link
-            href="/flights"
-            className={cn(buttonVariants({ variant: "default" }), "inline-flex")}
-          >
-            Find flights
-          </Link>
-          <Link
-            href="/dashboard/bookings"
-            className={cn(buttonVariants({ variant: "outline" }), "inline-flex")}
-          >
-            My bookings
-          </Link>
-        </div>
-      </div>
-    );
+  if (profile.status === "verified" && profile.role === "pilot") {
+    redirect("/pilot");
   }
 
-  if (profile.status === "verified" && profile.role === "pilot") {
-    return (
-      <div className="space-y-6">
-        <StatusBanner status="verified" />
-        <ProfileCard profile={profile} email={authUser?.email ?? ""} />
-        <p className="text-muted-foreground">
-          Manage your pilot profile and aircraft listings.
-        </p>
-        <Link
-          href="/pilot"
-          className={cn(buttonVariants({ variant: "default" }), "inline-flex")}
-        >
-          Open pilot hub
-        </Link>
-      </div>
-    );
+  if (profile.status === "verified" && profile.role === "passenger") {
+    redirect("/passenger");
   }
 
   if (profile.status === "verified" && profile.role === "airfield_operator") {

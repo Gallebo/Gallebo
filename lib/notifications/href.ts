@@ -8,10 +8,10 @@ export function notificationHref(
     if (role === "pilot") {
       return `/pilot/bookings#booking-${n.booking_id}`;
     }
-    return `/dashboard/bookings#booking-${n.booking_id}`;
+    return `/passenger/bookings#booking-${n.booking_id}`;
   }
   if (n.flight_id) {
     return `/flights/${n.flight_id}`;
   }
-  return role === "pilot" ? "/pilot/bookings" : "/dashboard/bookings";
+  return role === "pilot" ? "/pilot/bookings" : "/passenger/bookings";
 }

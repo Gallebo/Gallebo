@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -26,6 +26,7 @@ export function DeleteAccountForm() {
     deleteAccountAction,
     initialState
   );
+  const [, startTransition] = useTransition();
   const form = useForm<z.input<typeof deleteConfirmSchema>>({
     resolver: zodResolver(deleteConfirmSchema),
     defaultValues: { confirm: "" },
@@ -44,7 +45,9 @@ export function DeleteAccountForm() {
         form.clearErrors("root");
         const fd = new FormData();
         fd.append("confirm", data.confirm);
-        formAction(fd);
+        startTransition(() => {
+          formAction(fd);
+        });
       })}
     >
       <p className="text-sm text-muted-foreground">

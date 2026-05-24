@@ -116,7 +116,7 @@ export async function acceptBookingAction(
     });
 
     revalidatePath("/pilot/bookings");
-    revalidatePath("/dashboard/bookings");
+    revalidatePath("/passenger/bookings");
     revalidatePath(`/flights/${booking.flight_id}`);
 
     return { success: "Booking accepted. Passenger has 30 minutes to pay." };
@@ -180,7 +180,7 @@ export async function rejectBookingAction(
     });
 
     revalidatePath("/pilot/bookings");
-    revalidatePath("/dashboard/bookings");
+    revalidatePath("/passenger/bookings");
 
     return { success: "Booking rejected" };
   } catch (e) {
@@ -370,7 +370,7 @@ export async function cancelBookingAction(
       refundFull,
     });
 
-    revalidatePath("/dashboard/bookings");
+    revalidatePath("/passenger/bookings");
     revalidatePath("/pilot/bookings");
     revalidatePath(`/flights/${booking.flight_id}`);
 

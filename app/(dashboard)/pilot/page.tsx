@@ -1,104 +1,155 @@
 import Link from "next/link";
 
-import { buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PilotBookingRequestRow } from "@/components/pilot/pilot-booking-request-row";
+import { PilotFlightCard } from "@/components/pilot/pilot-flight-card";
+import { PilotMetricCard } from "@/components/pilot/pilot-metric-card";
 import { requirePilot } from "@/lib/auth/rbac";
-import { cn } from "@/lib/utils";
-import { averageRating } from "@/lib/pilot/review-stats";
-import { createClient } from "@/lib/supabase/server";
+import { getPilotOverviewData } from "@/lib/pilot/queries";
 
 export const metadata = { title: "Pilot dashboard — Gallebo" };
 
 export default async function PilotOverviewPage() {
   const { user } = await requirePilot();
-  const supabase = await createClient();
-
-  const { data: reviews } = await supabase
-    .from("pilot_reviews_public")
-    .select("rating")
-    .eq("pilot_user_id", user.id);
-
-  const ratings =
-    reviews
-      ?.map((r) => r.rating)
-      .filter((r): r is number => typeof r === "number") ?? [];
-
-  const avgRating = averageRating(ratings);
-
-  const { count: aircraftCount } = await supabase
-    .from("aircraft")
-    .select("id", { count: "exact", head: true })
-    .eq("pilot_user_id", user.id);
-
-  const { count: publishedFlights } = await supabase
-    .from("flights")
-    .select("id", { count: "exact", head: true })
-    .eq("pilot_user_id", user.id)
-    .eq("status", "published");
+  const data = await getPilotOverviewData(user.id);
+  const greeting = getGreeting(data.sidebar.firstName);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <Card>
-        <CardHeader>
-          <CardTitle>Performance</CardTitle>
-          <CardDescription>
-            Published flights and passenger bookings (earnings in a later phase).
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4 text-sm">
-          <div className="flex justify-between border-b pb-2">
-            <span className="text-muted-foreground">Published flights</span>
-            <span className="font-medium">{publishedFlights ?? 0}</span>
-          </div>
-          <div className="flex justify-between border-b pb-2">
-            <span className="text-muted-foreground">Lifetime earnings</span>
-            <span className="font-medium">—</span>
-          </div>
-          <div className="flex justify-between border-b pb-2">
-            <span className="text-muted-foreground">Average rating</span>
-            <span className="font-medium">
-              {avgRating !== null ? `${avgRating} / 5` : "—"}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Reviews</span>
-            <span className="font-medium">{ratings.length}</span>
-          </div>
-        </CardContent>
-      </Card>
+    <div>
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p
+            className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+            style={{ color: "var(--ink-3)" }}
+          >
+            Pilot dashboard
+          </p>
+          <h1
+            className="text-[clamp(2rem,4vw,2.75rem)] font-medium leading-[1.05] tracking-[-0.03em]"
+            style={{ fontFamily: "var(--font-display)", color: "var(--ink)" }}
+          >
+            {greeting}
+          </h1>
+          <p className="mt-2 text-[15px]" style={{ color: "var(--ink-2)" }}>
+            {data.pendingCount > 0
+              ? `${data.pendingCount} booking request${data.pendingCount === 1 ? "" : "s"} waiting`
+              : "No pending requests"}
+            {data.stats.upcoming > 0
+              ? ` · ${data.stats.upcoming} flight${data.stats.upcoming === 1 ? "" : "s"} coming up this week`
+              : ""}
+            .
+          </p>
+        </div>
+        <Link
+          href="/pilot/flights/new"
+          className="btn-v2-coral inline-flex items-center gap-2 whitespace-nowrap px-5 py-3 text-[14px] font-semibold no-underline"
+        >
+          <span aria-hidden="true">+</span>
+          Post a flight
+        </Link>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick links</CardTitle>
-          <CardDescription>Keep your profile ready for passengers.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <Link
-            href={`/pilots/${user.id}`}
-            className={cn(buttonVariants({ variant: "outline" }), "inline-flex w-fit")}
-          >
-            View public profile
-          </Link>
-          <Link
-            href="/pilot/aircraft"
-            className={cn(buttonVariants({ variant: "outline" }), "inline-flex w-fit")}
-          >
-            Manage aircraft ({aircraftCount ?? 0})
-          </Link>
+      <div className="mb-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <PilotMetricCard
+          label="Upcoming"
+          value={data.stats.upcoming}
+          sub={`Next: ${data.stats.nextFlightLabel}`}
+        />
+        <PilotMetricCard
+          label="Recouped (May)"
+          value={`€${data.stats.recoupedMonth.toLocaleString()}`}
+          sub={
+            data.stats.recoupedPending > 0
+              ? `+€${data.stats.recoupedPending} pending`
+              : undefined
+          }
+          valueColor="var(--success)"
+        />
+        <PilotMetricCard
+          label="Rating"
+          value={data.stats.rating !== null ? data.stats.rating : "—"}
+          sub={
+            data.stats.rating !== null
+              ? `${data.stats.reviewCount} review${data.stats.reviewCount === 1 ? "" : "s"}`
+              : "No reviews yet"
+          }
+          valueColor="var(--sun)"
+        />
+        <PilotMetricCard
+          label="Total pax"
+          value={data.stats.totalPax}
+          sub="Carried since joining"
+          valueColor="var(--ink)"
+        />
+      </div>
+
+      <section className="mb-10">
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <h2 className="text-[1.15rem] font-semibold" style={{ color: "var(--ink)" }}>
+            Upcoming flights
+          </h2>
           <Link
             href="/pilot/flights"
-            className={cn(buttonVariants({ variant: "outline" }), "inline-flex w-fit")}
+            className="text-[13px] font-medium no-underline"
+            style={{ color: "var(--primary-v2)" }}
           >
-            My flights
+            View all
           </Link>
+        </div>
+        {data.upcomingFlights.length > 0 ? (
+          <div className="flex flex-col gap-3">
+            {data.upcomingFlights.map((f) => (
+              <PilotFlightCard key={f.id} flight={f} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-[14px]" style={{ color: "var(--ink-3)" }}>
+            No upcoming flights. Post your first route to start receiving requests.
+          </p>
+        )}
+      </section>
+
+      <section>
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <h2 className="text-[1.15rem] font-semibold" style={{ color: "var(--ink)" }}>
+            Booking requests
+          </h2>
+          {data.pendingCount > 0 ? (
+            <span
+              className="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-white"
+              style={{ background: "var(--coral)" }}
+            >
+              {data.pendingCount} pending
+            </span>
+          ) : null}
+        </div>
+        {data.pendingRequests.length > 0 ? (
+          <div className="flex flex-col gap-3">
+            {data.pendingRequests.map((b) => (
+              <PilotBookingRequestRow key={b.id} booking={b} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-[14px]" style={{ color: "var(--ink-3)" }}>
+            No pending booking requests.
+          </p>
+        )}
+        {data.pendingCount > 2 ? (
           <Link
-            href="/pilot/documents"
-            className={cn(buttonVariants({ variant: "outline" }), "inline-flex w-fit")}
+            href="/pilot/bookings"
+            className="mt-4 inline-block text-[13px] font-medium no-underline"
+            style={{ color: "var(--primary-v2)" }}
           >
-            Documents &amp; renewals
+            View all requests →
           </Link>
-        </CardContent>
-      </Card>
+        ) : null}
+      </section>
     </div>
   );
+}
+
+function getGreeting(firstName: string): string {
+  const hour = new Date().getHours();
+  const period =
+    hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  return `${period}, ${firstName}.`;
 }

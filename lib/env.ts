@@ -1,5 +1,14 @@
 import { z } from "zod";
 
+/** Treat unset or blank .env values as missing (empty string fails .min()). */
+function emptyToUndefined(value: unknown) {
+  if (value === "" || value === undefined || value === null) return undefined;
+  return value;
+}
+
+const optionalString = (min = 1) =>
+  z.preprocess(emptyToUndefined, z.string().min(min).optional());
+
 const publicEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1).optional(),
@@ -13,15 +22,15 @@ const publicEnvSchema = z.object({
 });
 
 const serverEnvSchema = z.object({
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
-  DIDIT_API_KEY: z.string().min(1).optional(),
-  DIDIT_WEBHOOK_SECRET: z.string().min(1).optional(),
-  DIDIT_WORKFLOW_ID: z.string().min(1).optional(),
-  CRON_SECRET: z.string().min(1).optional(),
-  PHONE_ENCRYPTION_KEY: z.string().min(32).optional(),
-  RESEND_API_KEY: z.string().min(1).optional(),
-  STRIPE_SECRET_KEY: z.string().min(1).optional(),
-  STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
+  SUPABASE_SERVICE_ROLE_KEY: optionalString(),
+  DIDIT_API_KEY: optionalString(),
+  DIDIT_WEBHOOK_SECRET: optionalString(),
+  DIDIT_WORKFLOW_ID: optionalString(),
+  CRON_SECRET: optionalString(),
+  PHONE_ENCRYPTION_KEY: optionalString(32),
+  RESEND_API_KEY: optionalString(),
+  STRIPE_SECRET_KEY: optionalString(),
+  STRIPE_WEBHOOK_SECRET: optionalString(),
 });
 
 export type PublicEnv = z.infer<typeof publicEnvSchema>;

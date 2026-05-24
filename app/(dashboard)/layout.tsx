@@ -1,4 +1,11 @@
+import { DashboardShellGate } from "@/components/layout/dashboard-shell-gate";
 import { DashboardTopBar } from "@/components/layout/DashboardTopBar";
+
+const PASSENGER_LINKS = [
+  { href: "/dashboard", label: "Overview" },
+  { href: "/onboarding", label: "Onboarding" },
+  { href: "/dashboard/settings", label: "Settings" },
+];
 
 export default function DashboardShellLayout({
   children,
@@ -6,15 +13,8 @@ export default function DashboardShellLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
-      <DashboardTopBar
-        links={[
-          { href: "/dashboard", label: "Overview" },
-          { href: "/onboarding", label: "Onboarding" },
-          { href: "/dashboard/settings", label: "Settings" },
-        ]}
-      />
+    <DashboardShellGate topBar={<DashboardTopBar links={PASSENGER_LINKS} />}>
       {children}
-    </div>
+    </DashboardShellGate>
   );
 }

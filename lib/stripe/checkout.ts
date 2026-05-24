@@ -44,7 +44,7 @@ export async function createBookingCheckoutSession(params: {
       passenger_user_id: params.passengerUserId,
     },
     success_url: `${appUrl}/flights/${params.flightId}/booking-success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${appUrl}/dashboard/bookings?cancelled=1`,
+    cancel_url: `${appUrl}/passenger/bookings?cancelled=1`,
     expires_at: sessionExpiresAt,
   });
 

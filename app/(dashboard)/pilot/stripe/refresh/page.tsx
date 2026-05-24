@@ -18,9 +18,9 @@ export default async function StripeRefreshPage() {
 
   if (!stripeAccountId) {
     const account = await createPilotConnectAccount(user.id, user.email ?? "");
-    stripeAccountId = account.id;
+    stripeAccountId = account.accountId;
   }
 
   const link = await createOnboardingLink(stripeAccountId);
-  redirect(link.url);
+  redirect(link);
 }

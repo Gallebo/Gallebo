@@ -1,44 +1,26 @@
-import Link from "next/link";
-
+import { PilotSidebar } from "@/components/pilot/pilot-sidebar";
 import { requirePilot } from "@/lib/auth/rbac";
-
-const links = [
-  { href: "/pilot", label: "Overview" },
-  { href: "/pilot/edit", label: "Personal info" },
-  { href: "/pilot/documents", label: "Documents" },
-  { href: "/pilot/stripe", label: "Payouts" },
-  { href: "/pilot/aircraft", label: "Aircraft" },
-  { href: "/pilot/flights", label: "Flights" },
-  { href: "/pilot/bookings", label: "Bookings" },
-];
+import { getPilotSidebarContext } from "@/lib/pilot/queries";
 
 export default async function PilotDashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  await requirePilot();
+  const { user } = await requirePilot();
+  const sidebar = await getPilotSidebarContext(user.id);
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Pilot hub</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage your public profile, payout details, and aircraft.
-        </p>
+    <div
+      className="flex min-h-0 w-full flex-1"
+      style={{ background: "var(--bg)" }}
+    >
+      <PilotSidebar context={sidebar} />
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-5xl px-6 py-8 lg:px-10 lg:py-10">
+          {children}
+        </div>
       </div>
-      <nav className="flex flex-wrap gap-4 border-b pb-4 text-sm">
-        {links.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            {link.label}
-          </Link>
-        ))}
-      </nav>
-      {children}
     </div>
   );
 }

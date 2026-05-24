@@ -1,18 +1,18 @@
-import Image from "next/image";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Calendar, Fuel, Mail, Phone, Plane, Warehouse } from "lucide-react";
 
-import { AirfieldMiniMap } from "@/components/map/airfield-mini-map";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FlightListCard } from "@/components/flights/flight-list-card";
-import {
-  formatServiceLabels,
-  getAirfieldPhotoPublicUrl,
-} from "@/lib/airfield/utils";
+import { AirfieldAbout } from "@/components/airfield/public/airfield-about";
+import { AirfieldEvents } from "@/components/airfield/public/airfield-events";
+import { AirfieldFlights } from "@/components/airfield/public/airfield-flights";
+import { AirfieldGallery } from "@/components/airfield/public/airfield-gallery";
+import { AirfieldHero } from "@/components/airfield/public/airfield-hero";
+import { AirfieldInfoGrid } from "@/components/airfield/public/airfield-info-grid";
+import { AirfieldLocation } from "@/components/airfield/public/airfield-location";
+import { AirfieldNearby } from "@/components/airfield/public/airfield-nearby";
+import { AirfieldNotices } from "@/components/airfield/public/airfield-notices";
+import { AirfieldReviews } from "@/components/airfield/public/airfield-reviews";
 import { getFlightsForAirfield } from "@/lib/flights/search";
 import { createClient } from "@/lib/supabase/server";
+import type { FlightListItem } from "@/lib/flights/types";
 
 export async function generateMetadata({
   params,
@@ -34,7 +34,34 @@ export async function generateMetadata({
 
   return {
     title: `${airfield.name} (${airfield.icao_code}) — Gallebo`,
-    description: `Airfield profile for ${airfield.name}`,
+    description: `Explore flights, facilities and reviews at ${airfield.name}`,
+    openGraph: {
+      title: `${airfield.name} (${airfield.icao_code})`,
+      description: `Explore cost-shared flights at ${airfield.name}`,
+    },
+  };
+}
+
+function toFlightRow(f: FlightListItem) {
+  const seatsTotal = f.passenger_seats;
+  const seatsAvailable = Math.max(0, seatsTotal - f.pending_bookings);
+  return {
+    id: f.id,
+    origin_icao: f.departure_airfield?.icao_code ?? "—",
+    destination_icao: f.arrival_airfield?.icao_code ?? "—",
+    departure_at: `${f.flight_date}T${f.departure_time}`,
+    price_per_seat_eur: f.price_per_passenger_eur,
+    seats_available: seatsAvailable,
+    seats_total: seatsTotal,
+    aircraft_type: f.rented_model ?? null,
+    duration_min: null as number | null,
+    pilot: f.pilot
+      ? {
+          first_name: f.pilot.first_name,
+          last_name: f.pilot.last_name,
+          avatar_url: null,
+        }
+      : null,
   };
 }
 
@@ -55,236 +82,98 @@ export default async function AirfieldProfilePage({
 
   if (!airfield) notFound();
 
-  const { departing, arriving } = await getFlightsForAirfield(airfield.id);
+  const [{ departing, arriving }, photos, notices, events] = await Promise.all([
+    getFlightsForAirfield(airfield.id),
+    supabase
+      .from("airfield_photos")
+      .select("*")
+      .eq("airfield_id", airfield.id)
+      .order("sort_order"),
+    supabase
+      .from("airfield_notices")
+      .select("*")
+      .eq("airfield_id", airfield.id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("airfield_events")
+      .select("*")
+      .eq("airfield_id", airfield.id)
+      .order("event_date", { ascending: true }),
+  ]);
 
-  const [{ data: photos }, { data: notices }, { data: events }] =
-    await Promise.all([
-      supabase
-        .from("airfield_photos")
-        .select("*")
-        .eq("airfield_id", airfield.id)
-        .order("sort_order"),
-      supabase
-        .from("airfield_notices")
-        .select("*")
-        .eq("airfield_id", airfield.id)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("airfield_events")
-        .select("*")
-        .eq("airfield_id", airfield.id)
-        .order("event_date", { ascending: true }),
-    ]);
-
-  const services = formatServiceLabels(airfield);
+  const heroPhoto = photos.data?.[0] ?? null;
+  const galleryPhotos = (photos.data ?? []).slice(1);
+  const flightCount = departing.length + arriving.length;
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-      <div className="mb-8 space-y-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-[family-name:var(--font-playfair)] text-3xl font-bold tracking-tight">
-            {airfield.name}
-          </h1>
-          <Badge variant="secondary">{airfield.icao_code}</Badge>
-          <Badge>{airfield.country}</Badge>
-        </div>
-        {services.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {airfield.has_fuel ? (
-              <Badge variant="outline">
-                <Fuel className="mr-1 size-3" /> Fuel
-              </Badge>
-            ) : null}
-            {airfield.has_hangar ? (
-              <Badge variant="outline">
-                <Warehouse className="mr-1 size-3" /> Hangar
-              </Badge>
-            ) : null}
-            {airfield.has_rental ? (
-              <Badge variant="outline">
-                <Plane className="mr-1 size-3" /> Aircraft rental
-              </Badge>
-            ) : null}
-          </div>
-        ) : null}
-        {airfield.description ? (
-          <p className="text-muted-foreground">{airfield.description}</p>
-        ) : null}
-      </div>
+    <div style={{ background: "var(--bg)" }}>
+      {/* 1 — Hero */}
+      <AirfieldHero
+        airfield={{
+          name: airfield.name,
+          icao_code: airfield.icao_code,
+          country: airfield.country,
+          has_fuel: airfield.has_fuel,
+          has_hangar: airfield.has_hangar,
+          has_rental: airfield.has_rental,
+        }}
+        heroPhotoPath={heroPhoto?.storage_path ?? null}
+        flightCount={flightCount}
+      />
 
-      <div className="grid gap-8 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <AirfieldMiniMap
-            latitude={airfield.latitude}
-            longitude={airfield.longitude}
-            name={airfield.name}
-          />
+      {/* 2 — Info grid */}
+      <AirfieldInfoGrid
+        airfield={{
+          has_fuel: airfield.has_fuel,
+          has_hangar: airfield.has_hangar,
+          has_rental: airfield.has_rental,
+          contact_email: airfield.contact_email,
+          contact_phone: airfield.contact_phone,
+          working_hours: airfield.working_hours,
+        }}
+      />
 
-          {photos && photos.length > 0 ? (
-            <section className="space-y-3">
-              <h2 className="text-lg font-semibold">Photos</h2>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {photos.map((photo) => {
-                  const url = getAirfieldPhotoPublicUrl(photo.storage_path);
-                  if (!url) return null;
-                  return (
-                    <div
-                      key={photo.id}
-                      className="relative aspect-video overflow-hidden rounded-lg border"
-                    >
-                      <Image
-                        src={url}
-                        alt={`${airfield.name} photo`}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 768px) 100vw, 400px"
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          ) : null}
+      {/* 3 — Gallery */}
+      {galleryPhotos.length > 0 && (
+        <AirfieldGallery
+          airfieldName={airfield.name}
+          photos={galleryPhotos}
+        />
+      )}
 
-          {airfield.destination_info ? (
-            <section className="space-y-3">
-              <h2 className="text-lg font-semibold">Destination</h2>
-              <p className="whitespace-pre-wrap text-muted-foreground">
-                {airfield.destination_info}
-              </p>
-            </section>
-          ) : null}
+      {/* 4 — About + blockquote */}
+      <AirfieldAbout
+        airfieldName={airfield.name}
+        description={airfield.description ?? null}
+        destinationInfo={airfield.destination_info ?? null}
+      />
 
-          <section className="space-y-6">
-            <h2 className="text-lg font-semibold">Flights</h2>
-            {departing.length > 0 ? (
-              <div className="space-y-3">
-                <h3 className="text-sm font-medium text-muted-foreground">
-                  Departing
-                </h3>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {departing.map((f) => (
-                    <FlightListCard key={f.id} flight={f} />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            {arriving.length > 0 ? (
-              <div className="space-y-3">
-                <h3 className="text-sm font-medium text-muted-foreground">
-                  Arriving
-                </h3>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {arriving.map((f) => (
-                    <FlightListCard key={f.id} flight={f} />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            {departing.length === 0 && arriving.length === 0 ? (
-              <Card>
-                <CardContent className="py-6 text-sm text-muted-foreground">
-                  No upcoming flights at this airfield.
-                </CardContent>
-              </Card>
-            ) : null}
-          </section>
-        </div>
+      {/* 5 — Nearby (static placeholder) */}
+      <AirfieldNearby airfieldName={airfield.name} />
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Contact</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              {airfield.contact_email ? (
-                <p className="flex items-center gap-2">
-                  <Mail className="size-4 text-muted-foreground" />
-                  <a
-                    href={`mailto:${airfield.contact_email}`}
-                    className="hover:underline"
-                  >
-                    {airfield.contact_email}
-                  </a>
-                </p>
-              ) : null}
-              {airfield.contact_phone ? (
-                <p className="flex items-center gap-2">
-                  <Phone className="size-4 text-muted-foreground" />
-                  {airfield.contact_phone}
-                </p>
-              ) : null}
-              {airfield.working_hours ? (
-                <p className="text-muted-foreground">{airfield.working_hours}</p>
-              ) : null}
-            </CardContent>
-          </Card>
+      {/* 6 — Events */}
+      <AirfieldEvents events={events.data ?? []} />
 
-          <section className="space-y-3">
-            <h2 className="text-lg font-semibold">Notices</h2>
-            {notices && notices.length > 0 ? (
-              <div className="space-y-3">
-                {notices.map((notice) => (
-                  <Card key={notice.id}>
-                    <CardContent className="py-4 text-sm">
-                      <p className="whitespace-pre-wrap">{notice.body}</p>
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {new Date(notice.created_at).toLocaleDateString()}
-                      </p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No notices posted.</p>
-            )}
-          </section>
+      {/* 7 — Notices */}
+      <AirfieldNotices notices={notices.data ?? []} />
 
-          <section className="space-y-3">
-            <h2 className="text-lg font-semibold">Events</h2>
-            {events && events.length > 0 ? (
-              <div className="space-y-3">
-                {events.map((event) => (
-                  <Card key={event.id}>
-                    <CardContent className="py-4 text-sm">
-                      <p className="flex items-center gap-2 font-medium">
-                        <Calendar className="size-4 text-muted-foreground" />
-                        {event.title}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {new Date(event.event_date).toLocaleDateString()}
-                      </p>
-                      {event.description ? (
-                        <p className="mt-2 text-muted-foreground">
-                          {event.description}
-                        </p>
-                      ) : null}
-                      {event.link ? (
-                        <a
-                          href={event.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="mt-2 inline-block text-primary hover:underline"
-                        >
-                          More info
-                        </a>
-                      ) : null}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No upcoming events.</p>
-            )}
-          </section>
-        </div>
-      </div>
+      {/* 8 — Flights */}
+      <AirfieldFlights
+        icao={airfield.icao_code}
+        departing={departing.map(toFlightRow)}
+        arriving={arriving.map(toFlightRow)}
+      />
 
-      <p className="mt-10 text-sm text-muted-foreground">
-        <Link href="/map" className="text-primary hover:underline">
-          ← Back to map
-        </Link>
-      </p>
+      {/* 9 — Reviews (placeholder data until reviews table exists) */}
+      <AirfieldReviews />
+
+      {/* 10 — Location map */}
+      <AirfieldLocation
+        airfieldName={airfield.name}
+        latitude={airfield.latitude}
+        longitude={airfield.longitude}
+        country={airfield.country}
+      />
     </div>
   );
 }
