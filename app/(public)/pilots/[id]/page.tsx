@@ -9,6 +9,7 @@ import type { AircraftWithPhotos } from "@/lib/aircraft/types";
 import { averageRating } from "@/lib/pilot/review-stats";
 import { publicStorageUrl } from "@/lib/storage/public-url";
 import { createClient } from "@/lib/supabase/server";
+import { PilotReviewCard } from "@/components/reviews/PilotReviewCard";
 
 const PROFILE_BUCKET = "profile-photos";
 const AIRCRAFT_BUCKET = "aircraft-photos";
@@ -60,7 +61,9 @@ export default async function PublicPilotProfilePage({
 
   const { data: reviews } = await supabase
     .from("pilot_reviews_public")
-    .select("id, rating, comment, created_at")
+    .select(
+      "id, rating, comment, created_at, communication_rating, accuracy_rating, experience_rating",
+    )
     .eq("pilot_user_id", pub.id)
     .order("created_at", { ascending: false });
 
@@ -199,15 +202,18 @@ export default async function PublicPilotProfilePage({
         <CardContent className="space-y-6">
           {reviews && reviews.length > 0 ? (
             reviews.map((r) => (
-              <div key={r.id ?? ""} className="border-b pb-4 last:border-0">
-                <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                  <span className="font-medium text-foreground">
-                    {typeof r.rating === "number" ? `${r.rating} / 5` : ""}
-                  </span>
-                  <span>{r.created_at?.slice(0, 10)}</span>
-                </div>
-                <p className="text-sm leading-relaxed">{r.comment}</p>
-              </div>
+              <PilotReviewCard
+                key={r.id ?? ""}
+                review={{
+                  id: r.id ?? "",
+                  rating: r.rating ?? null,
+                  communicationRating: r.communication_rating ?? null,
+                  accuracyRating: r.accuracy_rating ?? null,
+                  experienceRating: r.experience_rating ?? null,
+                  comment: r.comment ?? null,
+                  created_at: r.created_at ?? null,
+                }}
+              />
             ))
           ) : (
             <p className="text-sm text-muted-foreground">No reviews yet.</p>

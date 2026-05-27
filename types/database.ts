@@ -342,6 +342,8 @@ export type Database = {
           checkout_session_id: string | null;
           created_at: string;
           flight_id: string;
+          review_deadline_at: string | null;
+          reviews_processed_at: string | null;
           id: string;
           paid_at: string | null;
           paid_out_at: string | null;
@@ -382,6 +384,8 @@ export type Database = {
           pilot_payout_eur?: number | null;
           pilot_responded_at?: string | null;
           pilot_response_expires_at?: string | null;
+          review_deadline_at?: string | null;
+          reviews_processed_at?: string | null;
           platform_fee_eur?: number | null;
           refund_id?: string | null;
           refunded_at?: string | null;
@@ -409,6 +413,8 @@ export type Database = {
           pilot_payout_eur?: number | null;
           pilot_responded_at?: string | null;
           pilot_response_expires_at?: string | null;
+          review_deadline_at?: string | null;
+          reviews_processed_at?: string | null;
           platform_fee_eur?: number | null;
           refund_id?: string | null;
           refunded_at?: string | null;
@@ -793,28 +799,85 @@ export type Database = {
       };
       pilot_reviews: {
         Row: {
-          comment: string;
+          accuracy_rating: number | null;
+          booking_id: string | null;
+          comment: string | null;
+          communication_rating: number | null;
           created_at: string;
+          experience_rating: number | null;
           id: string;
+          is_visible: boolean;
           pilot_user_id: string;
           rating: number;
           reviewer_user_id: string;
         };
         Insert: {
-          comment: string;
+          accuracy_rating?: number | null;
+          booking_id?: string | null;
+          comment?: string | null;
+          communication_rating?: number | null;
           created_at?: string;
+          experience_rating?: number | null;
           id?: string;
+          is_visible?: boolean;
           pilot_user_id: string;
           rating: number;
           reviewer_user_id: string;
         };
         Update: {
-          comment?: string;
+          accuracy_rating?: number | null;
+          booking_id?: string | null;
+          comment?: string | null;
+          communication_rating?: number | null;
           created_at?: string;
+          experience_rating?: number | null;
           id?: string;
+          is_visible?: boolean;
           pilot_user_id?: string;
           rating?: number;
           reviewer_user_id?: string;
+        };
+        Relationships: [];
+      };
+      passenger_reviews: {
+        Row: {
+          accuracy_rating: number;
+          behavior_rating: number;
+          booking_id: string;
+          comment: string | null;
+          id: string;
+          is_visible: boolean;
+          pilot_user_id: string;
+          passenger_user_id: string;
+          rating: number;
+          submitted_at: string;
+          weight_accuracy_rating: number;
+        };
+        Insert: {
+          accuracy_rating: number;
+          behavior_rating: number;
+          booking_id: string;
+          comment?: string | null;
+          id?: string;
+          is_visible?: boolean;
+          pilot_user_id: string;
+          passenger_user_id: string;
+          rating: number;
+          submitted_at?: string;
+          weight_accuracy_rating: number;
+        };
+        Update: {
+          accuracy_rating?: number;
+          behavior_rating?: number;
+          booking_id?: string;
+          comment?: string | null;
+          id?: string;
+          is_visible?: boolean;
+          pilot_user_id?: string;
+          passenger_user_id?: string;
+          rating?: number;
+          submitted_at?: string;
+          weight_accuracy_rating?: number;
         };
         Relationships: [];
       };
@@ -915,22 +978,31 @@ export type Database = {
       };
       pilot_reviews_public: {
         Row: {
+          accuracy_rating: number | null;
           comment: string | null;
+          communication_rating: number | null;
           created_at: string | null;
+          experience_rating: number | null;
           id: string | null;
           pilot_user_id: string | null;
           rating: number | null;
         };
         Insert: {
+          accuracy_rating?: number | null;
           comment?: string | null;
+          communication_rating?: number | null;
           created_at?: string | null;
+          experience_rating?: number | null;
           id?: string | null;
           pilot_user_id?: string | null;
           rating?: number | null;
         };
         Update: {
+          accuracy_rating?: number | null;
           comment?: string | null;
+          communication_rating?: number | null;
           created_at?: string | null;
+          experience_rating?: number | null;
           id?: string | null;
           pilot_user_id?: string | null;
           rating?: number | null;
@@ -1049,6 +1121,18 @@ export type Database = {
       };
       increment_payout_failed_count: {
         Args: { p_booking_id: string };
+        Returns: undefined;
+      };
+      reveal_booking_reviews: {
+        Args: { p_booking_id: string };
+        Returns: undefined;
+      };
+      finalize_expired_booking_reviews: {
+        Args: {
+          p_booking_id: string;
+          p_pilot_user_id: string;
+          p_passenger_user_id: string;
+        };
         Returns: undefined;
       };
       is_admin: { Args: Record<string, never>; Returns: boolean };

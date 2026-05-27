@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { MarkFlightCompleteButton } from "@/components/bookings/mark-flight-complete-button";
 import type { PilotFlightRow } from "@/lib/pilot/queries";
 
 function formatFlightDate(iso: string, time: string): string {
@@ -76,6 +77,9 @@ export function PilotFlightCard({
         >
           {statusLabel}
         </span>
+        {flight.status === "published" ? (
+          <MarkFlightCompleteButton flightId={flight.id} />
+        ) : null}
         {showViewAll !== false && flight.status === "published" ? (
           <Link
             href={`/flights/${flight.id}`}

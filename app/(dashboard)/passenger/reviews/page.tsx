@@ -7,6 +7,17 @@ import { formatShortDate, getPassengerReviews } from "@/lib/passenger/queries";
 
 export const metadata = { title: "My reviews — Gallebo" };
 
+function formatCountdown(deadlineIso: string | null): string {
+  if (!deadlineIso) return "";
+  const ms = new Date(deadlineIso).getTime() - Date.now();
+  if (!Number.isFinite(ms) || ms <= 0) return "now";
+  const mins = Math.ceil(ms / 60000);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
 export default async function PassengerReviewsPage() {
   const { user } = await requireVerifiedPassenger();
   const { reviews, pending } = await getPassengerReviews(user.id);
@@ -43,16 +54,17 @@ export default async function PassengerReviewsPage() {
           <strong style={{ color: "var(--ink)" }}>
             {pending.length} flight{pending.length === 1 ? "" : "s"}
           </strong>{" "}
-          {pending.length === 1 ? "is" : "are"} still awaiting your review —{" "}
+          {pending.length === 1 ? "is" : "are"} awaiting reveal (up to 24h) —{" "}
           {pending.map((p, i) => (
             <span key={p.bookingId}>
               {i > 0 ? ", " : null}
               <Link
-                href={`/flights/${p.flightId}`}
+                href={`/dashboard/passenger/reviews/${p.bookingId}`}
                 className="font-medium underline"
                 style={{ color: "var(--primary-v2)" }}
               >
-                leave review for {p.routeLabel} ({formatShortDate(p.flight_date)})
+                leave review for {p.routeLabel} ({formatShortDate(p.flight_date)},{" "}
+                in {formatCountdown(p.review_deadline_at)})
               </Link>
             </span>
           ))}

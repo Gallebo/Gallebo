@@ -38,12 +38,16 @@ export type PassengerBookingV3 = {
 
 export type PassengerReviewRow = {
   id: string;
+  bookingId: string;
   pilotName: string;
   routeLabel: string;
   flightDate: string;
   rating: number;
-  comment: string;
+  comment: string | null;
   created_at: string;
+  communicationRating: number;
+  accuracyRating: number;
+  experienceRating: number;
 };
 
 export type PendingReviewRow = {
@@ -52,6 +56,7 @@ export type PendingReviewRow = {
   pilot_user_id: string;
   routeLabel: string;
   flight_date: string;
+  review_deadline_at: string | null;
 };
 
 function initials(first: string | null, last: string | null): string {
@@ -261,33 +266,128 @@ export async function getPassengerReviews(userId: string): Promise<{
 }> {
   const supabase = await createClient();
 
-  const { data: myReviews } = await supabase
+  // 1) Visible reviews (blind reveal already happened)
+  const { data: visibleReviews } = await supabase
     .from("pilot_reviews")
-    .select("id, pilot_user_id, rating, comment, created_at")
+    .select(
+      "id, booking_id, pilot_user_id, rating, comment, created_at, communication_rating, accuracy_rating, experience_rating",
+    )
     .eq("reviewer_user_id", userId)
+    .eq("is_visible", true)
     .order("created_at", { ascending: false });
 
-  const pilotIds = [...new Set((myReviews ?? []).map((r) => r.pilot_user_id))];
-  const { data: pilots } = await supabase
-    .from("profiles_public")
-    .select("id, first_name, last_name")
-    .in(
-      "id",
-      pilotIds.length ? pilotIds : ["00000000-0000-0000-0000-000000000000"],
-    );
+  const reviews = visibleReviews ?? [];
+  // Phase 7 uses booking_id for all blind-review tracking. Legacy rows may still have NULL.
+  const reviewsWithBooking = reviews.filter(
+    (r): r is typeof r & { booking_id: string } =>
+      typeof r.booking_id === "string" && r.booking_id.length > 0,
+  );
+
+  const reviewBookingIds = [
+    ...new Set(reviewsWithBooking.map((r) => r.booking_id)),
+  ];
+  const pilotIds = [...new Set(reviewsWithBooking.map((r) => r.pilot_user_id))];
+
+  const { data: submittedReviews } = await supabase
+    .from("pilot_reviews")
+    .select("booking_id")
+    .eq("reviewer_user_id", userId)
+    .not("booking_id", "is", null);
+
+  const doneBookingIds = new Set(
+    (submittedReviews ?? [])
+      .map((r) => r.booking_id)
+      .filter((id): id is string => typeof id === "string" && id.length > 0),
+  );
+
+  // Booking + flight meta for route label / date
+
+  const { data: bookings } = reviewBookingIds.length
+    ? await supabase
+        .from("flight_booking_requests")
+        .select("id, flight_id")
+        .in("id", reviewBookingIds)
+    : { data: [] };
+
+  const bookingToFlight = new Map(
+    (bookings ?? []).map((b) => [b.id, b.flight_id]),
+  );
+
+  const flightIdsForMeta = [...new Set((bookings ?? []).map((b) => b.flight_id))];
+  const flightMeta = new Map<string, { route: string; date: string }>();
+  if (flightIdsForMeta.length) {
+    const { data: flights } = await supabase
+      .from("flights")
+      .select(
+        `
+        id, flight_date,
+        departure_airfield:airfields!flights_departure_airfield_id_fkey ( icao_code ),
+        arrival_airfield:airfields!flights_arrival_airfield_id_fkey ( icao_code )
+      `,
+      )
+      .in("id", flightIdsForMeta);
+
+    for (const f of flights ?? []) {
+      const dep =
+        (f.departure_airfield as { icao_code: string } | null)?.icao_code ??
+        "—";
+      const arr =
+        (f.arrival_airfield as { icao_code: string } | null)?.icao_code ??
+        "—";
+      flightMeta.set(f.id, { route: `${dep} → ${arr}`, date: f.flight_date });
+    }
+  }
+
+  const { data: pilots } = pilotIds.length
+    ? await supabase
+        .from("profiles_public")
+        .select("id, first_name, last_name")
+        .in("id", pilotIds)
+    : { data: [] };
+
   const pilotMap = new Map((pilots ?? []).map((p) => [p.id, p]));
 
+  const mappedReviews: PassengerReviewRow[] = reviewsWithBooking.map((r) => {
+    const pilot = pilotMap.get(r.pilot_user_id);
+    const pilotName =
+      `${pilot?.first_name ?? ""} ${pilot?.last_name ?? ""}`.trim() || "Pilot";
+    const flightId = bookingToFlight.get(r.booking_id);
+    const meta = flightId ? flightMeta.get(flightId) : null;
+
+    return {
+      id: r.id,
+      bookingId: r.booking_id,
+      pilotName,
+      routeLabel: meta?.route ?? "—",
+      flightDate: meta?.date ? formatShortDate(meta.date) : "—",
+      rating: r.rating,
+      comment: r.comment,
+      created_at: r.created_at,
+      communicationRating: (r.communication_rating ?? r.rating) as number,
+      accuracyRating: (r.accuracy_rating ?? r.rating) as number,
+      experienceRating: (r.experience_rating ?? r.rating) as number,
+    };
+  });
+
+  // 2) Pending list (completed flights still outside reveal)
+  const nowIso = new Date().toISOString();
   const { data: completedBookings } = await supabase
     .from("flight_booking_requests")
-    .select("id, flight_id")
+    .select("id, flight_id, review_deadline_at")
     .eq("passenger_user_id", userId)
     .eq("status", "completed");
 
-  const flightIds = [...new Set((completedBookings ?? []).map((b) => b.flight_id))];
-  const flightMeta = new Map<string, { route: string; date: string; pilotId: string }>();
+  const pendingBookings = (completedBookings ?? []).filter((b) => {
+    if (!b.review_deadline_at) return false;
+    if (b.review_deadline_at <= nowIso) return false;
+    return !doneBookingIds.has(b.id);
+  });
 
-  if (flightIds.length) {
-    const { data: flights } = await supabase
+  const pendingFlightIds = [...new Set(pendingBookings.map((b) => b.flight_id))];
+  const pendingFlightMeta = new Map<string, { route: string; date: string; pilot_user_id: string }>();
+
+  if (pendingFlightIds.length) {
+    const { data: pendingFlights } = await supabase
       .from("flights")
       .select(
         `
@@ -296,57 +396,39 @@ export async function getPassengerReviews(userId: string): Promise<{
         arrival_airfield:airfields!flights_arrival_airfield_id_fkey ( icao_code )
       `,
       )
-      .in("id", flightIds);
+      .in("id", pendingFlightIds);
 
-    for (const f of flights ?? []) {
-      const dep = (f.departure_airfield as { icao_code: string } | null)?.icao_code ?? "—";
-      const arr = (f.arrival_airfield as { icao_code: string } | null)?.icao_code ?? "—";
-      flightMeta.set(f.id, {
+    for (const f of pendingFlights ?? []) {
+      const dep =
+        (f.departure_airfield as { icao_code: string } | null)?.icao_code ??
+        "—";
+      const arr =
+        (f.arrival_airfield as { icao_code: string } | null)?.icao_code ??
+        "—";
+      pendingFlightMeta.set(f.id, {
         route: `${dep} → ${arr}`,
         date: f.flight_date,
-        pilotId: f.pilot_user_id,
+        pilot_user_id: f.pilot_user_id,
       });
     }
   }
 
-  const reviewedPilotIds = new Set((myReviews ?? []).map((r) => r.pilot_user_id));
+  const pending: PendingReviewRow[] = pendingBookings
+    .map((b) => {
+      const meta = pendingFlightMeta.get(b.flight_id);
+      if (!meta) return null;
+      return {
+        bookingId: b.id,
+        flightId: b.flight_id,
+        pilot_user_id: meta.pilot_user_id,
+        routeLabel: meta.route,
+        flight_date: meta.date,
+        review_deadline_at: b.review_deadline_at,
+      };
+    })
+    .filter(Boolean) as PendingReviewRow[];
 
-  const reviews: PassengerReviewRow[] = (myReviews ?? []).map((r) => {
-    const pilot = pilotMap.get(r.pilot_user_id);
-    const name =
-      `${pilot?.first_name ?? ""} ${pilot?.last_name ?? ""}`.trim() || "Pilot";
-    const booking = (completedBookings ?? []).find((b) => {
-      const meta = flightMeta.get(b.flight_id);
-      return meta?.pilotId === r.pilot_user_id;
-    });
-    const meta = booking ? flightMeta.get(booking.flight_id) : null;
-
-    return {
-      id: r.id,
-      pilotName: name,
-      routeLabel: meta?.route ?? "—",
-      flightDate: meta?.date ? formatShortDate(meta.date) : "—",
-      rating: r.rating,
-      comment: r.comment,
-      created_at: r.created_at,
-    };
-  });
-
-  const pending: PendingReviewRow[] = [];
-  for (const b of completedBookings ?? []) {
-    const meta = flightMeta.get(b.flight_id);
-    if (!meta || reviewedPilotIds.has(meta.pilotId)) continue;
-    pending.push({
-      bookingId: b.id,
-      flightId: b.flight_id,
-      pilot_user_id: meta.pilotId,
-      routeLabel: meta.route,
-      flight_date: meta.date,
-    });
-    reviewedPilotIds.add(meta.pilotId);
-  }
-
-  return { reviews, pending };
+  return { reviews: mappedReviews, pending };
 }
 
 export async function getPassengerProfileData(userId: string) {

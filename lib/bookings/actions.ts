@@ -415,6 +415,11 @@ export async function markFlightCompletedAction(
       ? new Date().toISOString()
       : new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
+    // Phase 7: both sides have 24h to leave their blind reviews.
+    const reviewDeadlineAt = new Date(
+      Date.now() + 24 * 60 * 60 * 1000,
+    ).toISOString();
+
     const now = new Date().toISOString();
 
     await admin
@@ -434,6 +439,7 @@ export async function markFlightCompletedAction(
         .update({
           status: "completed",
           payout_after: payoutAfter,
+          review_deadline_at: reviewDeadlineAt,
         })
         .eq("id", b.id);
 

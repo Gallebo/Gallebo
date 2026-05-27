@@ -1,4 +1,5 @@
 import type { PassengerReviewRow } from "@/lib/passenger/queries";
+import { StarCategoryRow } from "@/components/reviews/StarCategoryRow";
 
 function Stars({ rating }: { rating: number }) {
   return (
@@ -33,6 +34,25 @@ export function PassengerReviewCard({ review }: { review: PassengerReviewRow }) 
         </div>
         <Stars rating={review.rating} />
       </div>
+
+      <div className="space-y-3">
+        <StarCategoryRow
+          label="Komunikacija"
+          description="Brzina i kvaliteta odgovora u chatu"
+          rating={review.communicationRating}
+        />
+        <StarCategoryRow
+          label="Točnost"
+          description="Pojavljivanje na dogovoreno mjesto i vrijeme"
+          rating={review.accuracyRating}
+        />
+        <StarCategoryRow
+          label="Iskustvo leta"
+          description="Kvaliteta i ugodnost samog leta"
+          rating={review.experienceRating}
+        />
+      </div>
+
       <p
         className="text-[15px] italic leading-relaxed"
         style={{ color: "var(--ink-2)", fontFamily: "var(--font-display)" }}

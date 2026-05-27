@@ -3,11 +3,29 @@ import Link from "next/link";
 import { NotificationSettingsForm } from "@/components/notifications/NotificationSettingsForm";
 import { PushPermissionButton } from "@/components/notifications/PushPermissionButton";
 import { PilotPageHeader } from "@/components/pilot/pilot-page-header";
+import { StarCategoryRow } from "@/components/reviews/StarCategoryRow";
 import { requireVerifiedPassenger } from "@/lib/auth/rbac";
 import { getNotificationSettings } from "@/lib/notifications/settings";
 import { getPassengerProfileData } from "@/lib/passenger/queries";
+import { getPassengerReviews as getPassengerReceivedReviews } from "@/lib/reviews/queries";
 
 export const metadata = { title: "My profile — Gallebo" };
+
+function StarsDisplay({ rating }: { rating: number }) {
+  return (
+    <div className="flex gap-0.5" aria-label={`${rating} out of 5 stars`}>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <span
+          key={i}
+          className="text-[15px]"
+          style={{ color: i <= rating ? "var(--sun)" : "var(--line)" }}
+        >
+          ★
+        </span>
+      ))}
+    </div>
+  );
+}
 
 function VerifiedRow({ label, verified }: { label: string; verified: boolean }) {
   return (
@@ -36,6 +54,9 @@ export default async function PassengerProfilePage() {
   const profile = await getPassengerProfileData(user.id);
   const { settings, error } = await getNotificationSettings();
   const fullName = `${profile.firstName} ${profile.lastName}`.trim();
+
+  const { reviews: receivedReviews, avgRating } =
+    await getPassengerReceivedReviews(user.id);
 
   return (
     <div>
@@ -119,6 +140,74 @@ export default async function PassengerProfilePage() {
           </div>
         </div>
       </div>
+
+      <section
+        className="mt-8 rounded-xl border p-6"
+        style={{ borderColor: "var(--line)", background: "var(--surface)" }}
+      >
+        <h2 className="mb-1 text-[15px] font-semibold" style={{ color: "var(--ink)" }}>
+          Pilot reviews
+        </h2>
+        <p className="text-[13px]" style={{ color: "var(--ink-3)" }}>
+          {avgRating !== null ? (
+            <>
+              <strong style={{ color: "var(--sun)" }}>{avgRating}</strong> / 5 ·{" "}
+              {receivedReviews.length} review{receivedReviews.length === 1 ? "" : "s"}
+            </>
+          ) : (
+            <>No reviews yet</>
+          )}
+        </p>
+
+        {receivedReviews.length ? (
+          <div className="mt-5 space-y-5">
+            {receivedReviews.map((r) => (
+              <div key={r.id} className="rounded-lg border p-4" style={{ borderColor: "var(--line)" }}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[14px] font-semibold" style={{ color: "var(--ink)" }}>
+                      {r.pilotName}
+                    </p>
+                    {r.submitted_at ? (
+                      <p className="text-[12px] text-muted-foreground">
+                        {r.submitted_at.slice(0, 10)}
+                      </p>
+                    ) : null}
+                  </div>
+                  <StarsDisplay rating={r.rating} />
+                </div>
+
+                <div className="mt-4 space-y-4">
+                  <StarCategoryRow
+                    label="Točnost (pojavljivanje)"
+                    description="Pojavio se na dogovoreno mjesto i vrijeme"
+                    rating={r.accuracy_rating}
+                  />
+                  <StarCategoryRow
+                    label="Ponašanje"
+                    description="Ponašanje za vrijeme leta"
+                    rating={r.behavior_rating}
+                  />
+                  <StarCategoryRow
+                    label="Točnost težine"
+                    description="Prijavljena tezina odgovarala stvarnoj"
+                    rating={r.weight_accuracy_rating}
+                  />
+                </div>
+
+                {r.comment ? (
+                  <p
+                    className="mt-4 text-[14px] italic leading-relaxed"
+                    style={{ color: "var(--ink-2)", fontFamily: "var(--font-display)" }}
+                  >
+                    &ldquo;{r.comment}&rdquo;
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </section>
 
       <section
         className="mt-8 rounded-xl border p-6"
