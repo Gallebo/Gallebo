@@ -145,9 +145,11 @@ export async function submitPilotReview(
     }
 
     // Update cached SSR pages.
-    revalidatePath("/dashboard/passenger/reviews");
+    revalidatePath("/passenger/reviews");
+    revalidatePath(`/passenger/reviews/${bookingId}`);
     revalidatePath(`/pilots/${pilotId}`);
-    revalidatePath("/dashboard/pilot/earnings");
+    revalidatePath("/pilot/earnings");
+    revalidatePath("/pilot/reviews");
     revalidatePath(`/flights/${booking.flight_id}`);
     revalidatePath("/flights");
 
@@ -268,10 +270,12 @@ export async function submitPassengerReview(
       }
     }
 
-    revalidatePath("/dashboard/pilot/earnings");
+    revalidatePath("/pilot/earnings");
+    revalidatePath("/pilot/reviews");
+    revalidatePath(`/pilot/bookings/${bookingId}/review`);
     revalidatePath(`/pilots/${user.id}`);
-    revalidatePath("/dashboard/passenger/reviews");
-    revalidatePath("/dashboard/passenger/profile");
+    revalidatePath("/passenger/reviews");
+    revalidatePath("/passenger/profile");
     revalidatePath(`/flights/${booking.flight_id}`);
     revalidatePath("/flights");
 

@@ -2,10 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PassengerReviewForm } from "@/components/reviews/PassengerReviewForm";
+import { ReviewAwaitingRevealBanner } from "@/components/reviews/review-awaiting-reveal-banner";
 import { PilotPageHeader } from "@/components/pilot/pilot-page-header";
 import { createClient } from "@/lib/supabase/server";
 import { requirePilot } from "@/lib/auth/rbac";
 import { formatShortDate } from "@/lib/passenger/queries";
+import { getOwnPassengerReviewSubmission } from "@/lib/reviews/queries";
 
 export const metadata = { title: "Review passenger — Gallebo" };
 
@@ -63,25 +65,10 @@ export default async function PilotReviewPassengerPage({
     (flight.arrival_airfield as { icao_code: string } | null)?.icao_code ?? "—"
   }`;
 
-  const { data: existing } = await supabase
-    .from("passenger_reviews")
-    .select(
-      "accuracy_rating, behavior_rating, weight_accuracy_rating, comment",
-    )
-    .eq("booking_id", bookingId)
-    .eq("pilot_user_id", user.id)
-    .eq("is_visible", true)
-    .maybeSingle();
-
-  const existingForForm = existing
-    ? {
-        accuracyRating: existing.accuracy_rating as number | null,
-        behaviorRating: existing.behavior_rating as number | null,
-        weightAccuracyRating:
-          existing.weight_accuracy_rating as number | null,
-        comment: existing.comment as string | null,
-      }
-    : null;
+  const { state, review } = await getOwnPassengerReviewSubmission(
+    bookingId,
+    user.id,
+  );
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
@@ -100,22 +87,25 @@ export default async function PilotReviewPassengerPage({
         </p>
       </div>
 
-      <PassengerReviewForm
-        bookingId={bookingId}
-        isExpired={isExpired}
-        existing={existingForForm}
-      />
+      {state === "awaiting_reveal" ? (
+        <ReviewAwaitingRevealBanner />
+      ) : (
+        <PassengerReviewForm
+          bookingId={bookingId}
+          isExpired={isExpired}
+          existing={state === "revealed" ? review : null}
+        />
+      )}
 
       <div className="mt-6">
         <Link
-          href="/dashboard/pilot/earnings"
+          href="/pilot/reviews"
           className="text-primary hover:underline"
           style={{ color: "var(--primary-v2)" }}
         >
-          Back to Earnings
+          Back to Reviews
         </Link>
       </div>
     </div>
   );
 }
-

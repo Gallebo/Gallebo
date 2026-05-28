@@ -1009,6 +1009,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      passenger_reviews_public: {
+        Row: {
+          accuracy_rating: number | null;
+          behavior_rating: number | null;
+          comment: string | null;
+          id: string | null;
+          passenger_user_id: string | null;
+          pilot_user_id: string | null;
+          rating: number | null;
+          submitted_at: string | null;
+          weight_accuracy_rating: number | null;
+        };
+        Insert: {
+          accuracy_rating?: number | null;
+          behavior_rating?: number | null;
+          comment?: string | null;
+          id?: string | null;
+          passenger_user_id?: string | null;
+          pilot_user_id?: string | null;
+          rating?: number | null;
+          submitted_at?: string | null;
+          weight_accuracy_rating?: number | null;
+        };
+        Update: {
+          accuracy_rating?: number | null;
+          behavior_rating?: number | null;
+          comment?: string | null;
+          id?: string | null;
+          passenger_user_id?: string | null;
+          pilot_user_id?: string | null;
+          rating?: number | null;
+          submitted_at?: string | null;
+          weight_accuracy_rating?: number | null;
+        };
+        Relationships: [];
+      };
       push_subscriptions: {
         Row: {
           auth: string;

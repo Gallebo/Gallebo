@@ -35,13 +35,41 @@ export type PilotBookingRequestRow = {
   relative: string;
   passenger_first_name: string | null;
   passenger_last_name: string | null;
+  passenger_user_id: string;
   flight_id: string;
   flight_date: string;
   departure_icao: string;
   arrival_icao: string;
   seats: number;
   amount_eur: number;
+  passenger_avg_rating: number | null;
+  passenger_review_count: number;
 };
+
+function aggregatePassengerReputation(
+  rows: { passenger_user_id: string | null; rating: number | null }[],
+): Map<string, { avgRating: number | null; reviewCount: number }> {
+  const byPassenger = new Map<string, number[]>();
+
+  for (const row of rows) {
+    const passengerId = row.passenger_user_id;
+    const rating = row.rating;
+    if (!passengerId || typeof rating !== "number") continue;
+    const list = byPassenger.get(passengerId) ?? [];
+    list.push(rating);
+    byPassenger.set(passengerId, list);
+  }
+
+  const result = new Map<string, { avgRating: number | null; reviewCount: number }>();
+  for (const [passengerId, ratings] of byPassenger) {
+    result.set(passengerId, {
+      avgRating: averageRating(ratings),
+      reviewCount: ratings.length,
+    });
+  }
+
+  return result;
+}
 
 export type PilotDocumentRow = {
   id: string;
@@ -301,9 +329,31 @@ export async function getPilotBookingRequests(
 
   const passengerMap = new Map((passengers ?? []).map((p) => [p.id, p]));
 
+  const reputationByPassenger = new Map<
+    string,
+    { avgRating: number | null; reviewCount: number }
+  >();
+
+  if (passengerIds.length > 0) {
+    const { data: reputationRows } = await supabase
+      .from("passenger_reviews_public")
+      .select("passenger_user_id, rating")
+      .in("passenger_user_id", passengerIds);
+
+    const aggregated = aggregatePassengerReputation(reputationRows ?? []);
+    for (const [id, stats] of aggregated) {
+      reputationByPassenger.set(id, stats);
+    }
+  }
+
   return bookings.map((b) => {
     const flight = flightMap.get(b.flight_id);
     const p = passengerMap.get(b.passenger_user_id);
+    const reputation = reputationByPassenger.get(b.passenger_user_id) ?? {
+      avgRating: null,
+      reviewCount: 0,
+    };
+
     return {
       id: b.id,
       status: b.status as BookingStatus,
@@ -311,12 +361,15 @@ export async function getPilotBookingRequests(
       relative: relativeTime(b.created_at),
       passenger_first_name: p?.first_name ?? null,
       passenger_last_name: p?.last_name ?? null,
+      passenger_user_id: b.passenger_user_id,
       flight_id: b.flight_id,
       flight_date: flight?.flight_date ?? "",
       departure_icao: flight?.dep ?? "—",
       arrival_icao: flight?.arr ?? "—",
       seats: 1,
       amount_eur: Number(b.passenger_amount_eur ?? 0),
+      passenger_avg_rating: reputation.avgRating,
+      passenger_review_count: reputation.reviewCount,
     };
   });
 }

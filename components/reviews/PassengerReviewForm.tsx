@@ -39,11 +39,6 @@ export function PassengerReviewForm({
 
   const canSubmit = !isExpired && !existing;
 
-  const overall =
-    accuracyRating && behaviorRating && weightAccuracyRating
-      ? Math.round((accuracyRating + behaviorRating + weightAccuracyRating) / 3)
-      : null;
-
   async function onSubmit() {
     if (!canSubmit) return;
     if (!accuracyRating || !behaviorRating || !weightAccuracyRating) {

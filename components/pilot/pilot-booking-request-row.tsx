@@ -7,6 +7,7 @@ import {
   acceptBookingAction,
   rejectBookingAction,
 } from "@/lib/bookings/actions";
+import { PassengerReputationSnippet } from "@/components/pilot/passenger-reputation-snippet";
 import type { PilotBookingRequestRow } from "@/lib/pilot/queries";
 
 function passengerInitials(first: string | null, last: string | null): string {
@@ -57,6 +58,10 @@ export function PilotBookingRequestRow({
             {booking.departure_icao} → {booking.arrival_icao} · {formatRequestDate(booking.flight_date)} ·{" "}
             {booking.seats} seat
           </p>
+          <PassengerReputationSnippet
+            avgRating={booking.passenger_avg_rating}
+            reviewCount={booking.passenger_review_count}
+          />
         </div>
       </div>
 

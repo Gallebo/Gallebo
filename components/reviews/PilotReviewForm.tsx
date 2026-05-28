@@ -39,11 +39,6 @@ export function PilotReviewForm({
 
   const canSubmit = !isExpired && !existing;
 
-  const overall =
-    communicationRating && accuracyRating && experienceRating
-      ? Math.round((communicationRating + accuracyRating + experienceRating) / 3)
-      : null;
-
   async function onSubmit() {
     if (!canSubmit) return;
     if (!communicationRating || !accuracyRating || !experienceRating) {

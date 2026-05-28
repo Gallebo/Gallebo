@@ -17,7 +17,11 @@ function Stars({ rating }: { rating: number }) {
   );
 }
 
-export function PassengerReviewCard({ review }: { review: PassengerReviewRow }) {
+export function SubmittedPilotReviewCard({
+  review,
+}: {
+  review: PassengerReviewRow;
+}) {
   return (
     <article
       className="rounded-xl border p-5"
@@ -53,12 +57,14 @@ export function PassengerReviewCard({ review }: { review: PassengerReviewRow }) 
         />
       </div>
 
-      <p
-        className="text-[15px] italic leading-relaxed"
-        style={{ color: "var(--ink-2)", fontFamily: "var(--font-display)" }}
-      >
-        &ldquo;{review.comment}&rdquo;
-      </p>
+      {review.comment ? (
+        <p
+          className="mt-4 text-[15px] italic leading-relaxed"
+          style={{ color: "var(--ink-2)", fontFamily: "var(--font-display)" }}
+        >
+          &ldquo;{review.comment}&rdquo;
+        </p>
+      ) : null}
     </article>
   );
 }

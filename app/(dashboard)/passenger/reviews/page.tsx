@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { PassengerReviewCard } from "@/components/passenger/passenger-review-card";
+import { SubmittedPilotReviewCard } from "@/components/reviews/submitted-pilot-review-card";
 import { PilotPageHeader } from "@/components/pilot/pilot-page-header";
 import { requireVerifiedPassenger } from "@/lib/auth/rbac";
 import { formatShortDate, getPassengerReviews } from "@/lib/passenger/queries";
@@ -33,7 +33,7 @@ export default async function PassengerReviewsPage() {
       {reviews.length > 0 ? (
         <div className="mb-8 flex flex-col gap-4">
           {reviews.map((r) => (
-            <PassengerReviewCard key={r.id} review={r} />
+            <SubmittedPilotReviewCard key={r.id} review={r} />
           ))}
         </div>
       ) : (
@@ -59,7 +59,7 @@ export default async function PassengerReviewsPage() {
             <span key={p.bookingId}>
               {i > 0 ? ", " : null}
               <Link
-                href={`/dashboard/passenger/reviews/${p.bookingId}`}
+                href={`/passenger/reviews/${p.bookingId}`}
                 className="font-medium underline"
                 style={{ color: "var(--primary-v2)" }}
               >
