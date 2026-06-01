@@ -65,6 +65,16 @@ export function inAppCopyForType(
         title: "Payout sent",
         body: `€${String(payload.amountEur ?? "")} was sent to your IBAN.`,
       };
+    case "flight_alert_match":
+      return {
+        title: "Flight found!",
+        body: "A pilot published a flight that matches your route alert.",
+      };
+    case "flight_alert_expiry_warning":
+      return {
+        title: "Alert expiring soon",
+        body: "Your flight alert expires tomorrow. Extend it with one click.",
+      };
     default:
       return null;
   }

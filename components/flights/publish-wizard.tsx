@@ -17,6 +17,7 @@ import {
   MAX_FLIGHT_PHOTOS,
   MIN_FLIGHT_PHOTOS,
 } from "@/lib/flights/constants";
+import { getPilotWaitingPassengersCountAction } from "@/lib/alerts/actions";
 import {
   previewPublishPricingAction,
   publishFlightAction,
@@ -52,6 +53,7 @@ export function PublishFlightWizard({
     warning: string | null;
     avg: number | null;
   }>({ warning: null, avg: null });
+  const [waitingPassengers, setWaitingPassengers] = useState<number | null>(null);
 
   const pricePerPassenger = useMemo(() => {
     if (!draft.totalCostEur || !draft.passengerSeats) return null;
@@ -103,6 +105,39 @@ export function PublishFlightWizard({
       });
     });
   }, [step, pricingDraft, startTransition]);
+
+  useEffect(() => {
+    if (
+      !draft.departureAirfieldId ||
+      !draft.arrivalAirfieldId ||
+      !draft.flightDate ||
+      !draft.flightType
+    ) {
+      setWaitingPassengers(null);
+      return;
+    }
+
+    let cancelled = false;
+    startTransition(async () => {
+      const res = await getPilotWaitingPassengersCountAction({
+        departureAirfieldId: draft.departureAirfieldId!,
+        arrivalAirfieldId: draft.arrivalAirfieldId!,
+        flightDate: draft.flightDate!,
+        flightType: draft.flightType,
+      });
+      if (!cancelled) setWaitingPassengers(res.count);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    draft.departureAirfieldId,
+    draft.arrivalAirfieldId,
+    draft.flightDate,
+    draft.flightType,
+    startTransition,
+  ]);
 
   const depOpt: AirfieldOption | null =
     draft.departureAirfieldId && draft.departureAirfieldLabel
@@ -314,6 +349,20 @@ export function PublishFlightWizard({
                 }
               />
             ) : null}
+            {waitingPassengers != null && waitingPassengers > 0 ? (
+              <p
+                className="rounded-lg border px-3 py-2 text-sm"
+                style={{
+                  borderColor: "color-mix(in srgb, var(--primary-v2) 25%, transparent)",
+                  background: "var(--primary-soft)",
+                  color: "var(--primary-v2)",
+                }}
+              >
+                {waitingPassengers === 1
+                  ? "1 passenger is waiting for this route"
+                  : `${waitingPassengers} passengers are waiting for this route`}
+              </p>
+            ) : null}
           </div>
           {stepError ? <p className="text-sm text-destructive">{stepError}</p> : null}
           <NavButtons
@@ -341,6 +390,20 @@ export function PublishFlightWizard({
                 }
               />
             </div>
+            {waitingPassengers != null && waitingPassengers > 0 ? (
+              <p
+                className="sm:col-span-2 rounded-lg border px-3 py-2 text-sm"
+                style={{
+                  borderColor: "color-mix(in srgb, var(--primary-v2) 25%, transparent)",
+                  background: "var(--primary-soft)",
+                  color: "var(--primary-v2)",
+                }}
+              >
+                {waitingPassengers === 1
+                  ? "1 passenger is waiting for this route in your selected period"
+                  : `${waitingPassengers} passengers are waiting for this route in your selected period`}
+              </p>
+            ) : null}
             <div className="space-y-2">
               <label className="text-sm font-medium">Departure time</label>
               <Input

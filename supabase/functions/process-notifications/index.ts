@@ -137,12 +137,25 @@ function renderFlightReminder24h(
   return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Reminder: your flight <strong>${escapeHtml(flightId)}</strong> on <strong>${escapeHtml(flightDate)}</strong> departs at <strong>${escapeHtml(departureTime)}</strong> (about 24 hours from now).</p><p><a href="https://gallebo.app/dashboard/bookings">View bookings</a></p></body></html>`;
 }
 
+function renderFlightAlertMatch(name: string, flightId: string): string {
+  const n = escapeHtml(name);
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>A pilot published a flight that matches your <strong>route alert</strong>.</p><p><a href="https://gallebo.app/flights/${escapeHtml(flightId)}">View flight</a></p></body></html>`;
+}
+
+function renderFlightAlertExpiryWarning(name: string): string {
+  const n = escapeHtml(name);
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your flight alert <strong>expires tomorrow</strong>.</p><p><a href="https://gallebo.app/passenger/alerts">Extend alert with one click</a></p></body></html>`;
+}
+
 function notificationDeepLink(
   type: string,
   payload: Record<string, unknown>,
 ): string {
   const bookingId = payload.bookingId;
   const flightId = payload.flightId;
+  if (type === "flight_alert_expiry_warning") {
+    return "https://gallebo.app/passenger/alerts";
+  }
   if (typeof bookingId === "string") {
     return payload.role === "pilot"
       ? `https://gallebo.app/pilot/bookings#booking-${bookingId}`
@@ -442,6 +455,21 @@ serve(async (req) => {
           String(payload.flightDate ?? ""),
           String(payload.departureTime ?? "").slice(0, 5),
         );
+        break;
+      }
+
+      case "flight_alert_match": {
+        subject = "A flight matching your alert was published";
+        html = renderFlightAlertMatch(
+          displayName,
+          String(payload.flightId ?? ""),
+        );
+        break;
+      }
+
+      case "flight_alert_expiry_warning": {
+        subject = "Your flight alert expires tomorrow";
+        html = renderFlightAlertExpiryWarning(displayName);
         break;
       }
 

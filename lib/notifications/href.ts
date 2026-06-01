@@ -13,5 +13,8 @@ export function notificationHref(
   if (n.flight_id) {
     return `/flights/${n.flight_id}`;
   }
+  if (n.type === "flight_alert_expiry_warning") {
+    return "/passenger/alerts";
+  }
   return role === "pilot" ? "/pilot/bookings" : "/passenger/bookings";
 }

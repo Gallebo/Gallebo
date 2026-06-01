@@ -485,6 +485,79 @@ export type Database = {
         };
         Relationships: [];
       };
+      flight_alerts: {
+        Row: {
+          id: string;
+          passenger_user_id: string;
+          departure_airfield_id: string | null;
+          departure_country: string | null;
+          arrival_airfield_id: string | null;
+          arrival_country: string | null;
+          date_from: string;
+          date_to: string;
+          flight_type: Database["public"]["Enums"]["flight_type"] | null;
+          is_active: boolean;
+          expires_at: string;
+          expiry_notified: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          passenger_user_id: string;
+          departure_airfield_id?: string | null;
+          departure_country?: string | null;
+          arrival_airfield_id?: string | null;
+          arrival_country?: string | null;
+          date_from: string;
+          date_to: string;
+          flight_type?: Database["public"]["Enums"]["flight_type"] | null;
+          is_active?: boolean;
+          expires_at?: string;
+          expiry_notified?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          passenger_user_id?: string;
+          departure_airfield_id?: string | null;
+          departure_country?: string | null;
+          arrival_airfield_id?: string | null;
+          arrival_country?: string | null;
+          date_from?: string;
+          date_to?: string;
+          flight_type?: Database["public"]["Enums"]["flight_type"] | null;
+          is_active?: boolean;
+          expires_at?: string;
+          expiry_notified?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "flight_alerts_passenger_user_id_fkey";
+            columns: ["passenger_user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "flight_alerts_departure_airfield_id_fkey";
+            columns: ["departure_airfield_id"];
+            isOneToOne: false;
+            referencedRelation: "airfields";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "flight_alerts_arrival_airfield_id_fkey";
+            columns: ["arrival_airfield_id"];
+            isOneToOne: false;
+            referencedRelation: "airfields";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       ledger: {
         Row: {
           amount_eur: number;
@@ -1154,6 +1227,30 @@ export type Database = {
       count_reserved_bookings: {
         Args: { p_flight_id: string };
         Returns: number;
+      };
+      count_waiting_passengers_for_route: {
+        Args: {
+          p_departure: string;
+          p_arrival: string;
+          p_date: string;
+          p_flight_type?: string | null;
+        };
+        Returns: string;
+      };
+      extend_flight_alert: {
+        Args: { p_alert_id: string };
+        Returns: undefined;
+      };
+      deactivate_flight_alert: {
+        Args: { p_alert_id: string };
+        Returns: undefined;
+      };
+      match_alerts_for_flight: {
+        Args: { p_flight_id: string };
+        Returns: {
+          passenger_user_id: string;
+          alert_id: string;
+        }[];
       };
       increment_payout_failed_count: {
         Args: { p_booking_id: string };

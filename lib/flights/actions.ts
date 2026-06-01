@@ -372,6 +372,65 @@ export async function publishFlightAction(
       });
     }
 
+    try {
+      const admin = createAdminClient();
+      const { data: alertMatches, error: matchError } = await admin.rpc(
+        "match_alerts_for_flight",
+        { p_flight_id: flight.id },
+      );
+      if (matchError) {
+        console.error(
+          "[publishFlightAction] match_alerts_for_flight:",
+          matchError.message,
+        );
+      } else {
+        const notified = new Set<string>();
+        const matches = Array.isArray(alertMatches) ? alertMatches : [];
+        const notifyTasks = matches
+          .filter((match) => {
+            if (notified.has(match.passenger_user_id)) return false;
+            notified.add(match.passenger_user_id);
+            return true;
+          })
+          .map((match) => {
+            const payload = {
+              flightId: flight.id,
+              departureAirfieldId: data.departureAirfieldId,
+              arrivalAirfieldId: data.arrivalAirfieldId,
+            } as Json;
+            const copy = inAppCopyForType(
+              "flight_alert_match",
+              payload as Record<string, unknown>,
+            );
+            return queueUserNotification(
+              admin,
+              match.passenger_user_id,
+              "flight_alert_match",
+              payload,
+              copy
+                ? {
+                    title: copy.title,
+                    body: copy.body,
+                    flightId: flight.id,
+                  }
+                : undefined,
+            );
+          });
+
+        const results = await Promise.allSettled(notifyTasks);
+        for (const result of results) {
+          if (result.status === "rejected") {
+            console.error(
+              "[publishFlightAction] flight_alert_match notify failed:",
+              result.reason,
+            );
+          }
+        }
+      }
+    } catch (alertErr) {
+      console.error("[publishFlightAction] alert matching failed:", alertErr);
+    }
+
     revalidatePath("/flights");
     revalidatePath("/flights/map");
     revalidatePath(`/flights/${flight.id}`);
