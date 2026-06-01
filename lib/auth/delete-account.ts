@@ -92,7 +92,13 @@ export async function deleteAccountAction(
 
   await admin.from("user_notification_settings").delete().eq("user_id", user.id);
 
-  await admin.from("profiles").delete().eq("id", user.id);
+  const { error: profileDeleteError } = await admin
+    .from("profiles")
+    .delete()
+    .eq("id", user.id);
+  if (profileDeleteError) {
+    return { error: `Account deletion failed: ${profileDeleteError.message}` };
+  }
 
   const { error: authError } = await admin.auth.admin.deleteUser(user.id);
   if (authError) {
