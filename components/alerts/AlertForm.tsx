@@ -16,11 +16,52 @@ import {
 } from "@/lib/alerts/actions";
 import type { FlightType } from "@/lib/flights/types";
 
+type LocationMode = "airfield" | "country";
+
+function LocationModeToggle({
+  label,
+  mode,
+  onModeChange,
+}: {
+  label: string;
+  mode: LocationMode;
+  onModeChange: (mode: LocationMode) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-medium">{label}</p>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          className="rounded-md border px-3 py-1.5 text-sm"
+          style={{
+            borderColor: mode === "airfield" ? "var(--primary-v2)" : "var(--line)",
+            color: mode === "airfield" ? "var(--primary-v2)" : "var(--ink-2)",
+          }}
+          onClick={() => onModeChange("airfield")}
+        >
+          Airfield
+        </button>
+        <button
+          type="button"
+          className="rounded-md border px-3 py-1.5 text-sm"
+          style={{
+            borderColor: mode === "country" ? "var(--primary-v2)" : "var(--line)",
+            color: mode === "country" ? "var(--primary-v2)" : "var(--ink-2)",
+          }}
+          onClick={() => onModeChange("country")}
+        >
+          Country / region
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function AlertForm({ countries }: { countries: string[] }) {
   const router = useRouter();
-  const [locationMode, setLocationMode] = useState<"airfield" | "country">(
-    "airfield",
-  );
+  const [departureMode, setDepartureMode] = useState<LocationMode>("airfield");
+  const [arrivalMode, setArrivalMode] = useState<LocationMode>("airfield");
   const [departure, setDeparture] = useState<AirfieldOption | null>(null);
   const [arrival, setArrival] = useState<AirfieldOption | null>(null);
   const [departureCountry, setDepartureCountry] = useState("");
@@ -36,69 +77,42 @@ export function AlertForm({ countries }: { countries: string[] }) {
 
   return (
     <form action={formAction} className="space-y-5 rounded-xl border p-5">
-      <input type="hidden" name="locationMode" value={locationMode} />
-      {locationMode === "airfield" ? (
-        <>
-          <input
-            type="hidden"
-            name="departureAirfieldId"
-            value={departure?.id ?? ""}
-          />
-          <input
-            type="hidden"
-            name="arrivalAirfieldId"
-            value={arrival?.id ?? ""}
-          />
-        </>
+      <input type="hidden" name="departureMode" value={departureMode} />
+      <input type="hidden" name="arrivalMode" value={arrivalMode} />
+      {departureMode === "airfield" ? (
+        <input
+          type="hidden"
+          name="departureAirfieldId"
+          value={departure?.id ?? ""}
+        />
       ) : (
-        <>
-          <input type="hidden" name="departureCountry" value={departureCountry} />
-          <input type="hidden" name="arrivalCountry" value={arrivalCountry} />
-        </>
+        <input type="hidden" name="departureCountry" value={departureCountry} />
+      )}
+      {arrivalMode === "airfield" ? (
+        <input
+          type="hidden"
+          name="arrivalAirfieldId"
+          value={arrival?.id ?? ""}
+        />
+      ) : (
+        <input type="hidden" name="arrivalCountry" value={arrivalCountry} />
       )}
 
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          className="rounded-md border px-3 py-1.5 text-sm"
-          style={{
-            borderColor: locationMode === "airfield" ? "var(--primary-v2)" : "var(--line)",
-            color: locationMode === "airfield" ? "var(--primary-v2)" : "var(--ink-2)",
-          }}
-          onClick={() => setLocationMode("airfield")}
-        >
-          Airfield
-        </button>
-        <button
-          type="button"
-          className="rounded-md border px-3 py-1.5 text-sm"
-          style={{
-            borderColor: locationMode === "country" ? "var(--primary-v2)" : "var(--line)",
-            color: locationMode === "country" ? "var(--primary-v2)" : "var(--ink-2)",
-          }}
-          onClick={() => setLocationMode("country")}
-        >
-          Region (country)
-        </button>
-      </div>
-
-      {locationMode === "airfield" ? (
-        <div className="space-y-4">
+      <div className="space-y-4">
+        <LocationModeToggle
+          label="Departure"
+          mode={departureMode}
+          onModeChange={setDepartureMode}
+        />
+        {departureMode === "airfield" ? (
           <AirfieldCombobox
-            label="Departure"
+            label="Departure airfield"
             value={departure}
             onChange={setDeparture}
           />
-          <AirfieldCombobox
-            label="Arrival"
-            value={arrival}
-            onChange={setArrival}
-          />
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        ) : (
           <div className="space-y-2">
-            <label className="text-sm font-medium">Departure country</label>
+            <label className="text-sm font-medium">Departure country / region</label>
             <select
               className="w-full rounded-md border bg-background px-3 py-2 text-sm"
               value={departureCountry}
@@ -113,8 +127,24 @@ export function AlertForm({ countries }: { countries: string[] }) {
               ))}
             </select>
           </div>
+        )}
+      </div>
+
+      <div className="space-y-4">
+        <LocationModeToggle
+          label="Arrival"
+          mode={arrivalMode}
+          onModeChange={setArrivalMode}
+        />
+        {arrivalMode === "airfield" ? (
+          <AirfieldCombobox
+            label="Arrival airfield"
+            value={arrival}
+            onChange={setArrival}
+          />
+        ) : (
           <div className="space-y-2">
-            <label className="text-sm font-medium">Arrival country</label>
+            <label className="text-sm font-medium">Arrival country / region</label>
             <select
               className="w-full rounded-md border bg-background px-3 py-2 text-sm"
               value={arrivalCountry}
@@ -129,8 +159,8 @@ export function AlertForm({ countries }: { countries: string[] }) {
               ))}
             </select>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">

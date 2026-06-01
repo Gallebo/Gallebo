@@ -1,6 +1,6 @@
+import { assertCanStartDiditSession } from "@/lib/didit/guards";
 import { getDiditConfig } from "@/lib/didit/config";
 import { getAppUrl } from "@/lib/env";
-import { createAdminClient } from "@/lib/supabase/admin";
 
 export type DiditSession = {
   sessionId: string;
@@ -10,20 +10,10 @@ export type DiditSession = {
 export async function createVerificationSession(
   userId: string
 ): Promise<DiditSession> {
+  await assertCanStartDiditSession(userId);
+
   const { DIDIT_API_KEY: apiKey, DIDIT_WORKFLOW_ID: workflowId } =
     getDiditConfig();
-  const admin = createAdminClient();
-
-  const { count } = await admin
-    .from("verification_requests")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .is("reviewed_at", null)
-    .not("didit_session_id", "is", null);
-
-  if ((count ?? 0) > 0) {
-    throw new Error("An active verification session already exists");
-  }
 
   const response = await fetch("https://verification.didit.me/v2/session/", {
     method: "POST",

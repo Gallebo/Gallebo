@@ -33,7 +33,9 @@ function isProtectedPath(pathname: string): boolean {
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/onboarding") ||
     pathname.startsWith("/admin") ||
-    pathname.startsWith("/airfield")
+    pathname.startsWith("/airfield") ||
+    pathname.startsWith("/pilot") ||
+    pathname.startsWith("/passenger")
   );
 }
 
@@ -110,6 +112,34 @@ export async function updateSession(request: NextRequest) {
       profile?.role !== "airfield_operator" ||
       profile?.status !== "verified"
     ) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
+  }
+
+  if (user && pathname.startsWith("/pilot")) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, status")
+      .eq("id", user.id)
+      .single();
+
+    if (profile?.role !== "pilot" || profile?.status !== "verified") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
+  }
+
+  if (user && pathname.startsWith("/passenger")) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, status")
+      .eq("id", user.id)
+      .single();
+
+    if (profile?.role !== "passenger" || profile?.status !== "verified") {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
       return NextResponse.redirect(url);

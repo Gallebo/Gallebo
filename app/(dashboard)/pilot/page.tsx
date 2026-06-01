@@ -82,6 +82,43 @@ export default async function PilotOverviewPage() {
         />
       </div>
 
+      {data.topWaitingRoutes.length > 0 ? (
+        <section className="mb-10">
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <h2
+              className="text-[1.15rem] font-semibold"
+              style={{ color: "var(--ink)" }}
+            >
+              Routes with waiting passengers
+            </h2>
+            <Link
+              href="/pilot/flights/new"
+              className="text-[13px] font-medium no-underline"
+              style={{ color: "var(--primary-v2)" }}
+            >
+              Post a flight
+            </Link>
+          </div>
+          <ul className="flex flex-col gap-2">
+            {data.topWaitingRoutes.map((route) => (
+              <li
+                key={`${route.departureLabel}-${route.arrivalLabel}-${route.waitingCount}`}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border px-4 py-3 text-sm"
+                style={{ borderColor: "var(--line)", background: "var(--surface)" }}
+              >
+                <span style={{ color: "var(--ink)" }}>
+                  {route.departureLabel} → {route.arrivalLabel}
+                </span>
+                <span className="font-semibold" style={{ color: "var(--primary-v2)" }}>
+                  {route.waitingCount}{" "}
+                  {route.waitingCount === 1 ? "passenger" : "passengers"} waiting
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <section className="mb-10">
         <div className="mb-4 flex items-center justify-between gap-2">
           <h2 className="text-[1.15rem] font-semibold" style={{ color: "var(--ink)" }}>

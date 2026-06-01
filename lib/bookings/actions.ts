@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import {
   calculateBookingAmounts,
+  hasFlightDeparted,
   passengerRefundEligible,
 } from "@/lib/bookings/pricing";
 import { weightFromDbValue } from "@/lib/crypto/weight";
@@ -303,6 +304,9 @@ export async function cancelBookingAction(
       refundFull = passengerRefundEligible(flight.flight_date);
     }
 
+    // Late passenger cancel (<48h before flight): no refund to passenger;
+    // payout_status becomes not_applicable — pilot payout / platform retention TBD (see docs/booking-cancellation.md).
+
     const now = new Date().toISOString();
 
     if (booking.status === "confirmed" && booking.payment_intent_id) {
@@ -396,7 +400,7 @@ export async function markFlightCompletedAction(
 
     const { data: flight } = await supabase
       .from("flights")
-      .select("id, pilot_user_id, status")
+      .select("id, pilot_user_id, status, flight_date, departure_time")
       .eq("id", flightId)
       .eq("pilot_user_id", user.id)
       .eq("status", "published")
@@ -404,6 +408,15 @@ export async function markFlightCompletedAction(
 
     if (!flight) {
       return { error: "Flight not found or not published" };
+    }
+
+    if (
+      !hasFlightDeparted(flight.flight_date, flight.departure_time)
+    ) {
+      return {
+        error:
+          "Let se može označiti završenim tek nakon planiranog vremena polaska.",
+      };
     }
 
     const { data: thresholdRow } = await supabase.rpc(

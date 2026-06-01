@@ -19,7 +19,8 @@ export async function createAlertAction(
     const { user } = await requireVerifiedPassenger();
 
     const parsed = createAlertSchema.safeParse({
-      locationMode: formData.get("locationMode"),
+      departureMode: formData.get("departureMode"),
+      arrivalMode: formData.get("arrivalMode"),
       departureAirfieldId: formData.get("departureAirfieldId") || undefined,
       departureCountry: formData.get("departureCountry") || undefined,
       arrivalAirfieldId: formData.get("arrivalAirfieldId") || undefined,
@@ -41,13 +42,13 @@ export async function createAlertAction(
     const { error } = await supabase.from("flight_alerts").insert({
       passenger_user_id: user.id,
       departure_airfield_id:
-        data.locationMode === "airfield" ? data.departureAirfieldId! : null,
+        data.departureMode === "airfield" ? data.departureAirfieldId! : null,
       departure_country:
-        data.locationMode === "country" ? data.departureCountry! : null,
+        data.departureMode === "country" ? data.departureCountry! : null,
       arrival_airfield_id:
-        data.locationMode === "airfield" ? data.arrivalAirfieldId! : null,
+        data.arrivalMode === "airfield" ? data.arrivalAirfieldId! : null,
       arrival_country:
-        data.locationMode === "country" ? data.arrivalCountry! : null,
+        data.arrivalMode === "country" ? data.arrivalCountry! : null,
       date_from: data.dateFrom,
       date_to: data.dateTo,
       flight_type: data.flightType === "all" ? null : data.flightType,

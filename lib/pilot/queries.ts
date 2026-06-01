@@ -374,10 +374,62 @@ export async function getPilotBookingRequests(
   });
 }
 
+export type TopWaitingAlertRoute = {
+  departureLabel: string;
+  arrivalLabel: string;
+  waitingCount: number;
+};
+
+export async function getTopWaitingAlertRoutes(
+  limit = 5,
+): Promise<TopWaitingAlertRoute[]> {
+  const supabase = await createClient();
+
+  const { data: rows, error } = await supabase.rpc("top_waiting_alert_routes", {
+    p_limit: limit,
+  });
+
+  if (error) {
+    console.error("[getTopWaitingAlertRoutes]", error.message);
+    return [];
+  }
+
+  const routeRows = rows ?? [];
+  const airfieldIds = [
+    ...new Set(
+      routeRows
+        .flatMap((r) => [r.departure_airfield_id, r.arrival_airfield_id])
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+
+  const labelById = new Map<string, string>();
+  if (airfieldIds.length > 0) {
+    const { data: airfields } = await supabase
+      .from("airfields")
+      .select("id, name, icao_code")
+      .in("id", airfieldIds);
+    for (const a of airfields ?? []) {
+      labelById.set(a.id, `${a.name} (${a.icao_code})`);
+    }
+  }
+
+  return routeRows.map((row) => ({
+    departureLabel: row.departure_airfield_id
+      ? (labelById.get(row.departure_airfield_id) ?? "Airfield")
+      : (row.departure_country ?? "Country"),
+    arrivalLabel: row.arrival_airfield_id
+      ? (labelById.get(row.arrival_airfield_id) ?? "Airfield")
+      : (row.arrival_country ?? "Country"),
+    waitingCount: Number(row.waiting_count ?? 0),
+  }));
+}
+
 export async function getPilotOverviewData(userId: string) {
   const supabase = await createClient();
   const sidebar = await getPilotSidebarContext(userId);
   const upcomingFlights = await fetchPilotFlights(userId);
+  const topWaitingRoutes = await getTopWaitingAlertRoutes(5);
 
   const pendingRequests = await getPilotBookingRequests(userId);
 
@@ -417,6 +469,7 @@ export async function getPilotOverviewData(userId: string) {
     upcomingFlights: upcomingFlights.slice(0, 3),
     pendingRequests: pendingRequests.slice(0, 2),
     pendingCount: sidebar.pendingRequests,
+    topWaitingRoutes,
     stats: {
       upcoming: upcomingFlights.length,
       nextFlightLabel: nextFlight

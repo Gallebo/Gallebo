@@ -33,17 +33,18 @@ serve(async (req) => {
     for (const alert of expiringSoon ?? []) {
       const { data: settings } = await supabase
         .from("user_notification_settings")
-        .select("email_enabled, in_app_enabled")
+        .select("email_enabled, push_enabled, in_app_enabled")
         .eq("user_id", alert.passenger_user_id)
         .maybeSingle();
 
       const emailEnabled = settings?.email_enabled !== false;
+      const pushEnabled = settings?.push_enabled !== false;
       const inAppEnabled = settings?.in_app_enabled !== false;
-      const bothDisabled = !emailEnabled && !inAppEnabled;
+      const bothDisabled = !emailEnabled && !pushEnabled && !inAppEnabled;
 
       let notificationSent = false;
 
-      if (emailEnabled) {
+      if (emailEnabled || pushEnabled) {
         const { error: qErr } = await supabase.from("notification_queue").insert({
           user_id: alert.passenger_user_id,
           type: "flight_alert_expiry_warning",

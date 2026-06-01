@@ -566,6 +566,18 @@ export async function submitBookingRequestAction(
       return { error: "No seats available on this flight" };
     }
 
+    const { count: activeBookings } = await supabase
+      .from("flight_booking_requests")
+      .select("*", { count: "exact", head: true })
+      .eq("passenger_user_id", user.id)
+      .in("status", ["pending", "accepted", "confirmed"]);
+
+    if ((activeBookings ?? 0) >= 3) {
+      return {
+        error: "Možeš imati najviše 3 aktivna zahtjeva za booking.",
+      };
+    }
+
     let bookingId: string | null = null;
 
     const { data: inserted, error } = await supabase
@@ -596,6 +608,11 @@ export async function submitBookingRequestAction(
           ) {
             return { error: "No seats available on this flight" };
           }
+          if (updateErr.message.includes("Maximum 3 active booking")) {
+            return {
+              error: "Možeš imati najviše 3 aktivna zahtjeva za booking.",
+            };
+          }
           return { error: updateErr.message };
         }
         if (!reactivated) {
@@ -603,6 +620,11 @@ export async function submitBookingRequestAction(
         }
         bookingId = reactivated.id;
       } else {
+        if (error.message.includes("Maximum 3 active booking")) {
+          return {
+            error: "Možeš imati najviše 3 aktivna zahtjeva za booking.",
+          };
+        }
         return { error: error.message };
       }
     } else {

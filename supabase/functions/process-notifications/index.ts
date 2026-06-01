@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { checkRateLimit } from "../_shared/rate-limit.ts";
 import { createAdminClient } from "../_shared/supabase.ts";
 import { sendPushToUser } from "../_shared/push.ts";
 import { sendEmail } from "../_shared/resend.ts";
@@ -498,6 +499,17 @@ serve(async (req) => {
         continue;
       }
 
+      const emailLimit = await checkRateLimit(
+        `email:${notification.user_id}`,
+        10,
+        3600,
+      );
+      if (!emailLimit.allowed) {
+        console.log(
+          `[process-notifications] email rate limit, deferring notification.id=${notification.id}`,
+        );
+        emailOk = false;
+      } else {
       const result = await sendEmail({ to: email, subject, html });
       emailOk = result.ok;
       if (!result.ok) {
@@ -508,6 +520,7 @@ serve(async (req) => {
         await markNotificationFailed(supabase, notification.id);
         failed += 1;
         continue;
+      }
       }
     } else {
       emailOk = true;

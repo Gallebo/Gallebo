@@ -1,12 +1,9 @@
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "crypto";
 
-import { getServerEnv } from "@/lib/env";
+import { getPhoneEncryptionKey } from "@/lib/crypto/encryption-key";
 
 function getKey(): Buffer {
-  const secret =
-    getServerEnv().PHONE_ENCRYPTION_KEY ??
-    "dev-only-change-me-32-chars-min!!!!!";
-  return scryptSync(secret, "gallebo-weight-salt", 32);
+  return scryptSync(getPhoneEncryptionKey(), "gallebo-weight-salt", 32);
 }
 
 export function encryptWeight(kg: number): Buffer {

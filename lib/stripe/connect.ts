@@ -125,3 +125,18 @@ export async function refundPassenger(
 
   return { refundId: refund.id };
 }
+
+/** Removes Express Connect account when pilot deletes their platform account. */
+export async function deletePilotStripeAccount(
+  stripeAccountId: string,
+): Promise<void> {
+  if (!stripeAccountId || stripeAccountId.startsWith("acct_stub_")) {
+    return;
+  }
+  if (!isStripeConfigured()) {
+    return;
+  }
+
+  const stripe = getStripe();
+  await stripe.accounts.del(stripeAccountId);
+}

@@ -17,14 +17,15 @@ export async function queueUserNotification(
 ): Promise<void> {
   const { data: settings } = await admin
     .from("user_notification_settings")
-    .select("email_enabled, in_app_enabled")
+    .select("email_enabled, push_enabled, in_app_enabled")
     .eq("user_id", userId)
     .maybeSingle();
 
   const emailEnabled = settings?.email_enabled ?? true;
+  const pushEnabled = settings?.push_enabled ?? true;
   const inAppEnabled = settings?.in_app_enabled ?? true;
 
-  if (emailEnabled) {
+  if (emailEnabled || pushEnabled) {
     await admin.from("notification_queue").insert({
       user_id: userId,
       type,

@@ -1220,6 +1220,14 @@ export type Database = {
       };
     };
     Functions: {
+      check_rate_limit: {
+        Args: {
+          p_key: string;
+          p_limit: number;
+          p_window_seconds: number;
+        };
+        Returns: Json;
+      };
       count_pending_bookings: {
         Args: { p_flight_id: string };
         Returns: number;
@@ -1236,6 +1244,16 @@ export type Database = {
           p_flight_type?: string | null;
         };
         Returns: string;
+      };
+      top_waiting_alert_routes: {
+        Args: { p_limit?: number };
+        Returns: {
+          departure_airfield_id: string | null;
+          arrival_airfield_id: string | null;
+          departure_country: string | null;
+          arrival_country: string | null;
+          waiting_count: number;
+        }[];
       };
       extend_flight_alert: {
         Args: { p_alert_id: string };

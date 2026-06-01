@@ -1,8 +1,11 @@
 import { z } from "zod";
 
+const locationModeSchema = z.enum(["airfield", "country"]);
+
 export const createAlertSchema = z
   .object({
-    locationMode: z.enum(["airfield", "country"]),
+    departureMode: locationModeSchema,
+    arrivalMode: locationModeSchema,
     departureAirfieldId: z.string().uuid().optional(),
     departureCountry: z.string().min(1).optional(),
     arrivalAirfieldId: z.string().uuid().optional(),
@@ -14,7 +17,7 @@ export const createAlertSchema = z
       .default("all"),
   })
   .superRefine((data, ctx) => {
-    if (data.locationMode === "airfield") {
+    if (data.departureMode === "airfield") {
       if (!data.departureAirfieldId) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -22,6 +25,15 @@ export const createAlertSchema = z
           path: ["departureAirfieldId"],
         });
       }
+    } else if (!data.departureCountry) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Select departure country",
+        path: ["departureCountry"],
+      });
+    }
+
+    if (data.arrivalMode === "airfield") {
       if (!data.arrivalAirfieldId) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -29,22 +41,14 @@ export const createAlertSchema = z
           path: ["arrivalAirfieldId"],
         });
       }
-    } else {
-      if (!data.departureCountry) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Select departure country",
-          path: ["departureCountry"],
-        });
-      }
-      if (!data.arrivalCountry) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Select arrival country",
-          path: ["arrivalCountry"],
-        });
-      }
+    } else if (!data.arrivalCountry) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Select arrival country",
+        path: ["arrivalCountry"],
+      });
     }
+
     if (data.dateTo < data.dateFrom) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

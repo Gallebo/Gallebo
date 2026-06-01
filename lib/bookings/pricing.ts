@@ -28,6 +28,23 @@ export function roundMoney(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+/** UTC instant of scheduled departure (flight_date + departure_time from DB). */
+export function flightDepartureUtc(
+  flightDateIso: string,
+  departureTime: string,
+): Date {
+  const time = departureTime.slice(0, 8);
+  return new Date(`${flightDateIso}T${time}Z`);
+}
+
+export function hasFlightDeparted(
+  flightDateIso: string,
+  departureTime: string,
+  at: Date = new Date(),
+): boolean {
+  return at.getTime() >= flightDepartureUtc(flightDateIso, departureTime).getTime();
+}
+
 export function passengerRefundEligible(
   flightDateIso: string,
   cancelledAt: Date = new Date(),

@@ -90,9 +90,9 @@ export async function getMyActiveAlerts(
     ...row,
     departureLabel: row.departure_airfield_id
       ? (labelById.get(row.departure_airfield_id) ?? "Airfield")
-      : (row.departure_country ?? "Region"),
+      : (row.departure_country ?? "Country"),
     arrivalLabel: row.arrival_airfield_id
       ? (labelById.get(row.arrival_airfield_id) ?? "Airfield")
-      : (row.arrival_country ?? "Region"),
+      : (row.arrival_country ?? "Country"),
   }));
 }

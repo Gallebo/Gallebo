@@ -36,7 +36,7 @@ export async function loginAction(
   }
 
   const ip = await getClientIp();
-  const limit = checkRateLimit(`login:${ip}`);
+  const limit = await checkRateLimit(`auth:login:${ip}`);
   if (!limit.allowed) {
     return { error: "Too many attempts. Please try again later." };
   }
@@ -93,7 +93,7 @@ export async function registerAction(
   }
 
   const ip = await getClientIp();
-  const limit = checkRateLimit(`register:${ip}`);
+  const limit = await checkRateLimit(`auth:register:${ip}`);
   if (!limit.allowed) {
     return { error: "Too many attempts. Please try again later." };
   }
@@ -128,7 +128,7 @@ export async function forgotPasswordAction(
   }
 
   const ip = await getClientIp();
-  const limit = checkRateLimit(`forgot:${ip}`);
+  const limit = await checkRateLimit(`auth:forgot:${ip}`);
   if (!limit.allowed) {
     return { error: "Too many attempts. Please try again later." };
   }
@@ -154,6 +154,12 @@ export async function resetPasswordAction(
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const ip = await getClientIp();
+  const limit = await checkRateLimit(`auth:reset-password:${ip}`);
+  if (!limit.allowed) {
+    return { error: "Too many attempts. Please try again later." };
   }
 
   const supabase = await createClient();
