@@ -1,35 +1,105 @@
-import type Stripe from "stripe";
+import type Stripe from "https://esm.sh/stripe@17.7.0?target=deno";
 
-import { insertSystemMessage } from "@/lib/chat/system";
-import { insertLedger } from "@/lib/ledger/insert";
-import { inAppCopyForType } from "@/lib/notifications/copy";
-import { queueUserNotification } from "@/lib/notifications/notify";
-import { getStripe } from "@/lib/stripe/client";
-import { createAdminClient } from "@/lib/supabase/admin";
-import type { Json } from "@/types/database";
+import { getStripeClient } from "./connect.ts";
+import { createAdminClient } from "./supabase.ts";
+
+type Admin = ReturnType<typeof createAdminClient>;
+
+type LedgerEntryType =
+  | "booking_payment"
+  | "platform_fee"
+  | "pilot_payout"
+  | "refund"
+  | "payout_failed";
+
+async function insertLedger(
+  admin: Admin,
+  entry: {
+    booking_id: string;
+    type: LedgerEntryType;
+    amount_eur: number;
+    idempotency_key: string;
+    stripe_payment_intent_id?: string | null;
+    stripe_checkout_session_id?: string | null;
+    stripe_refund_id?: string | null;
+    stripe_transfer_id?: string | null;
+    metadata?: Record<string, unknown>;
+  },
+): Promise<void> {
+  const { error } = await admin.from("ledger").insert({
+    booking_id: entry.booking_id,
+    type: entry.type,
+    amount_eur: entry.amount_eur,
+    idempotency_key: entry.idempotency_key,
+    stripe_payment_intent_id: entry.stripe_payment_intent_id ?? null,
+    stripe_checkout_session_id: entry.stripe_checkout_session_id ?? null,
+    stripe_refund_id: entry.stripe_refund_id ?? null,
+    stripe_transfer_id: entry.stripe_transfer_id ?? null,
+    metadata: entry.metadata ?? {},
+  });
+
+  if (error && error.code !== "23505") {
+    throw new Error(`Ledger insert failed: ${error.message}`);
+  }
+}
+
+async function insertSystemMessage(
+  admin: Admin,
+  bookingId: string,
+  content: string,
+): Promise<void> {
+  const { error } = await admin.from("chat_messages").insert({
+    booking_id: bookingId,
+    sender_user_id: null,
+    content,
+    is_system: true,
+  });
+
+  if (error) {
+    console.error("[chat/system]", error.message);
+  }
+}
 
 async function queueNotification(
-  admin: ReturnType<typeof createAdminClient>,
+  admin: Admin,
   userId: string,
   type: string,
-  payload: Json,
-) {
-  const payloadObj = (payload ?? {}) as Record<string, unknown>;
-  const copy = inAppCopyForType(type, payloadObj);
-  await queueUserNotification(admin, userId, type, payload, copy
-    ? {
-        title: copy.title,
-        body: copy.body,
-        bookingId:
-          typeof payloadObj.bookingId === "string"
-            ? payloadObj.bookingId
-            : undefined,
-        flightId:
-          typeof payloadObj.flightId === "string"
-            ? payloadObj.flightId
-            : undefined,
-      }
-    : undefined);
+  payload: Record<string, unknown>,
+  inApp?: {
+    title: string;
+    body: string;
+    bookingId?: string;
+    flightId?: string;
+  },
+): Promise<void> {
+  const { data: settings } = await admin
+    .from("user_notification_settings")
+    .select("email_enabled, push_enabled, in_app_enabled")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const emailEnabled = settings?.email_enabled ?? true;
+  const pushEnabled = settings?.push_enabled ?? true;
+  const inAppEnabled = settings?.in_app_enabled ?? true;
+
+  if (emailEnabled || pushEnabled) {
+    await admin.from("notification_queue").insert({
+      user_id: userId,
+      type,
+      payload,
+    });
+  }
+
+  if (inApp && inAppEnabled) {
+    await admin.from("in_app_notifications").insert({
+      user_id: userId,
+      type,
+      title: inApp.title,
+      body: inApp.body,
+      booking_id: inApp.bookingId ?? null,
+      flight_id: inApp.flightId ?? null,
+    });
+  }
 }
 
 export async function handleCheckoutSessionCompleted(
@@ -74,12 +144,16 @@ export async function handleCheckoutSessionCompleted(
   let chargeId: string | null = null;
   if (paymentIntentId) {
     try {
-      const stripe = getStripe();
-      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-      chargeId =
-        typeof paymentIntent.latest_charge === "string"
-          ? paymentIntent.latest_charge
-          : (paymentIntent.latest_charge?.id ?? null);
+      const stripe = getStripeClient();
+      if (stripe) {
+        const paymentIntent = await stripe.paymentIntents.retrieve(
+          paymentIntentId,
+        );
+        chargeId =
+          typeof paymentIntent.latest_charge === "string"
+            ? paymentIntent.latest_charge
+            : (paymentIntent.latest_charge?.id ?? null);
+      }
     } catch (e) {
       console.warn("[stripe/webhook] could not retrieve charge id:", e);
     }
@@ -130,32 +204,40 @@ export async function handleCheckoutSessionCompleted(
     .single();
 
   await insertSystemMessage(
+    admin,
     bookingId,
     "Plaćanje je potvrđeno. Kontakt podaci su dostupni.",
   );
 
-  await queueNotification(admin, booking.passenger_user_id, "payment_confirmed", {
+  const paymentCopy = {
+    title: "Payment confirmed",
+    body: "Your seat is booked. Contact details are now available in chat.",
     bookingId,
     flightId: booking.flight_id,
-  });
+  };
+
+  await queueNotification(
+    admin,
+    booking.passenger_user_id,
+    "payment_confirmed",
+    { bookingId, flightId: booking.flight_id },
+    paymentCopy,
+  );
 
   if (flight?.pilot_user_id) {
-    await queueNotification(admin, flight.pilot_user_id, "payment_confirmed", {
-      bookingId,
-      flightId: booking.flight_id,
-    });
+    await queueNotification(
+      admin,
+      flight.pilot_user_id,
+      "payment_confirmed",
+      { bookingId, flightId: booking.flight_id },
+      paymentCopy,
+    );
   }
 }
 
-/**
- * Ažurira stripe_onboarding_complete na pilot_profiles kad se Stripe Express account
- * aktivira ili restringira. Stripe šalje ovaj event kad pilot završi onboarding
- * ili kad mu Stripe ograniči account (istekli dokumenti, fraud flag, itd.).
- *
- * NAPOMENA: Ovaj handler prima Connect event — webhook endpoint mora biti konfiguriran
- * s "Listen to events on Connected accounts" u Stripe Dashboardu → Webhooks.
- */
-export async function handleAccountUpdated(account: Stripe.Account): Promise<void> {
+export async function handleAccountUpdated(
+  account: Stripe.Account,
+): Promise<void> {
   const isComplete =
     account.details_submitted === true &&
     account.charges_enabled === true &&
@@ -173,7 +255,9 @@ export async function handleAccountUpdated(account: Stripe.Account): Promise<voi
   }
 }
 
-export async function handleChargeRefunded(charge: Stripe.Charge): Promise<void> {
+export async function handleChargeRefunded(
+  charge: Stripe.Charge,
+): Promise<void> {
   const paymentIntentId =
     typeof charge.payment_intent === "string"
       ? charge.payment_intent

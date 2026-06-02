@@ -38,3 +38,9 @@ verify_jwt = false
 
 [functions.process-alert-expiry]
 verify_jwt = false
+
+[functions.didit-webhook]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false

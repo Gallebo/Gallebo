@@ -23,8 +23,6 @@ const AUTH_ONLY_PATHS = ["/login", "/register"];
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true;
   if (pathname.startsWith("/airfields/")) return true;
-  if (pathname.startsWith("/api/didit/webhook")) return true;
-  if (pathname.startsWith("/api/cron/")) return true;
   return false;
 }
 

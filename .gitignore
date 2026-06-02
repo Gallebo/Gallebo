@@ -62,3 +62,10 @@ deploy-ef-*.json
 *.tsbuildinfo
 next-env.d.ts
 .gstack/
+
+*.key
+secrets/
+
+# Allow committed env templates (must follow .env* rule)
+!.env.vercel.example
+!.env.supabase.example
