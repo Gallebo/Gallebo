@@ -69,3 +69,6 @@ secrets/
 # Allow committed env templates (must follow .env* rule)
 !.env.vercel.example
 !.env.supabase.example
+
+/gstack/
+/.claude/settings.local.json
