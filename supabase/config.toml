@@ -16,7 +16,13 @@ enabled = true
 [auth]
 enabled = true
 site_url = "http://localhost:3000"
-additional_redirect_urls = ["http://localhost:3000/auth/callback"]
+additional_redirect_urls = [
+  "http://localhost:3000/auth/callback",
+  "https://gallebo.app/auth/callback",
+  "https://www.gallebo.app/auth/callback",
+  "https://gallebo.eu/auth/callback",
+  "https://www.gallebo.eu/auth/callback",
+]
 
 [functions.process-notifications]
 verify_jwt = false

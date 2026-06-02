@@ -1,8 +1,14 @@
 import { redirect } from "next/navigation";
 
 import { requirePilot } from "@/lib/auth/rbac";
+import { privatePageRobots } from "@/lib/seo/site";
 import { createClient } from "@/lib/supabase/server";
 import { SetupPayoutsButton } from "@/components/pilot/setup-payouts-button";
+
+export const metadata = {
+  title: "Stripe payouts",
+  robots: privatePageRobots,
+};
 
 export default async function PilotStripePage() {
   const { user } = await requirePilot();

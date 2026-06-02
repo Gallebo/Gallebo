@@ -19,6 +19,8 @@ export const metadata = {
   description: "Search shared private flights across the Adriatic.",
 };
 
+export const revalidate = 60;
+
 function buildMetaLine(params: {
   dateFrom?: string;
   dateTo?: string;

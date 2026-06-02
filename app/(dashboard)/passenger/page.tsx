@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { VerificationTracker } from "@/components/analytics/verification-tracker";
 import { PassengerBookingCardV3 } from "@/components/passenger/passenger-booking-card-v3";
 import { PilotMetricCard } from "@/components/pilot/pilot-metric-card";
 import { requireVerifiedPassenger } from "@/lib/auth/rbac";
@@ -14,6 +15,7 @@ export default async function PassengerOverviewPage() {
 
   return (
     <div>
+      <VerificationTracker isVerified />
       <div className="mb-8">
         <p
           className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em]"

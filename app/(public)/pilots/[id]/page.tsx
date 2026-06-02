@@ -3,10 +3,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Calendar, Plane, Star } from "lucide-react";
 
+import { JsonLd } from "@/components/seo/json-ld";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { AircraftWithPhotos } from "@/lib/aircraft/types";
 import { averageRating } from "@/lib/pilot/review-stats";
+import { pilotPageJsonLd } from "@/lib/seo/json-ld";
 import { publicStorageUrl } from "@/lib/storage/public-url";
 import { createClient } from "@/lib/supabase/server";
 import { PilotReviewCard } from "@/components/reviews/PilotReviewCard";
@@ -36,7 +38,16 @@ export async function generateMetadata({
       ? `${row.first_name} ${row.last_name}`
       : "Pilot";
 
-  return { title: `${name} — Gallebo` };
+  return {
+    title: `${name} — Gallebo`,
+    description: `View ${name}'s pilot profile, aircraft, and passenger reviews on Gallebo.`,
+    alternates: { canonical: `/pilots/${id}` },
+    openGraph: {
+      title: `${name} — Gallebo`,
+      description: `Cost-sharing flights with ${name}`,
+      url: `/pilots/${id}`,
+    },
+  };
 }
 
 export default async function PublicPilotProfilePage({
@@ -101,6 +112,15 @@ export default async function PublicPilotProfilePage({
 
   return (
     <div className="mx-auto max-w-4xl space-y-10 px-4 py-12 sm:px-6">
+      <JsonLd
+        data={pilotPageJsonLd({
+          id: pub.id,
+          name: displayName,
+          avgRating: avg,
+          reviewCount: ratings.length,
+          avatarUrl,
+        })}
+      />
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
         <div className="relative h-32 w-32 shrink-0 overflow-hidden rounded-full border">
           {avatarUrl ? (
@@ -111,7 +131,6 @@ export default async function PublicPilotProfilePage({
               className="object-cover"
               sizes="128px"
               priority
-              unoptimized
             />
           ) : (
             <div className="flex h-full items-center justify-center bg-muted text-xs text-muted-foreground">
@@ -172,7 +191,6 @@ export default async function PublicPilotProfilePage({
                           fill
                           className="object-cover"
                           sizes="(max-width:640px) 100vw, 50vw"
-                          unoptimized
                         />
                       ) : null}
                     </div>

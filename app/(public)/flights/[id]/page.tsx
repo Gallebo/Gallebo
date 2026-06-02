@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Calendar, Plane, Star } from "lucide-react";
 
 import { BookingRequestButton } from "@/components/flights/booking-request-button";
+import { JsonLd } from "@/components/seo/json-ld";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FLIGHT_LANGUAGE_LABELS, FLIGHT_TYPE_LABELS } from "@/lib/flights/constants";
@@ -16,6 +17,11 @@ import {
   pilotDisplayName,
 } from "@/lib/flights/utils";
 import { getProfile, getSessionUser } from "@/lib/auth/rbac";
+import {
+  flightMetadataDescription,
+  flightMetadataImage,
+  flightPageJsonLd,
+} from "@/lib/seo/json-ld";
 import { publicStorageUrl } from "@/lib/storage/public-url";
 import { createClient } from "@/lib/supabase/server";
 
@@ -27,7 +33,29 @@ export async function generateMetadata({
   const { id } = await params;
   const flight = await getFlightById(id);
   if (!flight) return { title: "Flight not found — Gallebo" };
-  return { title: `${formatFlightRoute(flight)} — Gallebo` };
+
+  const title = `${formatFlightRoute(flight)} — Gallebo`;
+  const description = flightMetadataDescription(flight);
+  const image = flightMetadataImage(flight);
+
+  return {
+    title,
+    description,
+    alternates: { canonical: `/flights/${id}` },
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      url: `/flights/${id}`,
+      images: [{ url: image, alt: title }],
+    },
+    twitter: {
+      card: "summary_large_image" as const,
+      title,
+      description,
+      images: [image],
+    },
+  };
 }
 
 export default async function FlightDetailPage({
@@ -74,6 +102,7 @@ export default async function FlightDetailPage({
 
   return (
     <div className="mx-auto max-w-5xl space-y-10 px-4 py-12 sm:px-6">
+      <JsonLd data={flightPageJsonLd(flight)} />
       <div className="grid gap-8 lg:grid-cols-2">
         <div className="space-y-4">
           {photos.length > 0 ? (
@@ -88,8 +117,7 @@ export default async function FlightDetailPage({
                     alt=""
                     fill
                     className="object-cover"
-                    sizes="400px"
-                    unoptimized
+                    sizes="(max-width: 640px) 100vw, 50vw"
                     priority={i === 0}
                   />
                 </div>
@@ -183,7 +211,7 @@ export default async function FlightDetailPage({
         <CardContent className="flex items-center gap-4">
           {avatarUrl ? (
             <div className="relative h-14 w-14 overflow-hidden rounded-full">
-              <Image src={avatarUrl} alt="" fill className="object-cover" unoptimized />
+              <Image src={avatarUrl} alt="" fill className="object-cover" sizes="56px" />
             </div>
           ) : null}
           <div>

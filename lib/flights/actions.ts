@@ -433,6 +433,7 @@ export async function publishFlightAction(
 
     revalidatePath("/flights");
     revalidatePath("/flights/map");
+    revalidatePath("/", "layout");
     revalidatePath(`/flights/${flight.id}`);
     revalidatePath("/pilot/flights");
     revalidatePath(`/pilots/${user.id}`);

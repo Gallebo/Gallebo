@@ -10,9 +10,13 @@ import { AirfieldLocation } from "@/components/airfield/public/airfield-location
 import { AirfieldNearby } from "@/components/airfield/public/airfield-nearby";
 import { AirfieldNotices } from "@/components/airfield/public/airfield-notices";
 import { AirfieldReviews } from "@/components/airfield/public/airfield-reviews";
-import { getFlightsForAirfield } from "@/lib/flights/search";
+import { JsonLd } from "@/components/seo/json-ld";
+import { getFlightsForAirfieldCached } from "@/lib/flights/cached-search";
+import { airfieldPageJsonLd } from "@/lib/seo/json-ld";
 import { createClient } from "@/lib/supabase/server";
 import type { FlightListItem } from "@/lib/flights/types";
+
+export const revalidate = 120;
 
 export async function generateMetadata({
   params,
@@ -35,9 +39,11 @@ export async function generateMetadata({
   return {
     title: `${airfield.name} (${airfield.icao_code}) — Gallebo`,
     description: `Explore flights, facilities and reviews at ${airfield.name}`,
+    alternates: { canonical: `/airfields/${icao.toLowerCase()}` },
     openGraph: {
       title: `${airfield.name} (${airfield.icao_code})`,
       description: `Explore cost-shared flights at ${airfield.name}`,
+      url: `/airfields/${icao.toLowerCase()}`,
     },
   };
 }
@@ -83,7 +89,7 @@ export default async function AirfieldProfilePage({
   if (!airfield) notFound();
 
   const [{ departing, arriving }, photos, notices, events] = await Promise.all([
-    getFlightsForAirfield(airfield.id),
+    getFlightsForAirfieldCached(airfield.id),
     supabase
       .from("airfield_photos")
       .select("*")
@@ -107,6 +113,15 @@ export default async function AirfieldProfilePage({
 
   return (
     <div style={{ background: "var(--bg)" }}>
+      <JsonLd
+        data={airfieldPageJsonLd({
+          name: airfield.name,
+          icao: airfield.icao_code,
+          country: airfield.country,
+          latitude: airfield.latitude,
+          longitude: airfield.longitude,
+        })}
+      />
       {/* 1 — Hero */}
       <AirfieldHero
         airfield={{

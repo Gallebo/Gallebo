@@ -19,6 +19,16 @@ const publicEnvSchema = z.object({
       z.string().min(1).optional()
     ),
   NEXT_PUBLIC_APP_URL: z.string().url().optional(),
+  NEXT_PUBLIC_POSTHOG_KEY: z
+    .preprocess(
+      (v) => (v === "" || v === undefined ? undefined : v),
+      z.string().min(1).optional()
+    ),
+  NEXT_PUBLIC_POSTHOG_HOST: z
+    .preprocess(
+      (v) => (v === "" || v === undefined ? undefined : v),
+      z.string().url().optional()
+    ),
 });
 
 const serverEnvSchema = z.object({
@@ -43,6 +53,8 @@ export function getPublicEnv(): PublicEnv {
     NEXT_PUBLIC_MAPTILER_API_KEY: process.env.NEXT_PUBLIC_MAPTILER_API_KEY,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     NEXT_PUBLIC_VAPID_PUBLIC_KEY: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+    NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
+    NEXT_PUBLIC_POSTHOG_HOST: process.env.NEXT_PUBLIC_POSTHOG_HOST,
   });
 }
 
@@ -77,6 +89,10 @@ export function isSupabaseConfigured(): boolean {
 
 export function isMapTilerConfigured(): boolean {
   return Boolean(getPublicEnv().NEXT_PUBLIC_MAPTILER_API_KEY);
+}
+
+export function isPostHogConfigured(): boolean {
+  return Boolean(getPublicEnv().NEXT_PUBLIC_POSTHOG_KEY);
 }
 
 export function isDiditConfigured(): boolean {

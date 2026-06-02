@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAppUrl } from "@/lib/env";
 import { getStripe } from "@/lib/stripe/client";
 import { isStripeConfigured } from "@/lib/stripe/config";
 
@@ -58,15 +59,16 @@ export async function createPilotConnectAccount(
  * Ne sprema URL u bazu.
  */
 export async function createOnboardingLink(stripeAccountId: string): Promise<string> {
+  const appUrl = getAppUrl();
   if (!isStripeConfigured() || stripeAccountId.startsWith("acct_stub_")) {
-    return `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/pilot/stripe/complete?stub=1`;
+    return `${appUrl}/pilot/stripe/complete?stub=1`;
   }
 
   const stripe = getStripe();
   const link = await stripe.accountLinks.create({
     account: stripeAccountId,
-    refresh_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/pilot/stripe/refresh`,
-    return_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/pilot/stripe/complete`,
+    refresh_url: `${appUrl}/pilot/stripe/refresh`,
+    return_url: `${appUrl}/pilot/stripe/complete`,
     type: "account_onboarding",
   });
 

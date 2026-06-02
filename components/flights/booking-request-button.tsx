@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
+import { trackEvent } from "@/lib/analytics/track";
 import { cn } from "@/lib/utils";
 import { submitBookingRequestAction } from "@/lib/flights/actions";
 
@@ -70,6 +71,7 @@ export function BookingRequestButton({
                 status: "success",
                 message: res.success ?? "Booking request sent",
               });
+              trackEvent("booking_created", { flight_id: flightId });
               router.refresh();
             }
           });

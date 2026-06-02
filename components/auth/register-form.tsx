@@ -11,6 +11,8 @@ import {
   authLabelClassName,
 } from "@/components/auth/auth-form-styles";
 import { FormMessage } from "@/components/auth/form-message";
+import { trackEvent } from "@/lib/analytics/track";
+import { SocialAuthButtons } from "@/components/auth/social-auth-buttons";
 import {
   registerAction,
   type AuthActionState,
@@ -35,9 +37,14 @@ export function RegisterForm() {
     if (state.error) {
       form.setError("root", { message: state.error });
     }
-  }, [state.error, form]);
+    if (state.success) {
+      trackEvent("registration");
+    }
+  }, [state.error, state.success, form]);
 
   return (
+    <div className="space-y-5">
+      <SocialAuthButtons />
     <form
       className="space-y-5"
       onSubmit={form.handleSubmit((data) => {
@@ -122,5 +129,6 @@ export function RegisterForm() {
         )}
       </AuthSubmitButton>
     </form>
+    </div>
   );
 }

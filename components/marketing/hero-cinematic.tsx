@@ -14,6 +14,7 @@ export function HeroCinematic() {
         aria-hidden="true"
         fill
         priority
+        fetchPriority="high"
         className="object-cover object-center dark:opacity-0 transition-opacity duration-300"
         style={{ zIndex: -2 }}
         sizes="100vw"

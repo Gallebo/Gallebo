@@ -1,8 +1,14 @@
 import { redirect } from "next/navigation";
 
 import { requirePilot } from "@/lib/auth/rbac";
+import { privatePageRobots } from "@/lib/seo/site";
 import { createPilotConnectAccount, createOnboardingLink } from "@/lib/stripe/connect";
 import { createClient } from "@/lib/supabase/server";
+
+export const metadata = {
+  title: "Stripe onboarding",
+  robots: privatePageRobots,
+};
 
 export default async function StripeRefreshPage() {
   const { user } = await requirePilot();

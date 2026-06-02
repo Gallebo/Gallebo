@@ -1,6 +1,12 @@
 import Link from "next/link";
 
 import { requirePilot } from "@/lib/auth/rbac";
+import { privatePageRobots } from "@/lib/seo/site";
+
+export const metadata = {
+  title: "Stripe setup complete",
+  robots: privatePageRobots,
+};
 
 export default async function StripeCompletePage() {
   await requirePilot();

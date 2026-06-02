@@ -11,6 +11,7 @@ import {
   authLabelClassName,
 } from "@/components/auth/auth-form-styles";
 import { FormMessage } from "@/components/auth/form-message";
+import { SocialAuthButtons } from "@/components/auth/social-auth-buttons";
 import {
   loginAction,
   type AuthActionState,
@@ -38,6 +39,8 @@ export function LoginForm({ next }: { next?: string }) {
   }, [state.error, form]);
 
   return (
+    <div className="space-y-5">
+      <SocialAuthButtons next={next} />
     <form
       className="space-y-5"
       onSubmit={form.handleSubmit((data) => {
@@ -103,5 +106,6 @@ export function LoginForm({ next }: { next?: string }) {
         )}
       </AuthSubmitButton>
     </form>
+    </div>
   );
 }

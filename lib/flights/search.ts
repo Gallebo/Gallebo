@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import { getPublicEnv, isMapTilerConfigured } from "@/lib/env";
 import {
   flightRowsFromQuery,
@@ -10,6 +12,9 @@ import type {
   FlightSearchParams,
 } from "@/lib/flights/types";
 import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@/types/database";
+
+type DbClient = SupabaseClient<Database>;
 
 type SeatAvailabilityRow = {
   passenger_seats: number;
@@ -39,8 +44,8 @@ const FLIGHT_SELECT = `
 
 async function resolveAirfieldIdsFromLocation(
   query: string,
+  supabase: DbClient,
 ): Promise<string[]> {
-  const supabase = await createClient();
   const q = query.trim().replace(/[,()]/g, "");
   if (!q) return [];
 
@@ -116,15 +121,16 @@ function applyPublishedFlightFilters(query: any, params: FlightSearchParams, tod
 
 export async function searchPublishedFlights(
   params: FlightSearchParams,
+  options?: { db?: DbClient },
 ): Promise<FlightListItem[]> {
-  const supabase = await createClient();
+  const supabase = options?.db ?? (await createClient());
   const today = new Date().toISOString().slice(0, 10);
   const useMinSeatsFilter =
     params.minSeats !== undefined && params.minSeats > 0;
 
   const locationAirfieldIds =
     params.locationQuery && !params.departureAirfieldId && !params.arrivalAirfieldId
-      ? await resolveAirfieldIdsFromLocation(params.locationQuery)
+      ? await resolveAirfieldIdsFromLocation(params.locationQuery, supabase)
       : null;
 
   if (locationAirfieldIds && locationAirfieldIds.length === 0) {
@@ -339,11 +345,14 @@ export async function getFlightById(id: string): Promise<FlightListItem | null> 
   });
 }
 
-export async function getFlightsForAirfield(airfieldId: string): Promise<{
+export async function getFlightsForAirfield(
+  airfieldId: string,
+  options?: { db?: DbClient },
+): Promise<{
   departing: FlightListItem[];
   arriving: FlightListItem[];
 }> {
-  const supabase = await createClient();
+  const supabase = options?.db ?? (await createClient());
   const today = new Date().toISOString().slice(0, 10);
 
   const { data: departing } = await supabase

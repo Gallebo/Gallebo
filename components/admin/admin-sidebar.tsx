@@ -60,6 +60,19 @@ const NAV = [
     ),
   },
   {
+    href: "/admin/analytics",
+    label: "Analytics",
+    icon: (
+      <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M4 19V5" />
+        <path d="M4 19h16" />
+        <path d="M8 17V9" />
+        <path d="M12 17V7" />
+        <path d="M16 17v-4" />
+      </svg>
+    ),
+  },
+  {
     href: "/admin/settings",
     label: "Settings",
     icon: (

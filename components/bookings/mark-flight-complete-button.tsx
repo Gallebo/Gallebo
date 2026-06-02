@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
 import { markFlightCompletedAction } from "@/lib/bookings/actions";
+import { trackEvent } from "@/lib/analytics/track";
 import { Button } from "@/components/ui/button";
 
 export function MarkFlightCompleteButton({ flightId }: { flightId: string }) {
@@ -26,7 +27,10 @@ export function MarkFlightCompleteButton({ flightId }: { flightId: string }) {
         startTransition(async () => {
           const res = await markFlightCompletedAction(flightId);
           if (res.error) alert(res.error);
-          else alert(res.success);
+          else {
+            trackEvent("flight_completed", { flight_id: flightId });
+            alert(res.success);
+          }
           router.refresh();
         });
       }}

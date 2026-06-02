@@ -2,8 +2,14 @@ import { notFound } from "next/navigation";
 
 import { AirfieldActions } from "@/components/admin/airfield-actions";
 import { BUCKET_BY_TYPE } from "@/lib/documents/constants";
+import { privatePageRobots } from "@/lib/seo/site";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+export const metadata = {
+  title: "Airfield review",
+  robots: privatePageRobots,
+};
 
 export default async function AirfieldReviewPage({
   params,

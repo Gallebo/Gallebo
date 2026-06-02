@@ -1,5 +1,12 @@
 import { redirect } from "next/navigation";
 
+import { privatePageRobots } from "@/lib/seo/site";
+
+export const metadata = {
+  title: "Bookings",
+  robots: privatePageRobots,
+};
+
 export default async function LegacyPassengerBookingsPage({
   searchParams,
 }: {
