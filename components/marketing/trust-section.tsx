@@ -8,8 +8,8 @@ const ITEMS = [
         <path d="M9 12l2 2 4-4" />
       </svg>
     ),
-    title: "EASA cost-sharing",
-    desc: "Every flight follows EU Regulation 965/2012, Part-NCO. We lock the formula at posting time.",
+    title: "Legally compliant by design",
+    desc: "Every flight follows EU Regulation 965/2012, Part-NCO. Costs are split equally — the pilot pays their share too.",
   },
   {
     icon: (
@@ -18,8 +18,8 @@ const ITEMS = [
         <path d="M9 14l-2 7 5-3 5 3-2-7" />
       </svg>
     ),
-    title: "KYC verified pilots",
-    desc: "Government ID + PPL/LAPL licence + medical certificate, verified by Didit before publishing.",
+    title: "Every pilot is verified",
+    desc: "Government ID, PPL/LAPL licence, and a valid medical certificate — all checked before a pilot can post a single flight.",
   },
   {
     icon: (
@@ -28,8 +28,8 @@ const ITEMS = [
         <path d="M8 11V8a4 4 0 018 0v3" />
       </svg>
     ),
-    title: "Escrowed payment",
-    desc: "Stripe Connect holds the funds. Released to the pilot after the flight, refunded if weather cancels.",
+    title: "Your money is protected",
+    desc: "Stripe holds your payment until after the flight. If the pilot cancels, you get a full refund — automatically.",
   },
   {
     icon: (
@@ -40,8 +40,8 @@ const ITEMS = [
         <path d="M22 17c-.5-2-2-3.2-4-3.7" />
       </svg>
     ),
-    title: "Blind two-way reviews",
-    desc: "Both sides review each other within 24 h. Results revealed only when both have submitted.",
+    title: "Honest, two-way reviews",
+    desc: "Pilot and passenger both review within 24 hours. Neither sees the other's rating until both have submitted.",
   },
 ];
 
@@ -71,8 +71,8 @@ export function TrustSection() {
               maxWidth: 680,
             }}
           >
-            Aviation-grade trust,{" "}
-            <em style={{ fontStyle: "italic" }}>in three taps.</em>
+            Built for trust,{" "}
+            <em style={{ fontStyle: "italic" }}>not shortcuts.</em>
           </h2>
         </Reveal>
 

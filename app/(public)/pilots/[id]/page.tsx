@@ -84,21 +84,29 @@ export default async function PublicPilotProfilePage({
       .filter((r): r is number => typeof r === "number") ?? [];
   const avg = averageRating(ratings);
 
-  const { data: rawAircraft } = await supabase
-    .from("aircraft")
-    .select(
-      `
+  const [{ data: rawAircraft }, { count: completedFlightCount }] = await Promise.all([
+    supabase
+      .from("aircraft")
+      .select(
+        `
       id,
       model,
       registration,
       seats,
       aircraft_photos ( id, storage_path, position )
     `,
-    )
-    .eq("pilot_user_id", pub.id)
-    .order("created_at", { ascending: true });
+      )
+      .eq("pilot_user_id", pub.id)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("flights")
+      .select("*", { count: "exact", head: true })
+      .eq("pilot_user_id", pub.id)
+      .eq("status", "completed"),
+  ]);
 
   const aircraftRows = (rawAircraft ?? []) as AircraftWithPhotos[];
+  const flightsOnGallebo = completedFlightCount ?? 0;
 
   const displayName =
     pub.first_name && pub.last_name
@@ -148,10 +156,12 @@ export default async function PublicPilotProfilePage({
             Member since {pub.created_at?.slice(0, 10) ?? "—"}
           </p>
           <div className="flex flex-wrap gap-4 text-sm">
-            <span className="flex items-center gap-1">
-              <Plane className="h-4 w-4" />
-              Flights on Gallebo: <strong>—</strong>
-            </span>
+            {flightsOnGallebo > 0 ? (
+              <span className="flex items-center gap-1">
+                <Plane className="h-4 w-4" />
+                Flights on Gallebo: <strong>{flightsOnGallebo}</strong>
+              </span>
+            ) : null}
             <span className="flex items-center gap-1">
               <Star className="h-4 w-4" />
               {avg !== null ? (

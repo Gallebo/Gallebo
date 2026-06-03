@@ -7,9 +7,7 @@ import { AirfieldGallery } from "@/components/airfield/public/airfield-gallery";
 import { AirfieldHero } from "@/components/airfield/public/airfield-hero";
 import { AirfieldInfoGrid } from "@/components/airfield/public/airfield-info-grid";
 import { AirfieldLocation } from "@/components/airfield/public/airfield-location";
-import { AirfieldNearby } from "@/components/airfield/public/airfield-nearby";
 import { AirfieldNotices } from "@/components/airfield/public/airfield-notices";
-import { AirfieldReviews } from "@/components/airfield/public/airfield-reviews";
 import { JsonLd } from "@/components/seo/json-ld";
 import { getFlightsForAirfieldCached } from "@/lib/flights/cached-search";
 import { airfieldPageJsonLd } from "@/lib/seo/json-ld";
@@ -163,8 +161,7 @@ export default async function AirfieldProfilePage({
         destinationInfo={airfield.destination_info ?? null}
       />
 
-      {/* 5 — Nearby (static placeholder) */}
-      <AirfieldNearby airfieldName={airfield.name} />
+      {/* TODO: Implement dynamic nearby airfields */}
 
       {/* 6 — Events */}
       <AirfieldEvents events={events.data ?? []} />
@@ -179,8 +176,7 @@ export default async function AirfieldProfilePage({
         arriving={arriving.map(toFlightRow)}
       />
 
-      {/* 9 — Reviews (placeholder data until reviews table exists) */}
-      <AirfieldReviews />
+      {/* TODO: Implement when airfield reviews table exists */}
 
       {/* 10 — Location map */}
       <AirfieldLocation

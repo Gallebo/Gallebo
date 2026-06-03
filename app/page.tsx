@@ -9,6 +9,7 @@ import { JsonLd } from "@/components/seo/json-ld";
 import { homePageJsonLd } from "@/lib/seo/json-ld";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE } from "@/lib/seo/site";
 import { getFeaturedFlightsCached } from "@/lib/flights/cached-search";
+import { getMarketingStats } from "@/lib/marketing/stats";
 
 export const revalidate = 60;
 
@@ -19,18 +20,21 @@ export const metadata = {
 };
 
 export default async function HomePage() {
-  const featured = await getFeaturedFlightsCached();
+  const [featured, stats] = await Promise.all([
+    getFeaturedFlightsCached(),
+    getMarketingStats(),
+  ]);
 
   return (
     <div style={{ background: "var(--bg)" }}>
       <JsonLd data={homePageJsonLd()} />
       <HeroCinematic />
-      <StatsStrip />
+      {stats.hasData ? <StatsStrip stats={stats} /> : null}
       <HowItWorks />
       <TrustSection />
       <FeaturedFlightsSection flights={featured} />
       <FAQSection />
-      <CTASection />
+      <CTASection stats={stats.hasData ? stats : null} />
     </div>
   );
 }

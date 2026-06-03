@@ -1,6 +1,16 @@
 import Link from "next/link";
 
-export function CTASection() {
+import type { MarketingStats } from "@/lib/marketing/stats";
+
+function ctaSubtext(stats: MarketingStats | null) {
+  if (stats?.hasData) {
+    return `Join ${stats.pilots.toLocaleString()} verified pilots and ${stats.seatsBooked.toLocaleString()} booked seats. Your place on the next flight is a few taps away.`;
+  }
+
+  return "Join verified pilots on shared flights across the Adriatic. Your place on the next flight is a few taps away.";
+}
+
+export function CTASection({ stats }: { stats: MarketingStats | null }) {
   return (
     <section
       className="gallebo-sea-gradient relative overflow-hidden"
@@ -62,7 +72,7 @@ export function CTASection() {
           className="mb-6 text-xs font-semibold uppercase tracking-[0.16em]"
           style={{ color: "rgba(255,255,255,.56)" }}
         >
-          Ready to fly?
+          Your next flight
         </p>
         <h2
           style={{
@@ -75,15 +85,14 @@ export function CTASection() {
             margin: 0,
           }}
         >
-          The coast is{" "}
-          <em style={{ fontStyle: "italic" }}>waiting.</em>
+          The Adriatic.{" "}
+          <em style={{ fontStyle: "italic" }}>At your altitude.</em>
         </h2>
         <p
           className="mx-auto mt-8 max-w-lg text-[18px] leading-relaxed"
           style={{ color: "rgba(255,255,255,.78)" }}
         >
-          Join 312 pilots and thousands of passengers who already share the sky
-          across the Adriatic.
+          {ctaSubtext(stats)}
         </p>
         <div className="mt-11 flex flex-wrap items-center justify-center gap-3">
           <Link
@@ -91,7 +100,7 @@ export function CTASection() {
             className="inline-flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-[15px] font-semibold transition-all hover:bg-opacity-90 active:scale-95"
             style={{ color: "var(--primary-v2)" }}
           >
-            Get started free
+            Find my seat
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M5 12h14M13 6l6 6-6 6" />
             </svg>

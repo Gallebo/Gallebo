@@ -41,7 +41,7 @@ export type FlightSearchParams = {
   dateTo?: string;
   flightType?: FlightType;
   minSeats?: number;
-  maxPrice?: number;
+  maxPrice?: number | null;
   sort?: "date" | "price" | "rating";
   locationQuery?: string;
 };

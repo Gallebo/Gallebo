@@ -37,15 +37,17 @@ export async function generateMetadata({
   const title = `${formatFlightRoute(flight)} — Gallebo`;
   const description = flightMetadataDescription(flight);
   const image = flightMetadataImage(flight);
-
-  return {
+  const departureAt = new Date(
+    `${flight.flight_date}T${String(flight.departure_time).slice(0, 8)}`,
+  );
+  const metadata = {
     title,
     description,
     alternates: { canonical: `/flights/${id}` },
     openGraph: {
       title,
       description,
-      type: "website",
+      type: "website" as const,
       url: `/flights/${id}`,
       images: [{ url: image, alt: title }],
     },
@@ -56,6 +58,12 @@ export async function generateMetadata({
       images: [image],
     },
   };
+
+  if (departureAt.getTime() < Date.now()) {
+    return { ...metadata, robots: { index: false } };
+  }
+
+  return metadata;
 }
 
 export default async function FlightDetailPage({

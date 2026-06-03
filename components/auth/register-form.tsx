@@ -12,7 +12,8 @@ import {
 } from "@/components/auth/auth-form-styles";
 import { FormMessage } from "@/components/auth/form-message";
 import { trackEvent } from "@/lib/analytics/track";
-import { SocialAuthButtons } from "@/components/auth/social-auth-buttons";
+// TODO: Enable when OAuth Client IDs are configured
+// import { SocialAuthButtons } from "@/components/auth/social-auth-buttons";
 import {
   registerAction,
   type AuthActionState,
@@ -43,8 +44,6 @@ export function RegisterForm() {
   }, [state.error, state.success, form]);
 
   return (
-    <div className="space-y-5">
-      <SocialAuthButtons />
     <form
       className="space-y-5"
       onSubmit={form.handleSubmit((data) => {
@@ -129,6 +128,5 @@ export function RegisterForm() {
         )}
       </AuthSubmitButton>
     </form>
-    </div>
   );
 }

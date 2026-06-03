@@ -77,7 +77,7 @@ export function HeroCinematic() {
             className="text-[11px] font-semibold uppercase tracking-[0.14em]"
             style={{ color: "rgba(255,255,255,.82)" }}
           >
-            Adriatic Flight-Sharing — Est. 2026
+            EASA-verified · Adriatic region
           </span>
         </div>
 
@@ -117,7 +117,7 @@ export function HeroCinematic() {
             textShadow: "0 1px 12px rgba(8,18,38,.4)",
           }}
         >
-          The Adriatic coastline at 1,400 ft. The price of a train ticket.
+          Fly the Adriatic coast from €40. Verified pilots, real aircraft — no charter prices.
         </p>
 
         {/* CTAs */}
@@ -135,7 +135,7 @@ export function HeroCinematic() {
               boxShadow: "var(--shadow-coral)",
             }}
           >
-            Find a flight
+            Browse open seats
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M5 12h14M13 6l6 6-6 6" />
             </svg>
@@ -150,7 +150,7 @@ export function HeroCinematic() {
               background: "rgba(255,255,255,.07)",
             }}
           >
-            Sign up as pilot
+            List your route
           </Link>
         </div>
 

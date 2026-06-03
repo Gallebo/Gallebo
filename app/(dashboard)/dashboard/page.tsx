@@ -20,7 +20,13 @@ export default async function DashboardPage() {
   } = await supabase.auth.getUser();
 
   if (!profile) {
-    return <p className="text-muted-foreground">Loading profile…</p>;
+    return <DashboardProfileSkeleton />;
+  }
+
+  if (profile.status === "suspended") {
+    if (profile.role === "pilot") redirect("/onboarding/pilot");
+    if (profile.role === "passenger") redirect("/onboarding/passenger");
+    if (profile.role === "airfield_operator") redirect("/suspended");
   }
 
   if (profile.status === "verified" && profile.role === "admin") {
@@ -67,14 +73,16 @@ export default async function DashboardPage() {
         </p>
       ) : null}
 
-      {profile.status === "suspended" ? (
-        <Link
-          href="/onboarding/pilot"
-          className={cn(buttonVariants({ variant: "default" }), "inline-flex")}
-        >
-          Upload new pilot documents
-        </Link>
-      ) : null}
+    </div>
+  );
+}
+
+function DashboardProfileSkeleton() {
+  return (
+    <div className="space-y-8" aria-busy="true" aria-label="Loading profile">
+      <div className="h-8 w-48 animate-pulse rounded-md bg-muted" />
+      <div className="h-24 animate-pulse rounded-xl border bg-muted/60" />
+      <div className="h-36 animate-pulse rounded-xl border bg-muted/40" />
     </div>
   );
 }

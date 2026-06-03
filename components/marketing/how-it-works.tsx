@@ -3,23 +3,23 @@ import { Reveal } from "@/components/ui/reveal";
 const STEPS = [
   {
     n: "01",
-    title: "Pilot posts the flight",
-    desc: "Route, date, aircraft, seats. The platform calculates each passenger's fair share at posting time.",
+    title: "A pilot posts a route",
+    desc: "Route, date, aircraft, seats. The platform locks each passenger's fair share at posting time — no hidden fees.",
   },
   {
     n: "02",
-    title: "You request a seat",
-    desc: 'Tap "Book now" — the pilot has 48 hours to accept. No money moves yet.',
+    title: "Request your seat",
+    desc: "Tap 'Reserve' — the pilot has 48 hours to accept. No payment yet, no risk.",
   },
   {
     n: "03",
     title: "Pay your share",
-    desc: "Once accepted, you pay via Stripe. Contact details unlock instantly.",
+    desc: "Once accepted, pay securely through Stripe. Your contact details with the pilot unlock immediately.",
   },
   {
     n: "04",
     title: "Show up and fly",
-    desc: "Meet at the airfield. Watch the coast unroll. Land. Leave a review.",
+    desc: "Meet at the airfield. Watch the Adriatic unfold at 1,400 ft. Leave a review when you land.",
   },
 ];
 

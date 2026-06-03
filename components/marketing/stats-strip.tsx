@@ -1,13 +1,49 @@
 import { AnimatedNumber } from "@/components/ui/animated-number";
+import type { MarketingStats } from "@/lib/marketing/stats";
 
-const STATS = [
-  { value: 312, prefix: "", suffix: "", label: "Verified pilots" },
-  { value: 1847, prefix: "", suffix: "", label: "Flights this year" },
-  { value: 64, prefix: "€", suffix: "", label: "Avg. per passenger" },
-  { value: 4.86, prefix: "", suffix: "", label: "Avg. pilot rating" },
-];
+type StatItem = {
+  value: number;
+  prefix: string;
+  suffix: string;
+  label: string;
+};
 
-export function StatsStrip() {
+function buildStats(stats: MarketingStats): StatItem[] {
+  const items: StatItem[] = [
+    { value: stats.pilots, prefix: "", suffix: "", label: "Verified pilots" },
+    {
+      value: stats.seatsBooked,
+      prefix: "",
+      suffix: "",
+      label: "Seats booked",
+    },
+  ];
+
+  if (stats.avgPerSeat != null) {
+    items.push({
+      value: stats.avgPerSeat,
+      prefix: "€",
+      suffix: "",
+      label: "Average per seat",
+    });
+  }
+
+  if (stats.avgRating != null) {
+    items.push({
+      value: stats.avgRating,
+      prefix: "",
+      suffix: " ★",
+      label: "Pilot rating",
+    });
+  }
+
+  return items;
+}
+
+export function StatsStrip({ stats }: { stats: MarketingStats }) {
+  const items = buildStats(stats);
+  const lastIndex = items.length - 1;
+
   return (
     <section
       style={{
@@ -16,18 +52,24 @@ export function StatsStrip() {
         background: "transparent",
       }}
     >
-      <div className="mx-auto grid max-w-7xl grid-cols-2 px-4 sm:grid-cols-4 sm:px-6 lg:px-8">
-        {STATS.map((stat, i) => (
+      <div
+        className={`mx-auto grid max-w-7xl grid-cols-2 px-4 sm:px-6 lg:px-8 ${
+          items.length >= 4
+            ? "sm:grid-cols-4"
+            : items.length === 3
+              ? "sm:grid-cols-3"
+              : "sm:grid-cols-2"
+        }`}
+      >
+        {items.map((stat, i) => (
           <div
-            key={i}
+            key={stat.label}
             className="py-10 sm:py-12"
             style={{
               paddingLeft: i === 0 ? 0 : "24px",
-              paddingRight: i === 3 ? 0 : "24px",
+              paddingRight: i === lastIndex ? 0 : "24px",
               borderRight:
-                i < 3
-                  ? "1px solid var(--line)"
-                  : "none",
+                i < lastIndex ? "1px solid var(--line)" : "none",
             }}
           >
             <div

@@ -14,39 +14,39 @@ function escapeHtml(s: string): string {
 
 function renderApproval(name: string): string {
   const n = escapeHtml(name);
-  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your Gallebo verification request was <strong>approved</strong>.</p><p>You can sign in and continue using the platform.</p></body></html>`;
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>You're verified — welcome to Gallebo.</p><p>Your account is ready. <a href="https://gallebo.app/flights">Browse open flights</a> and book your first seat.</p></body></html>`;
 }
 
 function renderRejection(name: string, reason: string): string {
   const n = escapeHtml(name);
   const r = escapeHtml(reason);
-  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your Gallebo verification request was <strong>not approved</strong>.</p><p>Reason: ${r}</p><p>You may submit a new request from your dashboard.</p></body></html>`;
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your verification wasn't approved this time.</p><p>Reason: ${r}</p><p>You can submit a new request from your <a href="https://gallebo.app/dashboard">dashboard</a>.</p></body></html>`;
 }
 
 function renderAirfieldApproved(name: string): string {
   const n = escapeHtml(name);
-  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your airfield access request has been <strong>approved</strong>.</p><p>You can now access the airfield services on Gallebo.</p></body></html>`;
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your airfield access is <strong>approved</strong>.</p><p>You can now manage your airfield profile, photos, and notices on Gallebo. <a href="https://gallebo.app/airfield">Open your airfield dashboard</a>.</p></body></html>`;
 }
 
 function renderAirfieldRejected(name: string, reason: string): string {
   const n = escapeHtml(name);
   const r = escapeHtml(reason);
-  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your airfield access request was <strong>not approved</strong>.</p><p>Reason: ${r}</p><p>You may submit a new request from your dashboard.</p></body></html>`;
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your airfield access request wasn't approved.</p><p>Reason: ${r}</p><p>You can submit a new request from your <a href="https://gallebo.app/dashboard">dashboard</a>.</p></body></html>`;
 }
 
 function renderSuspended(name: string): string {
   const n = escapeHtml(name);
-  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your Gallebo pilot account has been <strong>suspended</strong>.</p><p>This is typically due to expired documents. Please upload renewed documents to restore access.</p></body></html>`;
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your pilot account has been <strong>suspended</strong>.</p><p>This is usually caused by expired documents. Upload your renewed documents in Gallebo to restore full access.</p><p><a href="https://gallebo.app/onboarding/pilot">Upload documents</a></p></body></html>`;
 }
 
 function renderKycResult(name: string): string {
   const n = escapeHtml(name);
-  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your Gallebo identity verification (KYC) was <strong>approved</strong>.</p><p>You now have full access to the platform.</p></body></html>`;
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your identity is verified — you now have full access to Gallebo.</p><p><a href="https://gallebo.app/flights">Browse open flights</a></p></body></html>`;
 }
 
 function renderKycRejection(name: string): string {
   const n = escapeHtml(name);
-  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your Gallebo identity verification (KYC) was <strong>not approved</strong>.</p><p>Please contact support for more information.</p></body></html>`;
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your identity verification wasn't successful.</p><p>Please <a href="mailto:support@gallebo.app">contact support</a> and we'll help you resolve it.</p></body></html>`;
 }
 
 function renderExpiryWarning(name: string, days: number, label: string): string {
@@ -67,12 +67,12 @@ function renderFlightPriceDeviation(
 
 function renderFlightCancelled(name: string, flightId: string): string {
   const n = escapeHtml(name);
-  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>The flight you requested (<strong>${escapeHtml(flightId)}</strong>) has been <strong>cancelled</strong> by the pilot.</p><p>You can browse other available flights on Gallebo.</p></body></html>`;
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>The pilot cancelled flight <strong>${escapeHtml(flightId)}</strong>. Your refund will be processed automatically within 5 business days.</p><p><a href="https://gallebo.app/flights">Browse other flights</a></p></body></html>`;
 }
 
 function renderBookingRequestReceived(name: string, flightId: string): string {
   const n = escapeHtml(name);
-  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>You have a new <strong>booking request</strong> for flight <strong>${escapeHtml(flightId)}</strong>.</p><p>Please accept or reject within 48 hours in your pilot dashboard.</p></body></html>`;
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>You have a new booking request for flight <strong>${escapeHtml(flightId)}</strong>.</p><p>Accept or decline within 48 hours — after that, the request expires automatically.</p><p><a href="https://gallebo.app/pilot/bookings">Review the request</a></p></body></html>`;
 }
 
 function renderBookingAccepted(
@@ -87,23 +87,23 @@ function renderBookingAccepted(
 
 function renderBookingRejected(name: string, flightId: string): string {
   const n = escapeHtml(name);
-  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your booking request for flight <strong>${escapeHtml(flightId)}</strong> was <strong>not accepted</strong> by the pilot.</p></body></html>`;
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>The pilot couldn't accept your request for flight <strong>${escapeHtml(flightId)}</strong> this time.</p><p>There are other flights waiting. <a href="https://gallebo.app/flights">Browse open seats</a></p></body></html>`;
 }
 
 function renderBookingExpired(name: string, flightId: string, reason: string): string {
   const n = escapeHtml(name);
   const r = escapeHtml(reason);
-  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your booking for flight <strong>${escapeHtml(flightId)}</strong> has <strong>expired</strong> (${r}).</p></body></html>`;
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your seat reservation for flight <strong>${escapeHtml(flightId)}</strong> has expired (${r}).</p><p>Your payment has not been charged. <a href="https://gallebo.app/flights">Find another flight</a></p></body></html>`;
 }
 
 function renderPaymentConfirmed(name: string, flightId: string): string {
   const n = escapeHtml(name);
-  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Payment for flight <strong>${escapeHtml(flightId)}</strong> is <strong>confirmed</strong>. Your seat is booked.</p></body></html>`;
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your seat on flight <strong>${escapeHtml(flightId)}</strong> is confirmed. Payment received.</p><p>Your contact details with the pilot are now unlocked in your booking. We'll send a reminder 24 hours before departure.</p><p><a href="https://gallebo.app/dashboard/bookings">View booking</a></p></body></html>`;
 }
 
 function renderFlightCompleted(name: string, flightId: string): string {
   const n = escapeHtml(name);
-  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Flight <strong>${escapeHtml(flightId)}</strong> was marked <strong>completed</strong>. Thank you for flying with Gallebo.</p></body></html>`;
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Flight <strong>${escapeHtml(flightId)}</strong> is complete. Hope it was a great one.</p><p>Leave a review — it helps other passengers choose great pilots.</p><p><a href="https://gallebo.app/dashboard/bookings">Leave a review</a></p></body></html>`;
 }
 
 function renderBookingCancelledByPilot(
@@ -140,12 +140,12 @@ function renderFlightReminder24h(
 
 function renderFlightAlertMatch(name: string, flightId: string): string {
   const n = escapeHtml(name);
-  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>A pilot published a flight that matches your <strong>route alert</strong>.</p><p><a href="https://gallebo.app/flights/${escapeHtml(flightId)}">View flight</a></p></body></html>`;
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>A flight you've been waiting for just opened up. Seats fill fast.</p><p><a href="https://gallebo.app/flights/${escapeHtml(flightId)}">View the flight →</a></p></body></html>`;
 }
 
 function renderFlightAlertExpiryWarning(name: string): string {
   const n = escapeHtml(name);
-  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your flight alert <strong>expires tomorrow</strong>.</p><p><a href="https://gallebo.app/passenger/alerts">Extend alert with one click</a></p></body></html>`;
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your route alert expires tomorrow. Renew it in one tap to keep getting notified when pilots post matching flights.</p><p><a href="https://gallebo.app/passenger/alerts">Renew alert</a></p></body></html>`;
 }
 
 function notificationDeepLink(
@@ -295,36 +295,36 @@ serve(async (req) => {
 
     switch (notification.type) {
       case "verification_approved":
-        subject = "Your Gallebo verification was approved";
+        subject = "You're verified — welcome to Gallebo";
         html = renderApproval(displayName);
         break;
 
       case "verification_rejected":
-        subject = "Your Gallebo verification was not approved";
+        subject = "Action needed: your verification wasn't approved";
         html = renderRejection(displayName, String(payload.reason ?? ""));
         break;
 
       case "airfield_approved":
-        subject = "Your airfield access request was approved";
+        subject = "Airfield access approved — you're ready";
         html = renderAirfieldApproved(displayName);
         break;
 
       case "airfield_rejected":
-        subject = "Your airfield access request was not approved";
+        subject = "Your airfield access request wasn't approved";
         html = renderAirfieldRejected(displayName, String(payload.reason ?? ""));
         break;
 
       case "pilot_suspended":
-        subject = "Your Gallebo pilot account has been suspended";
+        subject = "Your pilot account has been suspended";
         html = renderSuspended(displayName);
         break;
 
       case "kyc_result":
         if (payload.approved !== true) {
-          subject = "Your Gallebo identity verification was not approved";
+          subject = "Identity verification unsuccessful — we can help";
           html = renderKycRejection(displayName);
         } else {
-          subject = "Your Gallebo identity verification was approved";
+          subject = "Identity verified — you're all set";
           html = renderKycResult(displayName);
         }
         break;
@@ -351,7 +351,7 @@ serve(async (req) => {
       }
 
       case "flight_cancelled": {
-        subject = "Your flight booking request was cancelled";
+        subject = "Flight cancelled — your refund is on the way";
         html = renderFlightCancelled(
           displayName,
           String(payload.flightId ?? ""),
@@ -360,7 +360,7 @@ serve(async (req) => {
       }
 
       case "booking_request_received": {
-        subject = "New booking request on Gallebo";
+        subject = "New booking request — respond within 48 hours";
         html = renderBookingRequestReceived(
           displayName,
           String(payload.flightId ?? ""),
@@ -382,7 +382,7 @@ serve(async (req) => {
       }
 
       case "booking_rejected": {
-        subject = "Your booking request was not accepted";
+        subject = "Your booking wasn't accepted — other flights are open";
         html = renderBookingRejected(
           displayName,
           String(payload.flightId ?? ""),
@@ -391,7 +391,7 @@ serve(async (req) => {
       }
 
       case "booking_expired_no_response": {
-        subject = "Your booking has expired";
+        subject = "Your seat reservation expired";
         html = renderBookingExpired(
           displayName,
           String(payload.flightId ?? ""),
@@ -412,7 +412,7 @@ serve(async (req) => {
       }
 
       case "flight_completed": {
-        subject = "Flight completed";
+        subject = "How was your flight? Leave a review";
         html = renderFlightCompleted(
           displayName,
           String(payload.flightId ?? ""),
@@ -421,7 +421,7 @@ serve(async (req) => {
       }
 
       case "booking_cancelled_by_pilot": {
-        subject = "Your booking was cancelled by the pilot";
+        subject = "Flight cancelled by pilot — refund incoming";
         html = renderBookingCancelledByPilot(
           displayName,
           String(payload.flightId ?? ""),
@@ -449,7 +449,7 @@ serve(async (req) => {
       }
 
       case "flight_reminder_24h": {
-        subject = "Flight reminder — departs in about 24 hours";
+        subject = "Tomorrow: your flight departs in about 24 hours";
         html = renderFlightReminder24h(
           displayName,
           String(payload.flightId ?? ""),
@@ -460,7 +460,7 @@ serve(async (req) => {
       }
 
       case "flight_alert_match": {
-        subject = "A flight matching your alert was published";
+        subject = "A flight you've been waiting for just opened up";
         html = renderFlightAlertMatch(
           displayName,
           String(payload.flightId ?? ""),
@@ -469,7 +469,7 @@ serve(async (req) => {
       }
 
       case "flight_alert_expiry_warning": {
-        subject = "Your flight alert expires tomorrow";
+        subject = "Your route alert expires tomorrow — renew in one tap";
         html = renderFlightAlertExpiryWarning(displayName);
         break;
       }

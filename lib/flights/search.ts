@@ -112,7 +112,7 @@ function applyPublishedFlightFilters(query: any, params: FlightSearchParams, tod
   if (params.flightType) {
     q = q.eq("flight_type", params.flightType);
   }
-  if (params.maxPrice !== undefined && !Number.isNaN(params.maxPrice)) {
+  if (params.maxPrice != null && !Number.isNaN(params.maxPrice)) {
     q = q.lte("price_per_passenger_eur", params.maxPrice);
   }
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { PilotBookingRequestRow } from "@/components/pilot/pilot-booking-request-row";
 import { PilotFlightCard } from "@/components/pilot/pilot-flight-card";
+import { PilotGreeting } from "@/components/pilot/pilot-greeting";
 import { PilotMetricCard } from "@/components/pilot/pilot-metric-card";
 import { requirePilot } from "@/lib/auth/rbac";
 import { getPilotOverviewData } from "@/lib/pilot/queries";
@@ -11,7 +12,6 @@ export const metadata = { title: "Pilot dashboard — Gallebo" };
 export default async function PilotOverviewPage() {
   const { user } = await requirePilot();
   const data = await getPilotOverviewData(user.id);
-  const greeting = getGreeting(data.sidebar.firstName);
 
   return (
     <div>
@@ -27,7 +27,7 @@ export default async function PilotOverviewPage() {
             className="text-[clamp(2rem,4vw,2.75rem)] font-medium leading-[1.05] tracking-[-0.03em]"
             style={{ fontFamily: "var(--font-display)", color: "var(--ink)" }}
           >
-            {greeting}
+            <PilotGreeting name={data.sidebar.firstName} />
           </h1>
           <p className="mt-2 text-[15px]" style={{ color: "var(--ink-2)" }}>
             {data.pendingCount > 0
@@ -55,7 +55,7 @@ export default async function PilotOverviewPage() {
           sub={`Next: ${data.stats.nextFlightLabel}`}
         />
         <PilotMetricCard
-          label="Recouped (May)"
+          label={`Recouped (${new Date().toLocaleString("en", { month: "long" })})`}
           value={`€${data.stats.recoupedMonth.toLocaleString()}`}
           sub={
             data.stats.recoupedPending > 0
@@ -182,11 +182,4 @@ export default async function PilotOverviewPage() {
       </section>
     </div>
   );
-}
-
-function getGreeting(firstName: string): string {
-  const hour = new Date().getHours();
-  const period =
-    hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-  return `${period}, ${firstName}.`;
 }

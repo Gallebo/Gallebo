@@ -81,7 +81,7 @@ export default async function FlightsSearchPage({
     dateFrom: get("dateFrom"),
     dateTo: get("dateTo"),
     minSeats: get("minSeats") ? Number(get("minSeats")) : undefined,
-    maxPrice: get("maxPrice") ? Number(get("maxPrice")) : 150,
+    maxPrice: get("maxPrice") ? Number(get("maxPrice")) : null,
     sort: (get("sort") as FlightSearchParams["sort"]) ?? "date",
     locationQuery: get("location"),
   };
