@@ -70,6 +70,7 @@ export async function SiteHeader({ className }: { className?: string }) {
         <nav className="hidden items-center gap-7 md:flex">
           {[
             { href: "/flights", label: "Find a flight" },
+            { href: "/airfields", label: "Airfields" },
             { href: "/onboarding/pilot", label: "Become a pilot" },
             { href: "/#how", label: "How it works" },
             { href: "/#faq", label: "FAQ" },

@@ -52,6 +52,7 @@ supabase/.temp
 # deploy / temp artifacts
 tmp-deploy*.json
 tmp-*.ts
+.tmp_*.csv
 deploy-ef-*.json
 .deploy-args-*.json
 

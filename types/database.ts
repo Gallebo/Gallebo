@@ -86,12 +86,14 @@ export type Database = {
       };
       airfields: {
         Row: {
+          city: string | null;
           contact_email: string | null;
           contact_phone: string | null;
           country: string;
           created_at: string;
           description: string | null;
           destination_info: string | null;
+          elevation_ft: number | null;
           has_fuel: boolean;
           has_hangar: boolean;
           has_rental: boolean;
@@ -106,12 +108,14 @@ export type Database = {
           working_hours: string | null;
         };
         Insert: {
+          city?: string | null;
           contact_email?: string | null;
           contact_phone?: string | null;
           country: string;
           created_at?: string;
           description?: string | null;
           destination_info?: string | null;
+          elevation_ft?: number | null;
           has_fuel?: boolean;
           has_hangar?: boolean;
           has_rental?: boolean;
@@ -126,12 +130,14 @@ export type Database = {
           working_hours?: string | null;
         };
         Update: {
+          city?: string | null;
           contact_email?: string | null;
           contact_phone?: string | null;
           country?: string;
           created_at?: string;
           description?: string | null;
           destination_info?: string | null;
+          elevation_ft?: number | null;
           has_fuel?: boolean;
           has_hangar?: boolean;
           has_rental?: boolean;

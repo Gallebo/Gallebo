@@ -9,7 +9,15 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/flights", "/flights/", "/pilots/", "/airfields/", "/map"],
+        allow: [
+          "/",
+          "/flights",
+          "/flights/",
+          "/pilots/",
+          "/airfields",
+          "/airfields/",
+          "/map",
+        ],
         disallow: [
           "/admin",
           "/admin/",

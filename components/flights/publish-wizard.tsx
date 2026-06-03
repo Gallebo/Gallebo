@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { StepCard } from "@/components/onboarding/step-card";
 import { StepIndicator } from "@/components/onboarding/step-indicator";
@@ -19,11 +20,13 @@ import {
 } from "@/lib/flights/constants";
 import { getPilotWaitingPassengersCountAction } from "@/lib/alerts/actions";
 import {
+  loadFlightDraftAction,
   previewPublishPricingAction,
-  publishFlightAction,
   saveFlightDraftAction,
   uploadFlightDraftPhotoAction,
 } from "@/lib/flights/actions";
+import { sanitizePhotoPathsForPublish } from "@/lib/flights/sanitize-draft";
+import type { FlightActionState } from "@/lib/flights/actions";
 import {
   computePricePerPassenger,
   type FlightDraft,
@@ -36,19 +39,18 @@ type AircraftRow = {
 };
 
 export function PublishFlightWizard({
-  initialStep,
-  initialDraft,
   aircraftList,
 }: {
-  initialStep: number;
-  initialDraft: FlightDraft;
   aircraftList: AircraftRow[];
 }) {
-  const [step, setStep] = useState(initialStep);
-  const [draft, setDraft] = useState<FlightDraft>(initialDraft);
+  const [step, setStep] = useState(1);
+  const [draft, setDraft] = useState<FlightDraft>({});
+  const [draftReady, setDraftReady] = useState(false);
   const [stepError, setStepError] = useState<string | null>(null);
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [publishState, publishAction] = useActionState(publishFlightAction, {});
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
   const [pricePreview, setPricePreview] = useState<{
     warning: string | null;
     avg: number | null;
@@ -77,6 +79,67 @@ export function PublishFlightWizard({
     ],
   );
 
+  async function handlePublishSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setPublishError(null);
+    setPublishing(true);
+    try {
+      const form = e.currentTarget;
+      const fd = new FormData(form);
+      const pathsRaw = fd.get("photoPaths");
+      if (typeof pathsRaw === "string") {
+        try {
+          fd.set(
+            "photoPaths",
+            JSON.stringify(
+              sanitizePhotoPathsForPublish(JSON.parse(pathsRaw)),
+            ),
+          );
+        } catch {
+          setPublishError("Invalid photo list");
+          return;
+        }
+      }
+
+      const res = await fetch("/api/pilot/flights/publish", {
+        method: "POST",
+        body: fd,
+      });
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) {
+        const text = await res.text();
+        setPublishError(
+          text.slice(0, 200) || `Publish failed (${res.status})`,
+        );
+        return;
+      }
+
+      const data = (await res.json()) as FlightActionState;
+      if (data.priceWarning !== undefined || data.avgRoutePrice !== undefined) {
+        setPricePreview({
+          warning: data.priceWarning ?? null,
+          avg: data.avgRoutePrice ?? null,
+        });
+      }
+      if (data.error) {
+        setPublishError(data.error);
+        return;
+      }
+      if (data.success === "published" && data.flightId) {
+        router.push(`/pilot/flights?published=${data.flightId}`);
+        router.refresh();
+        return;
+      }
+      setPublishError("Unexpected response from server");
+    } catch (err) {
+      setPublishError(
+        err instanceof Error ? err.message : "Failed to publish flight",
+      );
+    } finally {
+      setPublishing(false);
+    }
+  }
+
   const persist = (nextStep: number, nextDraft: FlightDraft) => {
     setStepError(null);
     setDraft(nextDraft);
@@ -84,6 +147,20 @@ export function PublishFlightWizard({
       await saveFlightDraftAction(nextStep, nextDraft);
     });
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadFlightDraftAction().then((res) => {
+      if (cancelled) return;
+      setDraft(res.draft);
+      setStep(res.step);
+      if (res.error) setStepError(res.error);
+      setDraftReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (step !== 11) return;
@@ -156,6 +233,14 @@ export function PublishFlightWizard({
           icao_code: "",
         }
       : null;
+
+  if (!draftReady) {
+    return (
+      <div className="mx-auto max-w-2xl py-12 text-center text-muted-foreground">
+        Loading your draft…
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
@@ -668,7 +753,7 @@ export function PublishFlightWizard({
               {pricePreview.warning}
             </p>
           ) : null}
-          <form action={publishAction} className="space-y-4">
+          <form onSubmit={handlePublishSubmit} className="space-y-4">
             <input type="hidden" name="flightType" value={draft.flightType ?? ""} />
             <input type="hidden" name="aircraftId" value={draft.aircraftId ?? ""} />
             <input type="hidden" name="rentedModel" value={draft.rentedModel ?? ""} />
@@ -715,7 +800,9 @@ export function PublishFlightWizard({
             <input
               type="hidden"
               name="photoPaths"
-              value={JSON.stringify(draft.photoPaths ?? [])}
+              value={JSON.stringify(
+                sanitizePhotoPathsForPublish(draft.photoPaths ?? []),
+              )}
             />
             {pricePreview.warning ? (
               <label className="flex items-start gap-2 text-sm">
@@ -723,21 +810,22 @@ export function PublishFlightWizard({
                 I confirm this amount reflects actual shared costs without profit.
               </label>
             ) : null}
-            {publishState.error ? (
-              <p className="text-sm text-destructive">{publishState.error}</p>
+            {publishError ? (
+              <p className="text-sm text-destructive">{publishError}</p>
             ) : null}
             <div className="flex gap-2">
               <Button
                 type="button"
                 variant="ghost"
+                disabled={publishing}
                 onClick={() =>
                   setStep(draft.flightType === "one_way" ? 10 : 9)
                 }
               >
                 Back
               </Button>
-              <Button type="submit" disabled={pending}>
-                {pending ? "Publishing…" : "Publish flight"}
+              <Button type="submit" disabled={publishing || pending}>
+                {publishing ? "Publishing…" : "Publish flight"}
               </Button>
             </div>
           </form>

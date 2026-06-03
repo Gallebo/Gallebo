@@ -2,7 +2,6 @@
 
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
 import { requirePilot, requireUser, getProfile } from "@/lib/auth/rbac";
 import {
@@ -18,12 +17,16 @@ import {
   publishFlightSchema,
   type FlightDraft,
 } from "@/lib/flights/schemas";
-import { rethrowIfNextRedirect } from "@/lib/navigation/redirect-error";
 import { insertSystemMessage } from "@/lib/chat/system";
 import { inAppCopyForType } from "@/lib/notifications/copy";
 import { queueUserNotification } from "@/lib/notifications/notify";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import {
+  sanitizeFlightDraftForTransport,
+  sanitizePhotoPathsForPublish,
+} from "@/lib/flights/sanitize-draft";
+import { rethrowIfNextRedirect } from "@/lib/navigation/redirect-error";
 import type { Json } from "@/types/database";
 
 export type FlightActionState = {
@@ -57,6 +60,50 @@ async function notifyAdminsPriceDeviation(
   }
 }
 
+export async function loadFlightDraftAction(): Promise<{
+  step: number;
+  draft: FlightDraft;
+  error?: string;
+}> {
+  try {
+    const { user } = await requirePilot();
+    const supabase = await createClient();
+    const { data: draftRow, error } = await supabase
+      .from("flight_publish_drafts")
+      .select("step, draft")
+      .eq("pilot_user_id", user.id)
+      .maybeSingle();
+
+    if (error) return { step: 1, draft: {}, error: error.message };
+
+    const raw = draftRow?.draft;
+    const sanitized = sanitizeFlightDraftForTransport(raw);
+    const step =
+      typeof draftRow?.step === "number" && draftRow.step >= 1
+        ? Math.min(12, Math.floor(draftRow.step))
+        : 1;
+
+    const rawJson = JSON.stringify(raw ?? {});
+    const sanitizedJson = JSON.stringify(sanitized);
+    if (rawJson.length > sanitizedJson.length) {
+      await supabase.from("flight_publish_drafts").upsert({
+        pilot_user_id: user.id,
+        step,
+        draft: sanitized as Json,
+        updated_at: new Date().toISOString(),
+      });
+    }
+
+    return { step, draft: sanitized };
+  } catch (e) {
+    return {
+      step: 1,
+      draft: {},
+      error: e instanceof Error ? e.message : "Failed to load draft",
+    };
+  }
+}
+
 export async function saveFlightDraftAction(
   step: number,
   draft: FlightDraft,
@@ -64,11 +111,13 @@ export async function saveFlightDraftAction(
   try {
     const { user } = await requirePilot();
     const supabase = await createClient();
+    const safeDraft = sanitizeFlightDraftForTransport(draft);
+    const safeStep = Math.min(12, Math.max(1, Math.floor(step)));
 
     const { error } = await supabase.from("flight_publish_drafts").upsert({
       pilot_user_id: user.id,
-      step,
-      draft: draft as Json,
+      step: safeStep,
+      draft: safeDraft as Json,
       updated_at: new Date().toISOString(),
     });
 
@@ -183,7 +232,7 @@ export async function publishFlightAction(
     let photoPaths: string[] = [];
     if (typeof photoPathsRaw === "string" && photoPathsRaw.length > 0) {
       try {
-        photoPaths = JSON.parse(photoPathsRaw) as string[];
+        photoPaths = sanitizePhotoPathsForPublish(JSON.parse(photoPathsRaw));
       } catch {
         return { error: "Invalid photo list" };
       }
@@ -335,9 +384,10 @@ export async function publishFlightAction(
           return rollback(moveError.message);
         }
         const buf = Buffer.from(await blob.arrayBuffer());
+        const contentType = blob.type || "image/jpeg";
         const { error: uploadError } = await supabase.storage
           .from(FLIGHT_PHOTOS_BUCKET)
-          .upload(destPath, buf, { upsert: true });
+          .upload(destPath, buf, { upsert: true, contentType });
         if (uploadError) {
           return rollback(uploadError.message);
         }
@@ -438,7 +488,7 @@ export async function publishFlightAction(
     revalidatePath("/pilot/flights");
     revalidatePath(`/pilots/${user.id}`);
 
-    redirect(`/pilot/flights?published=${flight.id}`);
+    return { success: "published", flightId: flight.id };
   } catch (e) {
     rethrowIfNextRedirect(e);
     return {

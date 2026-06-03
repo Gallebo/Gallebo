@@ -20,9 +20,16 @@ const PUBLIC_PATHS = [
 
 const AUTH_ONLY_PATHS = ["/login", "/register"];
 
+/** Operator dashboard — not public catalog `/airfields` or `/airfields/[icao]`. */
+function isAirfieldOperatorPath(pathname: string): boolean {
+  return pathname === "/airfield" || pathname.startsWith("/airfield/");
+}
+
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true;
-  if (pathname.startsWith("/airfields/")) return true;
+  if (pathname === "/airfields" || pathname.startsWith("/airfields/")) return true;
+  if (pathname === "/flights" || pathname.startsWith("/flights/")) return true;
+  if (pathname.startsWith("/pilots/")) return true;
   return false;
 }
 
@@ -31,7 +38,7 @@ function isProtectedPath(pathname: string): boolean {
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/onboarding") ||
     pathname.startsWith("/admin") ||
-    pathname.startsWith("/airfield") ||
+    isAirfieldOperatorPath(pathname) ||
     pathname.startsWith("/pilot") ||
     pathname.startsWith("/passenger")
   );
@@ -99,7 +106,7 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  if (user && pathname.startsWith("/airfield")) {
+  if (user && isAirfieldOperatorPath(pathname)) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("role, status")
