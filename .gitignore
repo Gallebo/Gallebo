@@ -72,3 +72,7 @@ secrets/
 
 /gstack/
 /.claude/settings.local.json
+
+# local agent skills (copywriting etc.)
+/.agents/
+/skills-lock.json
