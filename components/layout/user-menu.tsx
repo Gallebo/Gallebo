@@ -1,68 +1,66 @@
 "use client";
 
 import Link from "next/link";
+import { Moon, Sun } from "lucide-react";
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useTheme } from "@/components/theme/theme-provider";
 import { logoutAction } from "@/lib/auth/actions";
 
 export function UserMenu({
   initials,
-  roleLabel,
   isAdmin = false,
 }: {
   initials: string;
-  roleLabel?: string;
   isAdmin?: boolean;
 }) {
+  const { theme, toggle } = useTheme();
+
   return (
-    <div className="flex items-center gap-3">
-      <span
-        className="hidden items-center gap-1.5 text-sm sm:inline-flex"
-        style={{ color: "var(--ink-2)" }}
-        aria-hidden
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className="flex size-9 cursor-pointer items-center justify-center rounded-full text-sm font-semibold text-white outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-offset-2"
+        style={{
+          background: isAdmin ? "var(--coral)" : "var(--primary-v2)",
+        }}
+        aria-label="Account menu"
       >
-        <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-          <circle cx="12" cy="12" r="9" />
-          <path d="M3 12h18M12 3a15 15 0 010 18M12 3a15 15 0 000 18" />
-        </svg>
-        EN
-      </span>
-
-      <div className="flex items-center gap-2">
-        <span
-          className="flex size-9 items-center justify-center rounded-full text-sm font-semibold text-white"
-          style={{ background: isAdmin ? "var(--coral)" : "var(--primary-v2)" }}
-          aria-hidden
-        >
-          {initials}
-        </span>
-        {roleLabel ? (
-          <span className="hidden text-sm font-medium sm:inline" style={{ color: "var(--ink)" }}>
-            {roleLabel}
-          </span>
+        {initials}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-44">
+        <DropdownMenuItem render={<Link href="/dashboard" />}>
+          Dashboard
+        </DropdownMenuItem>
+        {isAdmin ? (
+          <DropdownMenuItem render={<Link href="/admin" />}>
+            Admin panel
+          </DropdownMenuItem>
         ) : null}
-      </div>
-
-      <Link
-        href={isAdmin ? "/admin" : "/dashboard"}
-        className="hidden text-sm font-medium transition-opacity hover:opacity-80 sm:inline"
-        style={{ color: "var(--ink-2)", textDecoration: "none" }}
-      >
-        Dashboard
-      </Link>
-
-      <form action={logoutAction}>
-        <button
-          type="submit"
-          className="rounded-full px-4 py-2 text-sm font-medium transition-colors hover:opacity-90"
-          style={{
-            background: "var(--surface)",
-            color: "var(--ink)",
-            border: "1px solid var(--line-strong)",
-          }}
-        >
-          Log out
-        </button>
-      </form>
-    </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={toggle}>
+          {theme === "dark" ? (
+            <Sun className="size-4" />
+          ) : (
+            <Moon className="size-4" />
+          )}
+          {theme === "dark" ? "Light mode" : "Dark mode"}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <form action={logoutAction}>
+          <DropdownMenuItem
+            variant="destructive"
+            render={<button type="submit" className="w-full" />}
+          >
+            Log out
+          </DropdownMenuItem>
+        </form>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

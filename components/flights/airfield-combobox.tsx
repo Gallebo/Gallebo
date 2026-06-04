@@ -30,6 +30,7 @@ export function AirfieldCombobox({
       return;
     }
 
+    let cancelled = false;
     const t = setTimeout(async () => {
       const supabase = createClient();
       const { data } = await supabase
@@ -38,6 +39,8 @@ export function AirfieldCombobox({
         .eq("status", "active")
         .or(`name.ilike.%${searchQuery}%,icao_code.ilike.%${searchQuery}%`)
         .limit(12);
+
+      if (cancelled) return;
 
       setOptions(
         (data ?? []).map((a) => ({
@@ -48,7 +51,10 @@ export function AirfieldCombobox({
       );
     }, 250);
 
-    return () => clearTimeout(t);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
   }, [searchQuery]);
 
   return (

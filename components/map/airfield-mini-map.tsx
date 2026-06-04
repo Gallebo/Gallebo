@@ -21,6 +21,7 @@ export function AirfieldMiniMap({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
+  const markerRef = useRef<maplibregl.Marker | null>(null);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current || !isMapTilerConfigured()) {
@@ -38,13 +39,15 @@ export function AirfieldMiniMap({
       interactive: false,
     });
 
-    new maplibregl.Marker({ color: "#c9a227" })
+    markerRef.current = new maplibregl.Marker({ color: "#c9a227" })
       .setLngLat([longitude, latitude])
       .addTo(map);
 
     mapRef.current = map;
 
     return () => {
+      markerRef.current?.remove();
+      markerRef.current = null;
       map.remove();
       mapRef.current = null;
     };

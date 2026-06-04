@@ -265,13 +265,19 @@ export function PublishFlightWizard({
       return;
     }
 
+    let cancelled = false;
     startTransition(async () => {
       const res = await previewPublishPricingAction(pricingDraft);
+      if (cancelled) return;
       setPricePreview({
         warning: res.priceWarning ?? null,
         avg: res.avgRoutePrice ?? null,
       });
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [step, pricingDraft, startTransition]);
 
   useEffect(() => {

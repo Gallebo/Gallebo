@@ -91,7 +91,7 @@ export async function SiteHeader({ className }: { className?: string }) {
 
         {/* Right side */}
         <div className="flex items-center gap-2">
-          <ThemeToggle />
+          {!user ? <ThemeToggle /> : null}
           {user ? (
             <UserMenu
               initials={initialsFrom(
@@ -100,12 +100,6 @@ export async function SiteHeader({ className }: { className?: string }) {
                 user.email ?? "U"
               )}
               isAdmin={isAdmin}
-              roleLabel={
-                isAdmin
-                  ? "Admin"
-                  : [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") ||
-                    undefined
-              }
             />
           ) : (
             <>

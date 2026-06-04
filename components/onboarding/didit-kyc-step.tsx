@@ -54,14 +54,21 @@ export function DiditKycStep({
   useEffect(() => {
     if (preparing.current) return;
     preparing.current = true;
+
+    let cancelled = false;
     void (async () => {
       const prep = await prepareDiditVerificationAction(requestedRole);
+      if (cancelled) return;
       if (prep.error) {
         setState({ error: prep.error });
         return;
       }
       await refreshStatus();
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [requestedRole, refreshStatus]);
 
   useEffect(() => {

@@ -20,6 +20,11 @@ export function AnimatedNumber({
   const started = useRef(false);
 
   useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    let rafId = 0;
+
     const io = new IntersectionObserver(
       (entries) => {
         entries.forEach((e) => {
@@ -37,17 +42,25 @@ export function AnimatedNumber({
               const eased = 1 - Math.pow(1 - k, 3);
               const v = numericValue * eased;
               setDisplay(isFloat ? parseFloat(v.toFixed(2)) : Math.round(v));
-              if (k < 1) requestAnimationFrame(step);
-              else setDisplay(value);
+              if (k < 1) {
+                rafId = requestAnimationFrame(step);
+              } else {
+                setDisplay(value);
+              }
             }
-            requestAnimationFrame(step);
+            rafId = requestAnimationFrame(step);
           }
         });
       },
-      { threshold: 0.4 }
+      { threshold: 0.4 },
     );
-    if (ref.current) io.observe(ref.current);
-    return () => io.disconnect();
+
+    io.observe(el);
+
+    return () => {
+      io.disconnect();
+      if (rafId) cancelAnimationFrame(rafId);
+    };
   }, [value, duration]);
 
   const formatted =

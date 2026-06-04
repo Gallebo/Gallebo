@@ -9,8 +9,11 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
     if (!isPostHogConfigured()) return;
 
     void import("@/lib/analytics/track").then(({ posthog }) => {
+      if ((posthog as unknown as { __loaded?: boolean }).__loaded) return;
+
       const env = getPublicEnv();
       if (!env.NEXT_PUBLIC_POSTHOG_KEY) return;
+
       posthog.init(env.NEXT_PUBLIC_POSTHOG_KEY, {
         api_host: env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://eu.i.posthog.com",
         capture_pageview: true,
