@@ -45,6 +45,7 @@ export function RegisterForm() {
 
   return (
     <form
+      method="post"
       className="space-y-5"
       onSubmit={form.handleSubmit((data) => {
         form.clearErrors("root");

@@ -35,18 +35,14 @@ export default async function PilotStripePage() {
         </p>
       </div>
 
-      {/* Stanje C: onboarding završen */}
-      {stripe_onboarding_complete && (
+      {stripe_onboarding_complete ? (
         <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800">
           <p className="font-medium">Payouts active</p>
           <p className="mt-1 text-green-700">
             Your payout account is set up. Funds will be transferred automatically after each completed flight.
           </p>
         </div>
-      )}
-
-      {/* Stanje B: account kreiran ali onboarding nije završen */}
-      {stripe_account_id && !stripe_onboarding_complete && (
+      ) : stripe_account_id ? (
         <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm">
           <p className="font-medium text-yellow-900">Complete your payout setup</p>
           <p className="mt-1 text-yellow-700">
@@ -57,10 +53,7 @@ export default async function PilotStripePage() {
             <SetupPayoutsButton label="Complete setup" />
           </div>
         </div>
-      )}
-
-      {/* Stanje A: nema Stripe accounta */}
-      {!stripe_account_id && (
+      ) : (
         <div className="rounded-lg border p-4 text-sm">
           <p className="font-medium">No payout account</p>
           <p className="mt-1 text-muted-foreground">

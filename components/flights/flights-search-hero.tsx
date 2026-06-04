@@ -1,26 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useTransition } from "react";
-
-const POPULAR_ROUTES = [
-  { label: "ZAGREB → SPLIT", fromIcao: "LDZA", toIcao: "LDSP" },
-  { label: "VENICE → DUBROVNIK", fromIcao: "LIPZ", toIcao: "LDDU" },
-  { label: "LJUBLJANA → PULA", fromIcao: "LJLJ", toIcao: "LDPL" },
-  { label: "PULA → VENICE", fromIcao: "LDPL", toIcao: "LIPZ" },
-  { label: "ORTISEI → MURTER", fromIcao: "LIDT", toIcao: "LDSD" },
-] as const;
+import { useTransition } from "react";
 
 type AirfieldOption = {
   id: string;
   name: string;
   icao_code: string;
 };
-
-function findByIcao(airfields: AirfieldOption[], icao: string) {
-  return airfields.find((a) => a.icao_code.toUpperCase() === icao.toUpperCase());
-}
 
 function formatDateRange(from?: string, to?: string): string {
   if (!from && !to) return "";
@@ -41,17 +28,6 @@ export function FlightsSearchHero({
   const router = useRouter();
   const sp = useSearchParams();
   const [, startTransition] = useTransition();
-
-  const popularLinks = useMemo(() => {
-    return POPULAR_ROUTES.map((route) => {
-      const from = findByIcao(airfields, route.fromIcao);
-      const to = findByIcao(airfields, route.toIcao);
-      const params = new URLSearchParams();
-      if (from) params.set("from", from.id);
-      if (to) params.set("to", to.id);
-      return { ...route, href: `/flights?${params.toString()}` };
-    });
-  }, [airfields]);
 
   const pushSearch = (fd: FormData) => {
     const params = new URLSearchParams(sp.toString());
@@ -230,30 +206,6 @@ export function FlightsSearchHero({
             Search
           </button>
         </form>
-
-        <div className="mt-5 flex flex-wrap items-center gap-2">
-          <span
-            className="text-[10px] font-semibold uppercase tracking-[0.12em]"
-            style={{ color: "var(--ink-3)" }}
-          >
-            Popular:
-          </span>
-          {popularLinks.map((route) => (
-            <Link
-              key={route.label}
-              href={route.href}
-              className="rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] transition-colors hover:border-[var(--primary-v2)]"
-              style={{
-                borderColor: "var(--line)",
-                background: "var(--surface)",
-                color: "var(--ink-2)",
-                textDecoration: "none",
-              }}
-            >
-              {route.label}
-            </Link>
-          ))}
-        </div>
       </div>
     </section>
   );

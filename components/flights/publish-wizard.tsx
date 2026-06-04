@@ -69,6 +69,7 @@ export function PublishFlightWizard({
   const [step, setStep] = useState(1);
   const [draft, setDraft] = useState<FlightDraft>({});
   const [draftReady, setDraftReady] = useState(false);
+  const [draftLoadError, setDraftLoadError] = useState(false);
   const [stepError, setStepError] = useState<string | null>(null);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -241,15 +242,22 @@ export function PublishFlightWizard({
 
   useEffect(() => {
     let cancelled = false;
+    const timer = setTimeout(() => {
+      if (!cancelled) setDraftLoadError(true);
+    }, 5000);
+
     void loadFlightDraftAction().then((res) => {
+      clearTimeout(timer);
       if (cancelled) return;
       setDraft(res.draft);
       setStep(res.step);
       if (res.error) setStepError(res.error);
       setDraftReady(true);
     });
+
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   }, []);
 
@@ -332,6 +340,13 @@ export function PublishFlightWizard({
       : null;
 
   if (!draftReady) {
+    if (draftLoadError) {
+      return (
+        <div className="mx-auto max-w-2xl py-12 text-center text-muted-foreground">
+          Failed to load draft. Please refresh or start over.
+        </div>
+      );
+    }
     return (
       <div className="mx-auto max-w-2xl py-12 text-center text-muted-foreground">
         Loading your draft…

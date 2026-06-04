@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Moon, Sun } from "lucide-react";
+import { useTransition } from "react";
 
 import {
   DropdownMenu,
@@ -21,6 +22,13 @@ export function UserMenu({
   isAdmin?: boolean;
 }) {
   const { theme, toggle } = useTheme();
+  const [pending, startTransition] = useTransition();
+
+  function handleLogout() {
+    startTransition(() => {
+      void logoutAction();
+    });
+  }
 
   return (
     <DropdownMenu>
@@ -52,14 +60,13 @@ export function UserMenu({
           {theme === "dark" ? "Light mode" : "Dark mode"}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <form action={logoutAction}>
-          <DropdownMenuItem
-            variant="destructive"
-            render={<button type="submit" className="w-full" />}
-          >
-            Log out
-          </DropdownMenuItem>
-        </form>
+        <DropdownMenuItem
+          variant="destructive"
+          onClick={handleLogout}
+          disabled={pending}
+        >
+          Log out
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

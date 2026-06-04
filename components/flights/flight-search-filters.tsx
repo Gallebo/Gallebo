@@ -232,7 +232,7 @@ function FilterCheckbox({
         </span>
       </span>
       <span
-        className="text-[11px] font-semibold tabular-nums"
+        className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-semibold tabular-nums"
         style={{ color: "var(--ink-3)" }}
       >
         {count}

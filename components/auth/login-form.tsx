@@ -44,6 +44,7 @@ export function LoginForm({ next }: { next?: string }) {
 
   return (
     <form
+      method="post"
       className="space-y-5"
       onSubmit={(event) => {
           event.preventDefault();
