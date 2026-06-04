@@ -10,6 +10,8 @@ export function DashboardShellGate({
   topBar: React.ReactNode;
 }) {
   const pathname = usePathname();
+  // Role dashboards use their own sidebar layouts; notifications live in
+  // RoleDashboardHeader inside pilot/passenger/admin layouts (not this top bar).
   const fullBleed =
     pathname?.startsWith("/pilot") ||
     pathname?.startsWith("/passenger") ||

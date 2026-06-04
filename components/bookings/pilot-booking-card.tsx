@@ -13,32 +13,15 @@ import {
   rejectBookingAction,
 } from "@/lib/bookings/actions";
 import type { BookingStatus } from "@/lib/bookings/constants";
+import type { PilotManageableBookingRow } from "@/lib/pilot/queries";
 import { cn } from "@/lib/utils";
-
-export type PilotBookingRow = {
-  id: string;
-  status: BookingStatus;
-  created_at: string;
-  pilot_payout_eur: number | null;
-  passenger: {
-    first_name: string | null;
-    last_name: string | null;
-    weight_kg: number | null;
-  } | null;
-  flight: {
-    id: string;
-    flight_date: string;
-    price_per_passenger_eur: number;
-    status: string;
-  };
-};
 
 export function PilotBookingCard({
   booking,
   currentUserId,
   weightWarning,
 }: {
-  booking: PilotBookingRow;
+  booking: PilotManageableBookingRow;
   currentUserId: string;
   weightWarning?: string | null;
 }) {
@@ -51,16 +34,21 @@ export function PilotBookingCard({
   const isPending = booking.status === "pending";
   const canCancel = ["pending", "accepted", "confirmed"].includes(booking.status);
 
+  const routeLabel = `${booking.flight.departure_icao} → ${booking.flight.arrival_icao}`;
+
   return (
     <li
       id={`booking-${booking.id}`}
-      className="rounded-lg border p-4 space-y-3 scroll-mt-24"
+      className="rounded-xl border p-5 space-y-3 scroll-mt-24"
+      style={{ borderColor: "var(--line)", background: "var(--surface)" }}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <BookingStatusBadge status={booking.status} />
           <p className="mt-2 font-medium">{passengerName}</p>
           <p className="text-sm text-muted-foreground">
+            {routeLabel} · {new Date(`${booking.flight.flight_date}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+            {" · "}
             {booking.passenger?.weight_kg != null
               ? `Weight: ${booking.passenger.weight_kg} kg`
               : "Weight not set"}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { MarkFlightCompleteButton } from "@/components/bookings/mark-flight-complete-button";
+import { CancelFlightButton } from "@/components/pilot/cancel-flight-button";
 import type { PilotFlightRow } from "@/lib/pilot/queries";
 
 function formatFlightDate(iso: string, time: string): string {
@@ -21,6 +22,8 @@ export function PilotFlightCard({
       ? Math.min(100, (flight.booked_seats / flight.passenger_seats) * 100)
       : 0;
   const isOpen = flight.booked_seats < flight.passenger_seats;
+  const canCancelFlight =
+    flight.status === "published" && flight.confirmed_bookings === 0;
   const statusLabel = isOpen && flight.status === "published" ? "Open" : "Confirmed";
   const statusStyle =
     statusLabel === "Open"
@@ -70,13 +73,14 @@ export function PilotFlightCard({
           </p>
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-3">
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-3">
         <span
           className="rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.08em]"
           style={statusStyle}
         >
           {statusLabel}
         </span>
+        {canCancelFlight ? <CancelFlightButton flightId={flight.id} /> : null}
         {flight.status === "published" ? (
           <MarkFlightCompleteButton flightId={flight.id} />
         ) : null}

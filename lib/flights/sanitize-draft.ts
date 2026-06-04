@@ -9,6 +9,10 @@ const MAX_STRING_FIELD_LENGTH = 128;
 /** Storage paths only — never data URLs or embedded file content. */
 const STORAGE_PATH_RE = /^[0-9a-f-]{36}\/draft\/[0-9a-f-]{36}\.(jpg|jpeg|png|webp)$/i;
 
+export function isValidDraftPhotoPath(userId: string, path: string): boolean {
+  return path.startsWith(`${userId}/draft/`) && STORAGE_PATH_RE.test(path);
+}
+
 function trimString(value: unknown, maxLen: number): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();

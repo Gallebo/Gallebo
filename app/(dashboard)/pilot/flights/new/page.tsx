@@ -7,13 +7,23 @@ export default async function PublishFlightPage() {
   const { user } = await requirePilot();
   const supabase = await createClient();
 
-  const { data: aircraftList } = await supabase
-    .from("aircraft")
-    .select("id, model, registration, seats")
-    .eq("pilot_user_id", user.id)
-    .order("model");
+  const [{ data: aircraftList }, { data: pilotProfile }] = await Promise.all([
+    supabase
+      .from("aircraft")
+      .select("id, model, registration, seats")
+      .eq("pilot_user_id", user.id)
+      .order("model"),
+    supabase
+      .from("pilot_profiles")
+      .select("stripe_onboarding_complete")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+  ]);
 
   return (
-    <PublishFlightWizard aircraftList={aircraftList ?? []} />
+    <PublishFlightWizard
+      aircraftList={aircraftList ?? []}
+      stripeOnboardingComplete={Boolean(pilotProfile?.stripe_onboarding_complete)}
+    />
   );
 }

@@ -23,6 +23,7 @@ import { queueUserNotification } from "@/lib/notifications/notify";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
+  isValidDraftPhotoPath,
   sanitizeFlightDraftForTransport,
   sanitizePhotoPathsForPublish,
 } from "@/lib/flights/sanitize-draft";
@@ -35,6 +36,7 @@ export type FlightActionState = {
   flightId?: string;
   priceWarning?: string | null;
   avgRoutePrice?: number | null;
+  draft?: FlightDraft;
 };
 
 async function notifyAdminsPriceDeviation(
@@ -181,6 +183,98 @@ export async function uploadFlightDraftPhotoAction(
   }
 }
 
+export async function removeFlightDraftPhotoAction(
+  storagePath: string,
+): Promise<FlightActionState> {
+  try {
+    const { user } = await requirePilot();
+    const path = storagePath.trim();
+    if (!isValidDraftPhotoPath(user.id, path)) {
+      return { error: "Invalid photo" };
+    }
+
+    const supabase = await createClient();
+    const { error: storageError } = await supabase.storage
+      .from(FLIGHT_PHOTOS_BUCKET)
+      .remove([path]);
+    if (storageError) return { error: storageError.message };
+
+    const { data: draftRow } = await supabase
+      .from("flight_publish_drafts")
+      .select("step, draft")
+      .eq("pilot_user_id", user.id)
+      .maybeSingle();
+
+    const currentDraft = sanitizeFlightDraftForTransport(draftRow?.draft);
+    const photoPaths = (currentDraft.photoPaths ?? []).filter((p) => p !== path);
+    const nextDraft: FlightDraft = { ...currentDraft, photoPaths };
+    const step =
+      typeof draftRow?.step === "number" && draftRow.step >= 1
+        ? Math.min(12, Math.floor(draftRow.step))
+        : 8;
+
+    const { error } = await supabase.from("flight_publish_drafts").upsert({
+      pilot_user_id: user.id,
+      step,
+      draft: nextDraft as Json,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) return { error: error.message };
+
+    return { success: "Photo removed", draft: nextDraft };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Failed to remove photo",
+    };
+  }
+}
+
+export async function clearFlightPublishDraftAction(): Promise<FlightActionState> {
+  try {
+    const { user } = await requirePilot();
+    const supabase = await createClient();
+
+    const { data: draftRow } = await supabase
+      .from("flight_publish_drafts")
+      .select("draft")
+      .eq("pilot_user_id", user.id)
+      .maybeSingle();
+
+    const pathsToRemove = new Set<string>(
+      sanitizeFlightDraftForTransport(draftRow?.draft).photoPaths ?? [],
+    );
+
+    const { data: listed } = await supabase.storage
+      .from(FLIGHT_PHOTOS_BUCKET)
+      .list(`${user.id}/draft`);
+
+    for (const item of listed ?? []) {
+      if (item.name) {
+        pathsToRemove.add(`${user.id}/draft/${item.name}`);
+      }
+    }
+
+    if (pathsToRemove.size > 0) {
+      const { error: storageError } = await supabase.storage
+        .from(FLIGHT_PHOTOS_BUCKET)
+        .remove([...pathsToRemove]);
+      if (storageError) return { error: storageError.message };
+    }
+
+    const { error } = await supabase
+      .from("flight_publish_drafts")
+      .delete()
+      .eq("pilot_user_id", user.id);
+
+    if (error) return { error: error.message };
+    return { success: "Draft discarded" };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Failed to discard draft",
+    };
+  }
+}
+
 export async function previewPublishPricingAction(
   draft: FlightDraft,
 ): Promise<FlightActionState> {
@@ -227,6 +321,19 @@ export async function publishFlightAction(
   try {
     const { user } = await requirePilot();
     const supabase = await createClient();
+    const adminSupabase = createAdminClient();
+
+    const { data: pilotProfile } = await supabase
+      .from("pilot_profiles")
+      .select("stripe_onboarding_complete")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!pilotProfile?.stripe_onboarding_complete) {
+      return {
+        error: "Please set up your payout account before publishing a flight.",
+      };
+    }
 
     const photoPathsRaw = formData.get("photoPaths");
     let photoPaths: string[] = [];
@@ -353,16 +460,23 @@ export async function publishFlightAction(
       .single();
 
     if (flightError || !flight) {
+      console.error(
+        "FLIGHTS INSERT ERROR:",
+        flightError?.message,
+        flightError?.code,
+      );
       return { error: flightError?.message ?? "Failed to publish flight" };
     }
+    console.log("FLIGHTS INSERT OK:", flight.id);
 
     const movedPaths: string[] = [];
 
     const rollback = async (errMsg: string): Promise<FlightActionState> => {
       await supabase.from("flights").delete().eq("id", flight.id);
       if (movedPaths.length > 0) {
-        const admin = createAdminClient();
-        await admin.storage.from(FLIGHT_PHOTOS_BUCKET).remove(movedPaths);
+        await adminSupabase.storage
+          .from(FLIGHT_PHOTOS_BUCKET)
+          .remove(movedPaths);
       }
       return { error: errMsg };
     };
@@ -372,26 +486,49 @@ export async function publishFlightAction(
       const filename = draftPath.split("/").pop() ?? `${randomUUID()}.jpg`;
       const destPath = `${flight.id}/${filename}`;
 
-      const { error: moveError } = await supabase.storage
+      const { error: moveError } = await adminSupabase.storage
         .from(FLIGHT_PHOTOS_BUCKET)
         .move(draftPath, destPath);
 
       if (moveError) {
-        const { data: blob } = await supabase.storage
+        console.error(
+          "STORAGE MOVE ERROR:",
+          moveError.message,
+          "path:",
+          draftPath,
+          "->",
+          destPath,
+        );
+        const { data: blob } = await adminSupabase.storage
           .from(FLIGHT_PHOTOS_BUCKET)
           .download(draftPath);
         if (!blob) {
+          console.error(
+            "STORAGE DOWNLOAD ERROR (fallback): no blob for path:",
+            draftPath,
+          );
           return rollback(moveError.message);
         }
         const buf = Buffer.from(await blob.arrayBuffer());
         const contentType = blob.type || "image/jpeg";
-        const { error: uploadError } = await supabase.storage
+        const { error: uploadError } = await adminSupabase.storage
           .from(FLIGHT_PHOTOS_BUCKET)
           .upload(destPath, buf, { upsert: true, contentType });
         if (uploadError) {
+          console.error(
+            "STORAGE UPLOAD ERROR:",
+            uploadError.message,
+            "path:",
+            destPath,
+          );
           return rollback(uploadError.message);
         }
-        await supabase.storage.from(FLIGHT_PHOTOS_BUCKET).remove([draftPath]);
+        console.log("STORAGE UPLOAD OK (fallback):", destPath);
+        await adminSupabase.storage
+          .from(FLIGHT_PHOTOS_BUCKET)
+          .remove([draftPath]);
+      } else {
+        console.log("STORAGE MOVE OK:", draftPath, "->", destPath);
       }
 
       movedPaths.push(destPath);
@@ -403,15 +540,27 @@ export async function publishFlightAction(
       });
 
       if (photoErr) {
+        console.error(
+          "FLIGHT_PHOTOS INSERT ERROR:",
+          photoErr.message,
+          photoErr.code,
+        );
         return rollback(photoErr.message);
       }
+      console.log("FLIGHT_PHOTOS INSERT OK:", destPath, "position:", position);
       position += 1;
     }
 
-    await supabase
+    const { error: draftDeleteErr } = await supabase
       .from("flight_publish_drafts")
       .delete()
       .eq("pilot_user_id", user.id);
+
+    if (draftDeleteErr) {
+      console.error("DRAFT DELETE ERROR:", draftDeleteErr.message);
+    } else {
+      console.log("FLIGHT_PUBLISH_DRAFT DELETE OK");
+    }
 
     if (priceCheck.deviationFlag) {
       await notifyAdminsPriceDeviation(flight.id, user.id, {
@@ -488,9 +637,11 @@ export async function publishFlightAction(
     revalidatePath("/pilot/flights");
     revalidatePath(`/pilots/${user.id}`);
 
+    console.log("PUBLISH FLIGHT COMPLETE:", flight.id);
     return { success: "published", flightId: flight.id };
   } catch (e) {
     rethrowIfNextRedirect(e);
+    console.error("PUBLISH FLIGHT UNCAUGHT ERROR:", e);
     return {
       error: e instanceof Error ? e.message : "Failed to publish",
     };
@@ -503,6 +654,31 @@ export async function cancelFlightAction(
   try {
     const { user } = await requirePilot();
     const supabase = await createClient();
+
+    const { data: flight } = await supabase
+      .from("flights")
+      .select("id, status")
+      .eq("id", flightId)
+      .eq("pilot_user_id", user.id)
+      .maybeSingle();
+
+    if (!flight) return { error: "Flight not found" };
+    if (flight.status !== "published") {
+      return { error: "Only published flights can be cancelled" };
+    }
+
+    const { count: confirmedCount } = await supabase
+      .from("flight_booking_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("flight_id", flightId)
+      .eq("status", "confirmed");
+
+    if ((confirmedCount ?? 0) > 0) {
+      return {
+        error:
+          "Cannot cancel a flight with confirmed bookings. Cancel individual bookings first.",
+      };
+    }
 
     const { data, error } = await supabase
       .from("flights")
@@ -571,6 +747,7 @@ export async function cancelFlightAction(
     revalidatePath("/flights");
     revalidatePath(`/flights/${flightId}`);
     revalidatePath("/pilot/flights");
+    revalidatePath("/pilot/bookings");
     revalidatePath(`/pilots/${user.id}`);
     return { success: "Flight cancelled" };
   } catch (e) {

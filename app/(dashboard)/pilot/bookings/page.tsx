@@ -1,16 +1,23 @@
+import { PilotBookingCard } from "@/components/bookings/pilot-booking-card";
 import { PilotBookingRequestRow } from "@/components/pilot/pilot-booking-request-row";
 import { PilotPageHeader } from "@/components/pilot/pilot-page-header";
 import { requirePilot } from "@/lib/auth/rbac";
-import { getPilotBookingRequests } from "@/lib/pilot/queries";
+import {
+  getPilotBookingRequests,
+  getPilotManageableBookings,
+} from "@/lib/pilot/queries";
 
 export const metadata = { title: "Booking requests — Gallebo" };
 
 export default async function PilotBookingsPage() {
   const { user } = await requirePilot();
-  const requests = await getPilotBookingRequests(user.id);
+  const [requests, activeBookings] = await Promise.all([
+    getPilotBookingRequests(user.id),
+    getPilotManageableBookings(user.id),
+  ]);
 
   return (
-    <div>
+    <div className="space-y-10">
       <PilotPageHeader
         eyebrow="Incoming"
         title="Booking requests"
@@ -39,6 +46,30 @@ export default async function PilotBookingsPage() {
           </p>
         </div>
       )}
+
+      <section>
+        <PilotPageHeader
+          eyebrow="Active bookings"
+          title="Passenger conversations"
+          description="Chat and contact details are available for accepted, confirmed, and completed bookings."
+        />
+
+        {activeBookings.length > 0 ? (
+          <ul className="flex flex-col gap-4" style={{ listStyle: "none", margin: 0, padding: 0 }}>
+            {activeBookings.map((b) => (
+              <PilotBookingCard
+                key={b.id}
+                booking={b}
+                currentUserId={user.id}
+              />
+            ))}
+          </ul>
+        ) : (
+          <p className="text-[14px]" style={{ color: "var(--ink-3)" }}>
+            No active bookings with chat yet. Accept a request to start messaging.
+          </p>
+        )}
+      </section>
     </div>
   );
 }

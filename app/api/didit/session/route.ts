@@ -38,7 +38,6 @@ export async function POST() {
       .from("verification_requests")
       .update({ didit_session_id: session.sessionId })
       .eq("user_id", user.id)
-      .eq("requested_role", "passenger")
       .is("reviewed_at", null);
 
     return NextResponse.json({ redirectUrl: session.redirectUrl });

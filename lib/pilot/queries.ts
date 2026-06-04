@@ -12,6 +12,7 @@ export type PilotSidebarContext = {
   status: Enums<"user_status">;
   kycVerified: boolean;
   pendingRequests: number;
+  stripeOnboardingComplete: boolean;
 };
 
 export type PilotFlightRow = {
@@ -21,11 +22,32 @@ export type PilotFlightRow = {
   status: string;
   passenger_seats: number;
   booked_seats: number;
+  confirmed_bookings: number;
   price_per_passenger_eur: number;
   departure_icao: string;
   arrival_icao: string;
   departure_name: string;
   arrival_name: string;
+};
+
+export type PilotManageableBookingRow = {
+  id: string;
+  status: BookingStatus;
+  created_at: string;
+  pilot_payout_eur: number | null;
+  passenger: {
+    first_name: string | null;
+    last_name: string | null;
+    weight_kg: number | null;
+  } | null;
+  flight: {
+    id: string;
+    flight_date: string;
+    price_per_passenger_eur: number;
+    status: string;
+    departure_icao: string;
+    arrival_icao: string;
+  };
 };
 
 export type PilotBookingRequestRow = {
@@ -114,6 +136,12 @@ export async function getPilotSidebarContext(
     .eq("id", userId)
     .single();
 
+  const { data: pilotProfile } = await supabase
+    .from("pilot_profiles")
+    .select("stripe_onboarding_complete")
+    .eq("user_id", userId)
+    .maybeSingle();
+
   const { data: docs } = await supabase
     .from("documents")
     .select("type")
@@ -150,6 +178,7 @@ export async function getPilotSidebarContext(
     status: profile?.status ?? "registered",
     kycVerified: profile?.status === "verified",
     pendingRequests,
+    stripeOnboardingComplete: Boolean(pilotProfile?.stripe_onboarding_complete),
   };
 }
 
@@ -171,36 +200,21 @@ async function fetchPilotFlights(userId: string): Promise<PilotFlightRow[]> {
     .in("status", ["published", "draft"])
     .order("flight_date", { ascending: true });
 
-  const publishedIds = (flights ?? [])
-    .filter((f) => f.status === "published")
-    .map((f) => f.id);
-
-  const bookedByFlight = new Map<string, number>();
-  if (publishedIds.length > 0) {
-    const { data: bookings } = await supabase
-      .from("flight_booking_requests")
-      .select("flight_id")
-      .in("flight_id", publishedIds)
-      .in("status", ["pending", "accepted", "confirmed"]);
-
-    for (const b of bookings ?? []) {
-      bookedByFlight.set(
-        b.flight_id,
-        (bookedByFlight.get(b.flight_id) ?? 0) + 1,
-      );
-    }
-  }
+  const flightIds = (flights ?? []).map((f) => f.id);
+  const bookingCounts = await bookingCountsByFlight(supabase, flightIds);
 
   return (flights ?? []).map((f) => {
     const dep = f.departure_airfield as { icao_code: string; name: string } | null;
     const arr = f.arrival_airfield as { icao_code: string; name: string } | null;
+    const counts = bookingCounts.get(f.id) ?? { booked: 0, confirmed: 0 };
     return {
       id: f.id,
       flight_date: f.flight_date,
       departure_time: String(f.departure_time).slice(0, 5),
       status: f.status,
       passenger_seats: f.passenger_seats,
-      booked_seats: bookedByFlight.get(f.id) ?? 0,
+      booked_seats: counts.booked,
+      confirmed_bookings: counts.confirmed,
       price_per_passenger_eur: Number(f.price_per_passenger_eur),
       departure_icao: dep?.icao_code ?? "—",
       arrival_icao: arr?.icao_code ?? "—",
@@ -208,6 +222,31 @@ async function fetchPilotFlights(userId: string): Promise<PilotFlightRow[]> {
       arrival_name: arr ? airfieldCityName(arr.name) : "—",
     };
   });
+}
+
+async function bookingCountsByFlight(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  flightIds: string[],
+): Promise<Map<string, { booked: number; confirmed: number }>> {
+  const out = new Map<string, { booked: number; confirmed: number }>();
+  if (!flightIds.length) return out;
+
+  const { data: bookings } = await supabase
+    .from("flight_booking_requests")
+    .select("flight_id, status")
+    .in("flight_id", flightIds)
+    .in("status", ["pending", "accepted", "confirmed", "completed"]);
+
+  for (const b of bookings ?? []) {
+    const current = out.get(b.flight_id) ?? { booked: 0, confirmed: 0 };
+    current.booked += 1;
+    if (b.status === "confirmed" || b.status === "completed") {
+      current.confirmed += 1;
+    }
+    out.set(b.flight_id, current);
+  }
+
+  return out;
 }
 
 export async function getPilotFlightsLog(
@@ -244,33 +283,20 @@ export async function getPilotFlightsLog(
 
   const { data: flights } = await query;
   const flightIds = (flights ?? []).map((f) => f.id);
-
-  const bookedByFlight = new Map<string, number>();
-  if (flightIds.length > 0) {
-    const { data: bookings } = await supabase
-      .from("flight_booking_requests")
-      .select("flight_id")
-      .in("flight_id", flightIds)
-      .in("status", ["pending", "accepted", "confirmed", "completed"]);
-
-    for (const b of bookings ?? []) {
-      bookedByFlight.set(
-        b.flight_id,
-        (bookedByFlight.get(b.flight_id) ?? 0) + 1,
-      );
-    }
-  }
+  const bookingCounts = await bookingCountsByFlight(supabase, flightIds);
 
   return (flights ?? []).map((f) => {
     const dep = f.departure_airfield as { icao_code: string; name: string } | null;
     const arr = f.arrival_airfield as { icao_code: string; name: string } | null;
+    const counts = bookingCounts.get(f.id) ?? { booked: 0, confirmed: 0 };
     return {
       id: f.id,
       flight_date: f.flight_date,
       departure_time: String(f.departure_time).slice(0, 5),
       status: f.status,
       passenger_seats: f.passenger_seats,
-      booked_seats: bookedByFlight.get(f.id) ?? 0,
+      booked_seats: counts.booked,
+      confirmed_bookings: counts.confirmed,
       price_per_passenger_eur: Number(f.price_per_passenger_eur),
       departure_icao: dep?.icao_code ?? "—",
       arrival_icao: arr?.icao_code ?? "—",
@@ -370,6 +396,85 @@ export async function getPilotBookingRequests(
       amount_eur: Number(b.passenger_amount_eur ?? 0),
       passenger_avg_rating: reputation.avgRating,
       passenger_review_count: reputation.reviewCount,
+    };
+  });
+}
+
+export async function getPilotManageableBookings(
+  userId: string,
+): Promise<PilotManageableBookingRow[]> {
+  const supabase = await createClient();
+
+  const { data: flights } = await supabase
+    .from("flights")
+    .select(
+      `
+      id, flight_date, status, price_per_passenger_eur,
+      departure_airfield:airfields!flights_departure_airfield_id_fkey ( icao_code ),
+      arrival_airfield:airfields!flights_arrival_airfield_id_fkey ( icao_code )
+    `,
+    )
+    .eq("pilot_user_id", userId);
+
+  const flightMap = new Map(
+    (flights ?? []).map((f) => [
+      f.id,
+      {
+        flight_date: f.flight_date,
+        status: f.status,
+        price_per_passenger_eur: Number(f.price_per_passenger_eur),
+        dep: (f.departure_airfield as { icao_code: string } | null)?.icao_code ?? "—",
+        arr: (f.arrival_airfield as { icao_code: string } | null)?.icao_code ?? "—",
+      },
+    ]),
+  );
+
+  const flightIds = [...flightMap.keys()];
+  if (!flightIds.length) return [];
+
+  const { data: bookings } = await supabase
+    .from("flight_booking_requests")
+    .select(
+      "id, status, created_at, passenger_user_id, flight_id, pilot_payout_eur",
+    )
+    .in("flight_id", flightIds)
+    .in("status", ["accepted", "confirmed", "completed"])
+    .order("created_at", { ascending: false });
+
+  if (!bookings?.length) return [];
+
+  const passengerIds = [...new Set(bookings.map((b) => b.passenger_user_id))];
+  const { data: passengers } = await supabase
+    .from("profiles_public")
+    .select("id, first_name, last_name")
+    .in("id", passengerIds);
+
+  const passengerMap = new Map((passengers ?? []).map((p) => [p.id, p]));
+
+  return bookings.map((b) => {
+    const flight = flightMap.get(b.flight_id);
+    const p = passengerMap.get(b.passenger_user_id);
+
+    return {
+      id: b.id,
+      status: b.status as BookingStatus,
+      created_at: b.created_at,
+      pilot_payout_eur: b.pilot_payout_eur,
+      passenger: p
+        ? {
+            first_name: p.first_name,
+            last_name: p.last_name,
+            weight_kg: null,
+          }
+        : null,
+      flight: {
+        id: b.flight_id,
+        flight_date: flight?.flight_date ?? "",
+        price_per_passenger_eur: flight?.price_per_passenger_eur ?? 0,
+        status: flight?.status ?? "published",
+        departure_icao: flight?.dep ?? "—",
+        arrival_icao: flight?.arr ?? "—",
+      },
     };
   });
 }

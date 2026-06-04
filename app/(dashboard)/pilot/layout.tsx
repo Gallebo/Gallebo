@@ -1,3 +1,4 @@
+import { RoleDashboardHeader } from "@/components/layout/role-dashboard-header";
 import { PilotSidebar } from "@/components/pilot/pilot-sidebar";
 import { requirePilot } from "@/lib/auth/rbac";
 import { getPilotSidebarContext } from "@/lib/pilot/queries";
@@ -18,6 +19,7 @@ export default async function PilotDashboardLayout({
       <PilotSidebar context={sidebar} />
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-5xl px-6 py-8 lg:px-10 lg:py-10">
+          <RoleDashboardHeader />
           {children}
         </div>
       </div>

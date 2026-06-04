@@ -10,7 +10,11 @@ import { uploadDocumentAction } from "@/lib/documents/upload";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/types/database";
 
-export type ActionState = { error?: string; success?: string };
+export type ActionState = {
+  error?: string;
+  success?: string;
+  draft?: Record<string, unknown>;
+};
 
 export async function savePassengerProfileAction(
   _prev: ActionState,
@@ -43,6 +47,118 @@ export async function savePassengerProfileAction(
 
   if (error) return { error: error.message };
   return { success: "Profile saved" };
+}
+
+const DIDIT_APPROVED_STATUSES = new Set(["approved", "verified", "passed"]);
+
+function isDiditApproved(status: string | null | undefined): boolean {
+  return DIDIT_APPROVED_STATUSES.has(String(status ?? "").toLowerCase());
+}
+
+export async function prepareDiditVerificationAction(
+  requestedRole: "passenger" | "pilot"
+): Promise<ActionState> {
+  const user = await requireUser();
+  const supabase = await createClient();
+
+  const { data: existing } = await supabase
+    .from("verification_requests")
+    .select("id, requested_role")
+    .eq("user_id", user.id)
+    .is("reviewed_at", null)
+    .maybeSingle();
+
+  if (existing && existing.requested_role !== requestedRole) {
+    return {
+      error:
+        "An open verification request exists for a different role. Contact support if this is wrong.",
+    };
+  }
+
+  if (!existing) {
+    const { error: vrError } = await supabase.from("verification_requests").insert({
+      user_id: user.id,
+      requested_role: requestedRole,
+    });
+    if (vrError) {
+      if (vrError.code === "23505") {
+        return { error: "Zahtjev za verifikaciju već postoji." };
+      }
+      return { error: vrError.message };
+    }
+  }
+
+  if (requestedRole === "passenger") {
+    const { error: statusError } = await supabase
+      .from("profiles")
+      .update({ status: "pending", role: "passenger" })
+      .eq("id", user.id);
+    if (statusError) return { error: statusError.message };
+  } else {
+    const { error: roleError } = await supabase
+      .from("profiles")
+      .update({ role: "pilot" })
+      .eq("id", user.id);
+    if (roleError) return { error: roleError.message };
+
+    const { data: pilotRow } = await supabase
+      .from("pilot_profiles")
+      .select("onboarding_step, onboarding_draft")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const storedDraft = pilotDraftFromJson(pilotRow?.onboarding_draft);
+    const step = Math.max(pilotRow?.onboarding_step ?? 2, 2);
+    const { error: pilotError } = await supabase.from("pilot_profiles").upsert({
+      user_id: user.id,
+      onboarding_step: step,
+      onboarding_draft: storedDraft as Json,
+    });
+    if (pilotError) return { error: pilotError.message };
+  }
+
+  return { success: "Ready for Didit" };
+}
+
+export async function getDiditVerificationStatusAction(): Promise<
+  ActionState & { diditStatus?: string | null; approved?: boolean }
+> {
+  const user = await requireUser();
+  const supabase = await createClient();
+
+  const { data: vr, error } = await supabase
+    .from("verification_requests")
+    .select("didit_status, requested_role")
+    .eq("user_id", user.id)
+    .is("reviewed_at", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) return { error: error.message };
+
+  const approved = isDiditApproved(vr?.didit_status);
+
+  if (vr?.requested_role === "pilot" && approved) {
+    const { data: pilotProfile } = await supabase
+      .from("pilot_profiles")
+      .select("onboarding_draft")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const draft = pilotDraftFromJson(pilotProfile?.onboarding_draft);
+    if (!draft.diditKycApproved) {
+      await supabase.from("pilot_profiles").upsert({
+        user_id: user.id,
+        onboarding_step: 3,
+        onboarding_draft: { ...draft, diditKycApproved: true } as Json,
+      });
+    }
+  }
+
+  return {
+    diditStatus: vr?.didit_status ?? null,
+    approved,
+  };
 }
 
 export async function submitPassengerVerificationAction(
@@ -94,13 +210,131 @@ export async function savePilotDraftAction(
   });
 
   if (error) return { error: error.message };
-  return { success: "Draft saved" };
+  return { success: "Draft saved", draft };
+}
+
+const PILOT_DOC_TYPES = ["ppl_license", "lapl_license", "medical_certificate"] as const;
+
+async function mergePilotDraftWithStored(
+  userId: string,
+  incoming: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("pilot_profiles")
+    .select("onboarding_draft")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const stored = pilotDraftFromJson(data?.onboarding_draft);
+  return { ...stored, ...incoming };
+}
+
+export async function savePilotLicenseDraftStepAction(
+  formData: FormData
+): Promise<ActionState> {
+  const user = await requireUser();
+  const draft = pilotDraftFromFormData(formData);
+  const licenseExpiresAt = String(
+    formData.get("licenseExpiresAt") ?? draft.licenseExpiresAt ?? ""
+  );
+  const licenseType =
+    formData.get("licenseType") === "lapl_license" ? "lapl_license" : "ppl_license";
+
+  const dateParsed = pilotDocumentSchema.shape.licenseExpiresAt.safeParse(
+    licenseExpiresAt
+  );
+  if (!dateParsed.success) {
+    return { error: dateParsed.error.issues[0]?.message ?? "Invalid licence expiry date" };
+  }
+
+  const file = formData.get("file");
+  let licenseStoragePath = String(draft.licenseStoragePath ?? "");
+  let licenseDocumentId = String(draft.licenseDocumentId ?? "");
+
+  if (file instanceof File && file.size > 0) {
+    const uploadFd = new FormData();
+    uploadFd.set("file", file);
+    uploadFd.set("type", licenseType);
+    uploadFd.set("expiresAt", licenseExpiresAt);
+    const upload = await uploadDocumentAction(uploadFd);
+    if (upload.error) return { error: upload.error };
+    licenseStoragePath = upload.storagePath ?? "";
+    licenseDocumentId = upload.documentId ?? "";
+  }
+
+  if (!licenseStoragePath) {
+    return { error: "Please select your licence file." };
+  }
+
+  const owned = await userOwnsDocumentStoragePath(user.id, licenseStoragePath);
+  if (!owned) return { error: "Licence document not found." };
+
+  const nextDraft = await mergePilotDraftWithStored(user.id, {
+    ...draft,
+    licenseExpiresAt,
+    licenseType,
+    licenseStoragePath,
+    licenseDocumentId,
+  });
+
+  return savePilotDraftAction(4, nextDraft);
+}
+
+export async function savePilotMedicalDraftStepAction(
+  formData: FormData
+): Promise<ActionState> {
+  const user = await requireUser();
+  const draft = pilotDraftFromFormData(formData);
+  const medicalExpiresAt = String(
+    formData.get("medicalExpiresAt") ?? draft.medicalExpiresAt ?? ""
+  );
+
+  const dateParsed = pilotDocumentSchema.shape.medicalExpiresAt.safeParse(
+    medicalExpiresAt
+  );
+  if (!dateParsed.success) {
+    return {
+      error: dateParsed.error.issues[0]?.message ?? "Invalid medical expiry date",
+    };
+  }
+
+  const file = formData.get("file");
+  let medicalStoragePath = String(draft.medicalStoragePath ?? "");
+  let medicalDocumentId = String(draft.medicalDocumentId ?? "");
+
+  if (file instanceof File && file.size > 0) {
+    const uploadFd = new FormData();
+    uploadFd.set("file", file);
+    uploadFd.set("type", "medical_certificate");
+    uploadFd.set("expiresAt", medicalExpiresAt);
+    const upload = await uploadDocumentAction(uploadFd);
+    if (upload.error) return { error: upload.error };
+    medicalStoragePath = upload.storagePath ?? "";
+    medicalDocumentId = upload.documentId ?? "";
+  }
+
+  if (!medicalStoragePath) {
+    return { error: "Please select your medical certificate file." };
+  }
+
+  const owned = await userOwnsDocumentStoragePath(user.id, medicalStoragePath);
+  if (!owned) return { error: "Medical document not found." };
+
+  const nextDraft = await mergePilotDraftWithStored(user.id, {
+    ...draft,
+    medicalExpiresAt,
+    medicalStoragePath,
+    medicalDocumentId,
+  });
+
+  return savePilotDraftAction(5, nextDraft);
 }
 
 export async function submitPilotVerificationAction(
   formData: FormData
 ): Promise<ActionState> {
   const user = await requireUser();
+  const supabase = await createClient();
   const profileResult = await savePassengerProfileAction({}, formData);
   if (profileResult.error) return profileResult;
 
@@ -112,40 +346,123 @@ export async function submitPilotVerificationAction(
     return { error: docDatesParsed.error.issues[0]?.message ?? "Invalid document dates" };
   }
 
-  const licenseType = formData.get("licenseType") === "lapl_license" ? "lapl_license" : "ppl_license";
-  const licenseUpload = await uploadDocumentAction(
-    buildUploadFormData(formData, "licenseFile", licenseType, "licenseExpiresAt")
-  );
-  if (licenseUpload.error) return { error: licenseUpload.error };
+  const licenseType =
+    formData.get("licenseType") === "lapl_license" ? "lapl_license" : "ppl_license";
+  let licenseStoragePath = String(formData.get("licenseStoragePath") ?? "");
+  let medicalStoragePath = String(formData.get("medicalStoragePath") ?? "");
 
-  const medicalUpload = await uploadDocumentAction(
-    buildUploadFormData(formData, "medicalFile", "medical_certificate", "medicalExpiresAt")
-  );
-  if (medicalUpload.error) return { error: medicalUpload.error };
+  const licenseFile = formData.get("licenseFile");
+  if (licenseFile instanceof File && licenseFile.size > 0) {
+    const upload = await uploadDocumentAction(
+      buildUploadFormData(formData, "licenseFile", licenseType, "licenseExpiresAt")
+    );
+    if (upload.error) return { error: upload.error };
+    licenseStoragePath = upload.storagePath ?? "";
+  }
+
+  const medicalFile = formData.get("medicalFile");
+  if (medicalFile instanceof File && medicalFile.size > 0) {
+    const upload = await uploadDocumentAction(
+      buildUploadFormData(
+        formData,
+        "medicalFile",
+        "medical_certificate",
+        "medicalExpiresAt"
+      )
+    );
+    if (upload.error) return { error: upload.error };
+    medicalStoragePath = upload.storagePath ?? "";
+  }
+
+  if (!licenseStoragePath || !medicalStoragePath) {
+    const { data: pilotProfile } = await supabase
+      .from("pilot_profiles")
+      .select("onboarding_draft")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const dbDraft = pilotDraftFromJson(pilotProfile?.onboarding_draft);
+    if (!licenseStoragePath) {
+      licenseStoragePath = String(dbDraft.licenseStoragePath ?? "");
+    }
+    if (!medicalStoragePath) {
+      medicalStoragePath = String(dbDraft.medicalStoragePath ?? "");
+    }
+  }
+
+  if (!licenseStoragePath || !medicalStoragePath) {
+    return {
+      error:
+        "Please go back to steps 3–4 and upload your licence and medical certificate.",
+    };
+  }
+
+  const { data: pilotRow } = await supabase
+    .from("pilot_profiles")
+    .select("onboarding_draft")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const kycDraft = pilotDraftFromJson(pilotRow?.onboarding_draft);
+  if (!kycDraft.diditKycApproved) {
+    const { data: openVr } = await supabase
+      .from("verification_requests")
+      .select("didit_status")
+      .eq("user_id", user.id)
+      .eq("requested_role", "pilot")
+      .is("reviewed_at", null)
+      .maybeSingle();
+    if (!isDiditApproved(openVr?.didit_status)) {
+      return {
+        error:
+          "Complete Didit identity verification (step 2) before submitting documents.",
+      };
+    }
+  }
+
+  const licenseOwned = await userOwnsDocumentStoragePath(user.id, licenseStoragePath);
+  const medicalOwned = await userOwnsDocumentStoragePath(user.id, medicalStoragePath);
+  if (!licenseOwned || !medicalOwned) {
+    return { error: "Uploaded documents could not be verified. Please re-upload." };
+  }
 
   const taxAccepted = formData.get("taxDeclaration") === "on";
   if (!taxAccepted) {
     return { error: "You must accept the tax declaration" };
   }
 
-  const supabase = await createClient();
   await supabase.from("pilot_profiles").upsert({
     user_id: user.id,
     license_expires_at: docDatesParsed.data.licenseExpiresAt,
     medical_expires_at: docDatesParsed.data.medicalExpiresAt,
     tax_declaration_accepted_at: new Date().toISOString(),
-    onboarding_step: 4,
+    onboarding_step: 5,
+    onboarding_draft: {
+      ...pilotDraftFromFormData(formData),
+      licenseStoragePath,
+      medicalStoragePath,
+      licenseType,
+      diditKycApproved: true,
+    } as Json,
   });
 
-  const { error: vrError } = await supabase.from("verification_requests").insert({
-    user_id: user.id,
-    requested_role: "pilot",
-  });
-  if (vrError) {
-    if (vrError.code === "23505") {
-      return { error: "Zahtjev za verifikaciju već postoji. Pričekaj admin odobrenje." };
+  const { data: existingVr } = await supabase
+    .from("verification_requests")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("requested_role", "pilot")
+    .is("reviewed_at", null)
+    .maybeSingle();
+
+  if (!existingVr) {
+    const { error: vrError } = await supabase.from("verification_requests").insert({
+      user_id: user.id,
+      requested_role: "pilot",
+    });
+    if (vrError) {
+      if (vrError.code === "23505") {
+        return { error: "Zahtjev za verifikaciju već postoji. Pričekaj admin odobrenje." };
+      }
+      return { error: vrError.message };
     }
-    return { error: vrError.message };
   }
 
   const { error: statusError } = await supabase
@@ -211,4 +528,42 @@ function buildUploadFormData(
   const expires = source.get(expiresKey);
   if (expires) fd.set("expiresAt", String(expires));
   return fd;
+}
+
+function pilotDraftFromJson(raw: Json | null | undefined): Record<string, unknown> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return { ...(raw as Record<string, unknown>) };
+}
+
+function pilotDraftFromFormData(formData: FormData): Record<string, unknown> {
+  return {
+    firstName: String(formData.get("firstName") ?? ""),
+    lastName: String(formData.get("lastName") ?? ""),
+    dateOfBirth: String(formData.get("dateOfBirth") ?? ""),
+    phone: String(formData.get("phone") ?? ""),
+    weightKg: String(formData.get("weightKg") ?? ""),
+    licenseExpiresAt: String(formData.get("licenseExpiresAt") ?? ""),
+    medicalExpiresAt: String(formData.get("medicalExpiresAt") ?? ""),
+    licenseType: String(formData.get("licenseType") ?? "ppl_license"),
+    licenseStoragePath: String(formData.get("licenseStoragePath") ?? ""),
+    licenseDocumentId: String(formData.get("licenseDocumentId") ?? ""),
+    medicalStoragePath: String(formData.get("medicalStoragePath") ?? ""),
+    medicalDocumentId: String(formData.get("medicalDocumentId") ?? ""),
+  };
+}
+
+async function userOwnsDocumentStoragePath(
+  userId: string,
+  storagePath: string
+): Promise<boolean> {
+  if (!storagePath) return false;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("documents")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("storage_path", storagePath)
+    .in("type", [...PILOT_DOC_TYPES])
+    .maybeSingle();
+  return Boolean(data?.id);
 }

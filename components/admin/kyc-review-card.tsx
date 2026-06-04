@@ -23,20 +23,28 @@ export function KycReviewCard({
   id,
   name,
   roleLabel,
+  requestedRole,
   submittedLabel,
   risk,
+  diditStatusLabel,
+  autoApproved,
   documents,
 }: {
   id: string;
   name: string;
   roleLabel: string;
+  requestedRole: string;
   submittedLabel: string;
   risk: "low" | "medium";
+  diditStatusLabel: string;
+  autoApproved: boolean;
   documents: string[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const isPassenger = requestedRole === "passenger";
+  const isPilot = requestedRole === "pilot";
 
   return (
     <article
@@ -66,30 +74,56 @@ export function KycReviewCard({
             <p className="mt-0.5 text-[13px]" style={{ color: "var(--ink-3)" }}>
               {roleLabel} • Submitted {submittedLabel}
             </p>
+            <p className="mt-1 text-[13px]" style={{ color: "var(--ink-2)" }}>
+              Didit KYC: {diditStatusLabel}
+            </p>
           </div>
         </div>
-        <AdminStatusPill variant={risk === "low" ? "risk-low" : "risk-medium"}>
-          {risk === "low" ? "LOW RISK" : "MEDIUM RISK"}
-        </AdminStatusPill>
+        <div className="flex flex-wrap gap-2">
+          <AdminStatusPill variant={risk === "low" ? "risk-low" : "risk-medium"}>
+            {risk === "low" ? "LOW RISK" : "MEDIUM RISK"}
+          </AdminStatusPill>
+          {isPassenger && autoApproved ? (
+            <AdminStatusPill variant="completed">Auto-approved (Didit)</AdminStatusPill>
+          ) : null}
+          {isPilot && autoApproved ? (
+            <AdminStatusPill variant="completed">Didit identity OK</AdminStatusPill>
+          ) : null}
+        </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        {documents.map((doc) => (
-          <span
-            key={doc}
-            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide"
-            style={{
-              background: "var(--primary-soft)",
-              color: "var(--primary-v2)",
-            }}
-          >
-            <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
-              <path d="M20 6L9 17l-5-5" />
-            </svg>
-            {doc}
-          </span>
-        ))}
-      </div>
+      {isPilot ? (
+        <p
+          className="mt-3 text-[13px]"
+          style={{ color: "var(--ink-2)" }}
+        >
+          Identity verified via Didit KYC — review licence and medical only.
+        </p>
+      ) : (
+        <p className="mt-3 text-[13px]" style={{ color: "var(--ink-3)" }}>
+          No documents to review. Identity is verified through Didit only.
+        </p>
+      )}
+
+      {isPilot && documents.length > 0 ? (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {documents.map((doc) => (
+            <span
+              key={doc}
+              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide"
+              style={{
+                background: "var(--primary-soft)",
+                color: "var(--primary-v2)",
+              }}
+            >
+              <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+              {doc}
+            </span>
+          ))}
+        </div>
+      ) : null}
 
       {error ? (
         <p className="mt-3 text-[13px]" style={{ color: "var(--danger)" }}>
@@ -144,7 +178,7 @@ export function KycReviewCard({
           className="ml-auto text-[13px] font-medium transition-opacity hover:opacity-80"
           style={{ color: "var(--ink-2)", textDecoration: "none" }}
         >
-          View documents
+          {isPassenger ? "View Didit status" : "Review documents"}
         </Link>
       </div>
     </article>

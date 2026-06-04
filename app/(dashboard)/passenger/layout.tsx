@@ -1,3 +1,4 @@
+import { RoleDashboardHeader } from "@/components/layout/role-dashboard-header";
 import { PassengerSidebar } from "@/components/passenger/passenger-sidebar";
 import { requireVerifiedPassenger } from "@/lib/auth/rbac";
 import { getPassengerSidebarContext } from "@/lib/passenger/queries";
@@ -18,6 +19,7 @@ export default async function PassengerDashboardLayout({
       <PassengerSidebar context={sidebar} />
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-5xl px-6 py-8 lg:px-10 lg:py-10">
+          <RoleDashboardHeader />
           {children}
         </div>
       </div>

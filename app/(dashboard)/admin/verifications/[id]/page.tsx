@@ -1,10 +1,8 @@
 import { notFound } from "next/navigation";
 
 import { VerificationActions } from "@/components/admin/verification-actions";
-import { BUCKET_BY_TYPE } from "@/lib/documents/constants";
+import { VerificationReviewPanel } from "@/components/admin/verification-review-panel";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { DocumentType } from "@/lib/types/profile";
 
 export const metadata = { title: "Review verification — Admin" };
 
@@ -18,57 +16,28 @@ export default async function VerificationDetailPage({
 
   const { data: request } = await admin
     .from("verification_requests")
-    .select("*")
+    .select("id, user_id, requested_role, didit_status, auto_approved, reviewed_at")
     .eq("id", id)
     .single();
 
   if (!request) notFound();
 
-  const { data: documents } = await admin
-    .from("documents")
-    .select("*")
-    .eq("user_id", request.user_id);
-
-  const signedUrls: { type: string; url: string }[] = [];
-  for (const doc of documents ?? []) {
-    const bucket = BUCKET_BY_TYPE[doc.type as DocumentType];
-    const { data } = await admin.storage
-      .from(bucket)
-      .createSignedUrl(doc.storage_path, 300);
-    if (data?.signedUrl) {
-      signedUrls.push({ type: doc.type, url: data.signedUrl });
-    }
-  }
+  const isPassenger = request.requested_role === "passenger";
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Verification review</h1>
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {request.requested_role} — {request.id.slice(0, 8)}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 text-sm">
-          <p>Didit status: {request.didit_status ?? "—"}</p>
-          <p>Auto approved: {request.auto_approved ? "yes" : "no"}</p>
-          <ul className="space-y-2">
-            {signedUrls.map((d) => (
-              <li key={d.type}>
-                <a
-                  href={d.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline"
-                >
-                  View {d.type} (5 min link)
-                </a>
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
-
+      <VerificationReviewPanel request={request} />
+      {isPassenger ? (
+        <p className="text-sm text-muted-foreground">
+          Approve only if Didit KYC is satisfactory. There are no uploaded identity documents.
+        </p>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          Approve only after reviewing the pilot licence and medical certificate. Identity is
+          not reviewed here.
+        </p>
+      )}
       <VerificationActions requestId={id} />
     </div>
   );

@@ -4,11 +4,12 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
-export function DiditStartButton() {
+export function DiditStartButton({ disabled = false }: { disabled?: boolean }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function startDidit() {
+    if (disabled) return;
     setLoading(true);
     setError(null);
     try {
@@ -28,7 +29,7 @@ export function DiditStartButton() {
 
   return (
     <div className="space-y-2">
-      <Button type="button" onClick={startDidit} disabled={loading}>
+      <Button type="button" onClick={startDidit} disabled={loading || disabled}>
         {loading ? "Starting…" : "Continue to Didit verification"}
       </Button>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}

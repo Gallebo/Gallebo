@@ -176,10 +176,43 @@ serve(async (req) => {
       .update({ auto_approved: true })
       .eq("didit_session_id", sessionId);
 
-    await admin
-      .from("profiles")
-      .update({ status: "verified", role: "passenger" })
-      .eq("id", userId);
+    const { data: vr } = await admin
+      .from("verification_requests")
+      .select("requested_role")
+      .eq("didit_session_id", sessionId)
+      .maybeSingle();
+
+    const role = vr?.requested_role ?? "passenger";
+
+    if (role === "pilot") {
+      const { data: pilotProfile } = await admin
+        .from("pilot_profiles")
+        .select("onboarding_draft")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      const rawDraft = pilotProfile?.onboarding_draft;
+      const draft =
+        rawDraft && typeof rawDraft === "object" && !Array.isArray(rawDraft)
+          ? { ...(rawDraft as Record<string, unknown>) }
+          : {};
+
+      await admin.from("pilot_profiles").upsert({
+        user_id: userId,
+        onboarding_step: 3,
+        onboarding_draft: { ...draft, diditKycApproved: true },
+      });
+
+      await admin
+        .from("profiles")
+        .update({ role: "pilot" })
+        .eq("id", userId);
+    } else {
+      await admin
+        .from("profiles")
+        .update({ status: "verified", role: "passenger" })
+        .eq("id", userId);
+    }
   }
 
   await admin.from("notification_queue").insert({

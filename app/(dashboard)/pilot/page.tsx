@@ -15,6 +15,27 @@ export default async function PilotOverviewPage() {
 
   return (
     <div>
+      {!data.sidebar.stripeOnboardingComplete ? (
+        <div
+          className="mb-8 flex flex-col gap-4 rounded-xl border px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+          style={{
+            borderColor: "color-mix(in srgb, var(--sun) 35%, var(--line))",
+            background: "color-mix(in srgb, var(--sun) 12%, var(--surface))",
+          }}
+        >
+          <p className="text-[14px] leading-relaxed" style={{ color: "var(--ink)" }}>
+            Set up your payout account to receive payments from passengers.
+          </p>
+          <Link
+            href="/pilot/stripe"
+            className="inline-flex shrink-0 items-center justify-center rounded-lg px-4 py-2.5 text-[14px] font-semibold no-underline text-white"
+            style={{ background: "var(--primary-v2)" }}
+          >
+            Set up payouts →
+          </Link>
+        </div>
+      ) : null}
+
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
           <p

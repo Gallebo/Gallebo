@@ -1,3 +1,4 @@
+import { RoleDashboardHeader } from "@/components/layout/role-dashboard-header";
 import { AdminSidebar } from "@/components/admin/admin-sidebar";
 import { requireAdmin } from "@/lib/auth/rbac";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -20,6 +21,7 @@ export default async function AdminLayout({
       <AdminSidebar kycCount={kycCount ?? 0} />
       <main className="admin-main">
         <div className="mx-auto max-w-6xl px-6 py-8 lg:px-10 lg:py-10">
+          <RoleDashboardHeader />
           {children}
         </div>
       </main>

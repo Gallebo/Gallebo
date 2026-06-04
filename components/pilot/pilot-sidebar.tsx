@@ -62,6 +62,17 @@ const NAV = [
     ),
   },
   {
+    href: "/pilot/stripe",
+    label: "Payouts",
+    payoutAttention: true,
+    icon: (
+      <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+        <rect x="2" y="5" width="20" height="14" rx="2" />
+        <path d="M2 10h20" />
+      </svg>
+    ),
+  },
+  {
     href: "/pilot/transactions",
     label: "Transactions",
     icon: (
@@ -130,6 +141,10 @@ export function PilotSidebar({ context }: { context: PilotSidebarContext }) {
             const active = item.exact
               ? pathname === item.href
               : pathname.startsWith(item.href);
+            const showPayoutAttention =
+              "payoutAttention" in item &&
+              item.payoutAttention &&
+              !context.stripeOnboardingComplete;
             return (
               <li key={item.href}>
                 <Link
@@ -155,6 +170,16 @@ export function PilotSidebar({ context }: { context: PilotSidebarContext }) {
                       style={{ background: "var(--coral)" }}
                     >
                       {context.pendingRequests}
+                    </span>
+                  ) : null}
+                  {showPayoutAttention ? (
+                    <span
+                      className="flex size-5 items-center justify-center rounded-full text-[11px] font-bold text-white"
+                      style={{ background: "var(--sun)" }}
+                      title="Payout setup required"
+                      aria-label="Payout setup required"
+                    >
+                      !
                     </span>
                   ) : null}
                 </Link>

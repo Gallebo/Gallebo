@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useState, useTransition } from "react";
 
+import { DiditKycStep } from "@/components/onboarding/didit-kyc-step";
 import { PersonalInfoFields } from "@/components/onboarding/personal-info-fields";
 import { StepCard } from "@/components/onboarding/step-card";
 import { StepIndicator } from "@/components/onboarding/step-indicator";
@@ -11,6 +12,8 @@ import { FormMessage } from "@/components/auth/form-message";
 import {
   savePassengerProfileAction,
   savePilotDraftAction,
+  savePilotLicenseDraftStepAction,
+  savePilotMedicalDraftStepAction,
   submitPilotVerificationAction,
   type ActionState,
 } from "@/lib/onboarding/actions";
@@ -18,7 +21,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Json } from "@/types/database";
 
-const STEP_LABELS = ["Personal", "Licence", "Medical", "Tax"] as const;
+const STEP_LABELS = ["Personal", "Didit KYC", "Licence", "Medical", "Tax"] as const;
+const MAX_STEP = STEP_LABELS.length;
 
 type DraftJson = Record<string, unknown>;
 
@@ -27,13 +31,38 @@ function draftFromJson(raw: Json | null | undefined): DraftJson {
   return { ...raw };
 }
 
+function appendPilotDraftToFormData(fd: FormData, draft: DraftJson) {
+  fd.set("firstName", String(draft.firstName ?? ""));
+  fd.set("lastName", String(draft.lastName ?? ""));
+  fd.set("dateOfBirth", String(draft.dateOfBirth ?? ""));
+  fd.set("phone", String(draft.phone ?? ""));
+  fd.set("weightKg", String(draft.weightKg ?? ""));
+  fd.set("licenseExpiresAt", String(draft.licenseExpiresAt ?? ""));
+  fd.set("medicalExpiresAt", String(draft.medicalExpiresAt ?? ""));
+  fd.set("licenseType", String(draft.licenseType ?? "ppl_license"));
+  fd.set("licenseStoragePath", String(draft.licenseStoragePath ?? ""));
+  fd.set("licenseDocumentId", String(draft.licenseDocumentId ?? ""));
+  fd.set("medicalStoragePath", String(draft.medicalStoragePath ?? ""));
+  fd.set("medicalDocumentId", String(draft.medicalDocumentId ?? ""));
+}
+
+function hasLicenseDocument(draft: DraftJson) {
+  return Boolean(String(draft.licenseStoragePath ?? "").length > 0);
+}
+
+function hasMedicalDocument(draft: DraftJson) {
+  return Boolean(String(draft.medicalStoragePath ?? "").length > 0);
+}
+
 export function PilotOnboardingWizard({
   initialStep,
   initialDraft,
+  diditKycComplete,
   profileDefaults,
 }: {
   initialStep: number;
   initialDraft: Json | null | undefined;
+  diditKycComplete: boolean;
   profileDefaults: {
     firstName: string | null;
     lastName: string | null;
@@ -43,9 +72,11 @@ export function PilotOnboardingWizard({
   };
 }) {
   const router = useRouter();
-  const [step, setStep] = useState(Math.min(Math.max(initialStep, 1), 4));
+  const [step, setStep] = useState(Math.min(Math.max(initialStep, 1), MAX_STEP));
   const [draft, setDraft] = useState<DraftJson>(() => {
     const d = draftFromJson(initialDraft);
+    const licenseType =
+      d.licenseType === "lapl_license" ? "lapl_license" : "ppl_license";
     return {
       firstName: (d.firstName as string) ?? profileDefaults.firstName ?? "",
       lastName: (d.lastName as string) ?? profileDefaults.lastName ?? "",
@@ -59,26 +90,40 @@ export function PilotOnboardingWizard({
             : "",
       licenseExpiresAt: (d.licenseExpiresAt as string) ?? "",
       medicalExpiresAt: (d.medicalExpiresAt as string) ?? "",
+      licenseType,
+      licenseStoragePath: (d.licenseStoragePath as string) ?? "",
+      licenseDocumentId: (d.licenseDocumentId as string) ?? "",
+      medicalStoragePath: (d.medicalStoragePath as string) ?? "",
+      medicalDocumentId: (d.medicalDocumentId as string) ?? "",
+      diditKycApproved: Boolean(d.diditKycApproved) || diditKycComplete,
     };
   });
-  const [licenseType, setLicenseType] = useState<"ppl_license" | "lapl_license">("ppl_license");
+  const [licenseType, setLicenseType] = useState<"ppl_license" | "lapl_license">(
+    () =>
+      draft.licenseType === "lapl_license" ? "lapl_license" : "ppl_license"
+  );
   const [licenseFile, setLicenseFile] = useState<File | null>(null);
   const [medicalFile, setMedicalFile] = useState<File | null>(null);
   const [state, setState] = useState<ActionState>({});
   const [pending, startTransition] = useTransition();
 
-  const persistDraft = useCallback(
-    async (nextStep: number, nextDraft: DraftJson) => {
-      const result = await savePilotDraftAction(nextStep, nextDraft);
+  const applyStepResult = useCallback(
+    (result: ActionState, nextStep: number) => {
       setState(result);
       if (!result.error) {
-        setDraft(nextDraft);
+        if (result.draft) setDraft(result.draft);
         setStep(nextStep);
         router.refresh();
       }
     },
     [router]
   );
+
+  const onDiditApproved = useCallback(() => {
+    setDraft((d) => ({ ...d, diditKycApproved: true }));
+    setStep(3);
+    router.refresh();
+  }, [router]);
 
   return (
     <div className="mx-auto max-w-xl space-y-8 px-4 py-8">
@@ -88,7 +133,8 @@ export function PilotOnboardingWizard({
       <h1 className="text-2xl font-semibold">Pilot verification</h1>
       <StepIndicator steps={[...STEP_LABELS]} current={step} />
       <p className="text-sm text-muted-foreground">
-        After verification, set up your payout account in the pilot dashboard.
+        Identity is verified with Didit. Admin reviews only your licence and medical
+        certificate.
       </p>
       <FormMessage error={state.error} success={state.success} />
 
@@ -106,15 +152,20 @@ export function PilotOnboardingWizard({
                   return;
                 }
                 const nextDraft: DraftJson = {
+                  ...draft,
                   firstName: String(fd.get("firstName") ?? ""),
                   lastName: String(fd.get("lastName") ?? ""),
                   dateOfBirth: String(fd.get("dateOfBirth") ?? ""),
                   phone: String(fd.get("phone") ?? ""),
                   weightKg: String(fd.get("weightKg") ?? ""),
-                  licenseExpiresAt: draft.licenseExpiresAt,
-                  medicalExpiresAt: draft.medicalExpiresAt,
                 };
-                await persistDraft(2, nextDraft);
+                const result = await savePilotDraftAction(2, nextDraft);
+                setState(result);
+                if (!result.error) {
+                  if (result.draft) setDraft(result.draft);
+                  setStep(2);
+                  router.refresh();
+                }
               });
             }}
           >
@@ -135,8 +186,29 @@ export function PilotOnboardingWizard({
       ) : null}
 
       {step === 2 ? (
-        <StepCard step={2} title="PPL / LAPL licence" description="Upload + expiry date">
+        <StepCard
+          step={2}
+          title="Didit identity check"
+          description="Complete before uploading licence and medical documents."
+        >
+          <DiditKycStep
+            requestedRole="pilot"
+            stepNumber={2}
+            onApproved={onDiditApproved}
+            onBack={() => setStep(1)}
+            showContinue
+          />
+        </StepCard>
+      ) : null}
+
+      {step === 3 ? (
+        <StepCard step={3} title="PPL / LAPL licence" description="Upload + expiry date">
           <div className="space-y-4">
+            {hasLicenseDocument(draft) ? (
+              <p className="text-sm text-muted-foreground">
+                Licence already uploaded. Choose a new file below to replace it.
+              </p>
+            ) : null}
             <div className="flex gap-4 text-sm">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -172,32 +244,47 @@ export function PilotOnboardingWizard({
               }
             />
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button type="button" variant="ghost" onClick={() => setStep(1)}>
+              <Button type="button" variant="ghost" onClick={() => setStep(2)}>
                 Back
               </Button>
               <Button
                 type="button"
                 className="flex-1"
-                disabled={pending || !licenseFile}
+                disabled={
+                  pending ||
+                  (!licenseFile && !hasLicenseDocument(draft)) ||
+                  !String(draft.licenseExpiresAt ?? "")
+                }
                 onClick={() =>
-                  startTransition(() =>
-                    persistDraft(3, {
+                  startTransition(async () => {
+                    const fd = new FormData();
+                    if (licenseFile) fd.set("file", licenseFile);
+                    fd.set("licenseType", licenseType);
+                    fd.set("licenseExpiresAt", String(draft.licenseExpiresAt));
+                    appendPilotDraftToFormData(fd, {
                       ...draft,
-                      licenseExpiresAt: draft.licenseExpiresAt,
-                    })
-                  )
+                      licenseType,
+                    });
+                    const result = await savePilotLicenseDraftStepAction(fd);
+                    applyStepResult(result, 4);
+                  })
                 }
               >
-                {pending ? "Saving…" : "Save draft & continue"}
+                {pending ? "Uploading…" : "Save draft & continue"}
               </Button>
             </div>
           </div>
         </StepCard>
       ) : null}
 
-      {step === 3 ? (
-        <StepCard step={3} title="Medical certificate" description="Upload + expiry date">
+      {step === 4 ? (
+        <StepCard step={4} title="Medical certificate" description="Upload + expiry date">
           <div className="space-y-4">
+            {hasMedicalDocument(draft) ? (
+              <p className="text-sm text-muted-foreground">
+                Medical certificate already uploaded. Choose a new file below to replace it.
+              </p>
+            ) : null}
             <input
               type="file"
               accept="image/jpeg,image/png,application/pdf"
@@ -211,39 +298,49 @@ export function PilotOnboardingWizard({
               }
             />
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button type="button" variant="ghost" onClick={() => setStep(2)}>
+              <Button type="button" variant="ghost" onClick={() => setStep(3)}>
                 Back
               </Button>
               <Button
                 type="button"
                 className="flex-1"
-                disabled={pending || !medicalFile}
+                disabled={
+                  pending ||
+                  (!medicalFile && !hasMedicalDocument(draft)) ||
+                  !String(draft.medicalExpiresAt ?? "")
+                }
                 onClick={() =>
-                  startTransition(() =>
-                    persistDraft(4, {
-                      ...draft,
-                      medicalExpiresAt: draft.medicalExpiresAt,
-                    })
-                  )
+                  startTransition(async () => {
+                    const fd = new FormData();
+                    if (medicalFile) fd.set("file", medicalFile);
+                    fd.set("medicalExpiresAt", String(draft.medicalExpiresAt));
+                    appendPilotDraftToFormData(fd, draft);
+                    const result = await savePilotMedicalDraftStepAction(fd);
+                    applyStepResult(result, 5);
+                  })
                 }
               >
-                {pending ? "Saving…" : "Save draft & continue"}
+                {pending ? "Uploading…" : "Save draft & continue"}
               </Button>
             </div>
           </div>
         </StepCard>
       ) : null}
 
-      {step === 4 ? (
-        <StepCard step={4} title="Tax declaration & submit" description="Admin will review your documents">
+      {step === 5 ? (
+        <StepCard
+          step={5}
+          title="Tax declaration & submit"
+          description="Admin will review your licence and medical certificate only."
+        >
           <form
             className="space-y-4"
             onSubmit={(e) => {
               e.preventDefault();
-              if (!licenseFile || !medicalFile) {
+              if (!hasLicenseDocument(draft) || !hasMedicalDocument(draft)) {
                 setState({
                   error:
-                    "Please go back to steps 2–3 and select your licence and medical files.",
+                    "Please go back to steps 3–4 and upload your licence and medical certificate.",
                 });
                 return;
               }
@@ -261,12 +358,14 @@ export function PilotOnboardingWizard({
               fd.append("dateOfBirth", String(draft.dateOfBirth));
               fd.append("phone", String(draft.phone));
               fd.append("weightKg", String(draft.weightKg));
-              fd.append("licenseFile", licenseFile);
-              fd.append("licenseType", licenseType);
+              fd.append("licenseType", String(draft.licenseType ?? licenseType));
               fd.append("licenseExpiresAt", String(draft.licenseExpiresAt));
-              fd.append("medicalFile", medicalFile);
+              fd.append("licenseStoragePath", String(draft.licenseStoragePath));
               fd.append("medicalExpiresAt", String(draft.medicalExpiresAt));
+              fd.append("medicalStoragePath", String(draft.medicalStoragePath));
               fd.append("taxDeclaration", "on");
+              if (licenseFile) fd.append("licenseFile", licenseFile);
+              if (medicalFile) fd.append("medicalFile", medicalFile);
               startTransition(async () => {
                 const result = await submitPilotVerificationAction(fd);
                 if (result?.error) setState(result);
@@ -278,7 +377,7 @@ export function PilotOnboardingWizard({
               I declare that my tax information is accurate for flight cost sharing.
             </label>
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Button type="button" variant="ghost" onClick={() => setStep(3)}>
+              <Button type="button" variant="ghost" onClick={() => setStep(4)}>
                 Back
               </Button>
               <Button type="submit" className="flex-1" disabled={pending}>

@@ -1,3 +1,5 @@
+import { formatDiditStatus, isDiditApproved, isPilotProfessionalDocument } from "@/lib/admin/didit";
+import type { BookingStatus } from "@/lib/bookings/constants";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface RecentFlightRow {
@@ -27,8 +29,12 @@ export interface KycQueueItem {
   userId: string;
   name: string;
   roleLabel: string;
+  requestedRole: string;
   submittedLabel: string;
   risk: "low" | "medium";
+  diditStatus: string | null;
+  diditStatusLabel: string;
+  autoApproved: boolean;
   documents: string[];
 }
 
@@ -63,12 +69,10 @@ function mapFlightStatus(status: string, flightDate: string): {
   return { label: "SCHEDULED", variant: "scheduled" };
 }
 
-const DOC_LABELS: Record<string, string> = {
-  id_card: "ID",
-  ppl_license: "PPL(A)",
+const PILOT_DOC_LABELS: Record<string, string> = {
+  ppl_license: "PPL",
   lapl_license: "LAPL",
   medical_certificate: "MEDICAL",
-  airfield_operating_license: "INSURANCE",
 };
 
 export async function getRecentFlights(limit = 5): Promise<RecentFlightRow[]> {
@@ -188,7 +192,7 @@ export async function getKycQueue(): Promise<KycQueueItem[]> {
 
   const { data: requests } = await admin
     .from("verification_requests")
-    .select("id, user_id, requested_role, created_at, didit_status")
+    .select("id, user_id, requested_role, created_at, didit_status, auto_approved")
     .is("reviewed_at", null)
     .order("created_at", { ascending: false });
 
@@ -209,21 +213,158 @@ export async function getKycQueue(): Promise<KycQueueItem[]> {
 
   const docsByUser = new Map<string, string[]>();
   for (const doc of documents ?? []) {
-    const label = DOC_LABELS[doc.type] ?? doc.type.toUpperCase();
+    if (!isPilotProfessionalDocument(doc.type)) continue;
+    const label = PILOT_DOC_LABELS[doc.type] ?? doc.type.toUpperCase();
     const list = docsByUser.get(doc.user_id) ?? [];
     if (!list.includes(label)) list.push(label);
     docsByUser.set(doc.user_id, list);
   }
 
-  return requests.map((r) => ({
-    id: r.id,
-    userId: r.user_id,
-    name: profileMap.get(r.user_id) ?? "Unknown",
-    roleLabel: (r.requested_role ?? "pilot").toUpperCase(),
-    submittedLabel: hoursAgo(r.created_at),
-    risk: r.didit_status === "review" ? "medium" : "low",
-    documents: docsByUser.get(r.user_id) ?? ["ID"],
-  }));
+  return requests.map((r) => {
+    const requestedRole = r.requested_role ?? "pilot";
+    const isPassenger = requestedRole === "passenger";
+    const diditApproved = isDiditApproved(r.didit_status);
+
+    return {
+      id: r.id,
+      userId: r.user_id,
+      name: profileMap.get(r.user_id) ?? "Unknown",
+      roleLabel: requestedRole.toUpperCase(),
+      requestedRole,
+      submittedLabel: hoursAgo(r.created_at),
+      risk: r.didit_status === "review" ? "medium" : "low",
+      diditStatus: r.didit_status,
+      diditStatusLabel: formatDiditStatus(r.didit_status),
+      autoApproved: Boolean(r.auto_approved) || diditApproved,
+      documents: isPassenger ? [] : (docsByUser.get(r.user_id) ?? []),
+    };
+  });
+}
+
+export type AdminBookingRow = {
+  id: string;
+  status: string;
+  statusLabel: string;
+  statusVariant: "active" | "scheduled" | "completed" | "kyc";
+  createdLabel: string;
+  route: string;
+  flightDateLabel: string;
+  passengerName: string;
+  pilotName: string;
+  amountEur: string;
+};
+
+const BOOKING_STATUS_VARIANT: Record<
+  string,
+  AdminBookingRow["statusVariant"]
+> = {
+  pending: "kyc",
+  accepted: "scheduled",
+  confirmed: "active",
+  completed: "completed",
+  cancelled: "scheduled",
+  rejected: "scheduled",
+  expired: "scheduled",
+};
+
+const BOOKING_STATUS_LABEL: Record<string, string> = {
+  pending: "Pending",
+  accepted: "Accepted",
+  confirmed: "Confirmed",
+  completed: "Completed",
+  cancelled: "Cancelled",
+  rejected: "Rejected",
+  expired: "Expired",
+};
+
+export async function getAdminBookings(
+  statusFilter?: string,
+  limit = 200,
+): Promise<AdminBookingRow[]> {
+  const admin = createAdminClient();
+
+  let query = admin
+    .from("flight_booking_requests")
+    .select(
+      `
+      id, status, created_at, passenger_amount_eur, passenger_user_id,
+      flight:flights!flight_booking_requests_flight_id_fkey (
+        flight_date,
+        pilot_user_id,
+        departure_airfield:airfields!flights_departure_airfield_id_fkey ( icao_code ),
+        arrival_airfield:airfields!flights_arrival_airfield_id_fkey ( icao_code )
+      )
+    `,
+    )
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (
+    statusFilter &&
+    statusFilter !== "all" &&
+    statusFilter in BOOKING_STATUS_LABEL
+  ) {
+    query = query.eq("status", statusFilter as BookingStatus);
+  }
+
+  const { data: bookings, error } = await query;
+  if (error) {
+    console.error("[getAdminBookings]", error.message);
+    return [];
+  }
+
+  if (!bookings?.length) return [];
+
+  const profileIds = new Set<string>();
+  for (const b of bookings) {
+    profileIds.add(b.passenger_user_id);
+    const flight = b.flight as {
+      pilot_user_id?: string;
+    } | null;
+    if (flight?.pilot_user_id) profileIds.add(flight.pilot_user_id);
+  }
+
+  const { data: profiles } = await admin
+    .from("profiles")
+    .select("id, first_name, last_name")
+    .in("id", [...profileIds]);
+
+  const profileMap = new Map(
+    (profiles ?? []).map((p) => [
+      p.id,
+      [p.first_name, p.last_name].filter(Boolean).join(" ") || "—",
+    ]),
+  );
+
+  return bookings.map((b) => {
+    const flight = b.flight as {
+      flight_date: string;
+      pilot_user_id: string;
+      departure_airfield: { icao_code: string } | null;
+      arrival_airfield: { icao_code: string } | null;
+    } | null;
+
+    const dep = flight?.departure_airfield?.icao_code ?? "?";
+    const arr = flight?.arrival_airfield?.icao_code ?? "?";
+    const status = b.status ?? "pending";
+
+    return {
+      id: b.id,
+      status,
+      statusLabel: BOOKING_STATUS_LABEL[status] ?? status,
+      statusVariant: BOOKING_STATUS_VARIANT[status] ?? "scheduled",
+      createdLabel: formatJoined(b.created_at),
+      route: `${dep} — ${arr}`,
+      flightDateLabel: flight?.flight_date
+        ? formatShortDate(flight.flight_date)
+        : "—",
+      passengerName: profileMap.get(b.passenger_user_id) ?? "—",
+      pilotName: flight?.pilot_user_id
+        ? (profileMap.get(flight.pilot_user_id) ?? "—")
+        : "—",
+      amountEur: `€${Math.round(Number(b.passenger_amount_eur ?? 0))}`,
+    };
+  });
 }
 
 export async function getFlightModerationStats() {

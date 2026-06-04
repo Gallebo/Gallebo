@@ -14,7 +14,11 @@ const ALLOWED_MIME = new Set([
   "application/pdf",
 ]);
 
-export type UploadResult = { documentId?: string; error?: string };
+export type UploadResult = {
+  documentId?: string;
+  storagePath?: string;
+  error?: string;
+};
 
 export async function uploadDocumentAction(
   formData: FormData
@@ -72,5 +76,5 @@ export async function uploadDocumentAction(
     return { error: insertError.message };
   }
 
-  return { documentId: doc.id };
+  return { documentId: doc.id, storagePath };
 }

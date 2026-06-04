@@ -20,11 +20,14 @@ import {
 } from "@/lib/flights/constants";
 import { getPilotWaitingPassengersCountAction } from "@/lib/alerts/actions";
 import {
+  clearFlightPublishDraftAction,
   loadFlightDraftAction,
   previewPublishPricingAction,
+  removeFlightDraftPhotoAction,
   saveFlightDraftAction,
   uploadFlightDraftPhotoAction,
 } from "@/lib/flights/actions";
+import { FLIGHT_PHOTOS_BUCKET } from "@/lib/flights/constants";
 import { sanitizePhotoPathsForPublish } from "@/lib/flights/sanitize-draft";
 import type { FlightActionState } from "@/lib/flights/actions";
 import {
@@ -38,10 +41,30 @@ type AircraftRow = {
   seats: number;
 };
 
+function draftPhotoPublicUrl(path: string): string | null {
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!base) return null;
+  return `${base}/storage/v1/object/public/${FLIGHT_PHOTOS_BUCKET}/${path}`;
+}
+
+function draftHasContent(draft: FlightDraft, step: number): boolean {
+  if (step > 1) return true;
+  return Boolean(
+    draft.flightType ||
+      draft.aircraftId ||
+      draft.rentedModel ||
+      draft.departureAirfieldId ||
+      draft.description ||
+      (draft.photoPaths?.length ?? 0) > 0,
+  );
+}
+
 export function PublishFlightWizard({
   aircraftList,
+  stripeOnboardingComplete,
 }: {
   aircraftList: AircraftRow[];
+  stripeOnboardingComplete: boolean;
 }) {
   const [step, setStep] = useState(1);
   const [draft, setDraft] = useState<FlightDraft>({});
@@ -148,6 +171,74 @@ export function PublishFlightWizard({
     });
   };
 
+  const handleDiscardDraft = () => {
+    if (
+      !window.confirm(
+        "Discard this draft and start a new flight listing? Uploaded photos will be removed.",
+      )
+    ) {
+      return;
+    }
+    setStepError(null);
+    startTransition(async () => {
+      const res = await clearFlightPublishDraftAction();
+      if (res.error) {
+        setStepError(res.error);
+        return;
+      }
+      setDraft({});
+      setStep(1);
+      setPricePreview({ warning: null, avg: null });
+      setPublishError(null);
+    });
+  };
+
+  const handleRemovePhoto = (storagePath: string) => {
+    setStepError(null);
+    startTransition(async () => {
+      const res = await removeFlightDraftPhotoAction(storagePath);
+      if (res.error) {
+        setStepError(res.error);
+        return;
+      }
+      const nextDraft =
+        res.draft ??
+        ({
+          ...draft,
+          photoPaths: (draft.photoPaths ?? []).filter((p) => p !== storagePath),
+        } satisfies FlightDraft);
+      setDraft(nextDraft);
+      await saveFlightDraftAction(step, nextDraft);
+    });
+  };
+
+  const handleAddPhotos = (files: FileList | null) => {
+    if (!files?.length) return;
+    setStepError(null);
+    startTransition(async () => {
+      let paths = [...(draft.photoPaths ?? [])];
+      for (const file of Array.from(files)) {
+        if (paths.length >= MAX_FLIGHT_PHOTOS) {
+          setStepError(`Maximum ${MAX_FLIGHT_PHOTOS} photos allowed`);
+          break;
+        }
+        const fd = new FormData();
+        fd.set("file", file);
+        const res = await uploadFlightDraftPhotoAction(fd);
+        if (res.error) {
+          setStepError(res.error);
+          break;
+        }
+        if (res.path) paths.push(res.path);
+      }
+      const next = { ...draft, photoPaths: paths };
+      setDraft(next);
+      await saveFlightDraftAction(8, next);
+    });
+  };
+
+  const showDraftBanner = draftHasContent(draft, step);
+
   useEffect(() => {
     let cancelled = false;
     void loadFlightDraftAction().then((res) => {
@@ -244,6 +335,36 @@ export function PublishFlightWizard({
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Link
+          href="/pilot/flights"
+          className="text-sm text-muted-foreground hover:text-foreground hover:underline"
+        >
+          ← Cancel
+        </Link>
+        {showDraftBanner ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={pending}
+            onClick={handleDiscardDraft}
+          >
+            Start over
+          </Button>
+        ) : null}
+      </div>
+
+      {showDraftBanner ? (
+        <p
+          className="rounded-lg border px-3 py-2 text-sm text-muted-foreground"
+          style={{ borderColor: "var(--line)", background: "var(--surface)" }}
+        >
+          You are continuing a saved draft. Use <strong>Start over</strong> to
+          publish a new flight from scratch.
+        </p>
+      ) : null}
+
       <StepIndicator
         current={step}
         steps={[
@@ -602,41 +723,73 @@ export function PublishFlightWizard({
             }
             placeholder="Describe the flight experience…"
           />
-          <div className="space-y-2">
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              multiple
-              onChange={(e) => {
-                const files = e.target.files;
-                if (!files?.length) return;
-                const input = e.target;
-                startTransition(async () => {
-                  setStepError(null);
-                  const paths = [...(draft.photoPaths ?? [])];
-                  for (const file of Array.from(files)) {
-                    if (paths.length >= MAX_FLIGHT_PHOTOS) {
-                      setStepError(`Maximum ${MAX_FLIGHT_PHOTOS} photos allowed`);
-                      break;
-                    }
-                    const fd = new FormData();
-                    fd.set("file", file);
-                    const res = await uploadFlightDraftPhotoAction(fd);
-                    if (res.error) {
-                      setStepError(res.error);
-                      break;
-                    }
-                    if (res.path) paths.push(res.path);
-                  }
-                  const next = { ...draft, photoPaths: paths };
-                  setDraft(next);
-                  await saveFlightDraftAction(8, next);
-                  input.value = "";
-                });
-              }}
-            />
+          <div className="space-y-3">
+            {(draft.photoPaths?.length ?? 0) > 0 ? (
+              <ul className="grid gap-3 sm:grid-cols-2">
+                {(draft.photoPaths ?? []).map((path) => {
+                  const url = draftPhotoPublicUrl(path);
+                  const name = path.split("/").pop() ?? "Photo";
+                  return (
+                    <li
+                      key={path}
+                      className="flex gap-3 rounded-md border p-2"
+                      style={{ borderColor: "var(--line)" }}
+                    >
+                      {url ? (
+                        <img
+                          src={url}
+                          alt=""
+                          className="h-16 w-16 shrink-0 rounded object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded bg-muted text-xs">
+                          Photo
+                        </div>
+                      )}
+                      <div className="flex min-w-0 flex-1 flex-col justify-between gap-1">
+                        <span className="truncate text-xs text-muted-foreground">
+                          {name}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 self-start px-2 text-destructive hover:text-destructive"
+                          disabled={pending}
+                          onClick={() => handleRemovePhoto(path)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">No photos yet.</p>
+            )}
+            <div className="space-y-1">
+              <label className="text-sm font-medium">
+                {(draft.photoPaths?.length ?? 0) >= MAX_FLIGHT_PHOTOS
+                  ? "Maximum photos reached"
+                  : "Add photos"}
+              </label>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                disabled={
+                  pending || (draft.photoPaths?.length ?? 0) >= MAX_FLIGHT_PHOTOS
+                }
+                onChange={(e) => {
+                  handleAddPhotos(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+            </div>
             <p className="text-xs text-muted-foreground">
-              {draft.photoPaths?.length ?? 0} photo(s) uploaded
+              {draft.photoPaths?.length ?? 0} of {MAX_FLIGHT_PHOTOS} photos · min{" "}
+              {MIN_FLIGHT_PHOTOS} required
             </p>
           </div>
           {stepError ? <p className="text-sm text-destructive">{stepError}</p> : null}
@@ -753,6 +906,32 @@ export function PublishFlightWizard({
               {pricePreview.warning}
             </p>
           ) : null}
+          {!stripeOnboardingComplete ? (
+            <div className="space-y-4 rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 text-sm text-amber-900 dark:text-amber-200">
+              <p className="font-medium">
+                Set up your payout account before publishing. Passengers can only book flights
+                when you can receive payouts via Stripe.
+              </p>
+              <Link
+                href="/pilot/stripe"
+                className="inline-flex font-semibold text-primary hover:underline"
+              >
+                Set up payouts →
+              </Link>
+              <div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() =>
+                    setStep(draft.flightType === "one_way" ? 10 : 9)
+                  }
+                >
+                  Back
+                </Button>
+              </div>
+            </div>
+          ) : null}
+          {stripeOnboardingComplete ? (
           <form onSubmit={handlePublishSubmit} className="space-y-4">
             <input type="hidden" name="flightType" value={draft.flightType ?? ""} />
             <input type="hidden" name="aircraftId" value={draft.aircraftId ?? ""} />
@@ -829,6 +1008,7 @@ export function PublishFlightWizard({
               </Button>
             </div>
           </form>
+          ) : null}
         </StepCard>
       ) : null}
     </div>

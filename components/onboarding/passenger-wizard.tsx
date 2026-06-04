@@ -4,19 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { DiditStartButton } from "@/components/onboarding/didit-start-button";
+import { DiditKycStep } from "@/components/onboarding/didit-kyc-step";
 import { PersonalInfoFields } from "@/components/onboarding/personal-info-fields";
 import { StepCard } from "@/components/onboarding/step-card";
 import { StepIndicator } from "@/components/onboarding/step-indicator";
 import { FormMessage } from "@/components/auth/form-message";
-import {
-  savePassengerProfileAction,
-  submitPassengerVerificationAction,
-  type ActionState,
-} from "@/lib/onboarding/actions";
+import { savePassengerProfileAction, type ActionState } from "@/lib/onboarding/actions";
 import { Button } from "@/components/ui/button";
 
-const STEPS = ["Personal info", "ID document", "Didit KYC"] as const;
+const STEPS = ["Personal info", "Didit KYC"] as const;
 
 export function PassengerOnboardingWizard() {
   const router = useRouter();
@@ -65,69 +61,16 @@ export function PassengerOnboardingWizard() {
       {step === 2 ? (
         <StepCard
           step={2}
-          title="ID document"
-          description="JPEG, PNG or PDF, max 10MB"
-        >
-          <form
-            className="space-y-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const fd = new FormData(e.currentTarget);
-              startTransition(async () => {
-                const result = await submitPassengerVerificationAction(fd);
-                setState(result);
-                if (!result.error) {
-                  setStep(3);
-                  router.refresh();
-                }
-              });
-            }}
-          >
-            <PersonalInfoFields />
-            <input type="hidden" name="type" value="id_card" />
-            <div className="space-y-2">
-              <label htmlFor="file" className="text-sm font-medium">
-                ID card scan
-              </label>
-              <input
-                id="file"
-                name="file"
-                type="file"
-                accept="image/jpeg,image/png,application/pdf"
-                required
-                className="block w-full text-sm"
-              />
-            </div>
-            <FormMessage error={state.error} success={state.success} />
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full sm:w-auto"
-                onClick={() => setStep(1)}
-              >
-                Back
-              </Button>
-              <Button type="submit" className="w-full flex-1" disabled={pending}>
-                {pending ? "Submitting…" : "Submit for verification"}
-              </Button>
-            </div>
-          </form>
-        </StepCard>
-      ) : null}
-
-      {step === 3 ? (
-        <StepCard
-          step={3}
           title="Didit identity check"
-          description="Complete after your documents are submitted"
+          description="Verify your identity with Didit. Admin does not review a separate ID upload."
         >
-          <div className="space-y-4">
-            <DiditStartButton />
-            <Button type="button" variant="ghost" onClick={() => setStep(2)}>
-              Back
-            </Button>
-          </div>
+          <DiditKycStep
+            requestedRole="passenger"
+            stepNumber={2}
+            onApproved={() => router.push("/dashboard")}
+            onBack={() => setStep(1)}
+            showContinue={false}
+          />
         </StepCard>
       ) : null}
     </div>
