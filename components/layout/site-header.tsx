@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { MobileNav } from "@/components/layout/mobile-nav";
 import { UserMenu } from "@/components/layout/user-menu";
 import { GalleboWordmark } from "@/components/marketing/seagull-wordmark";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
@@ -91,7 +92,11 @@ export async function SiteHeader({ className }: { className?: string }) {
 
         {/* Right side */}
         <div className="flex items-center gap-2">
-          {!user ? <ThemeToggle /> : null}
+          <MobileNav
+            user={user ? { email: user.email ?? "" } : null}
+            isAdmin={isAdmin}
+          />
+          {!user ? <ThemeToggle className="hidden md:inline-flex" /> : null}
           {user ? (
             <UserMenu
               initials={initialsFrom(

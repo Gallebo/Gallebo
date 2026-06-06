@@ -1050,11 +1050,11 @@ function NavButtons({
   return (
     <div className="mt-6 flex gap-2">
       {showBack ? (
-        <Button type="button" variant="ghost" onClick={onBack}>
+        <Button type="button" variant="ghost" className="h-11 sm:h-8" onClick={onBack}>
           Back
         </Button>
       ) : null}
-      <Button type="button" className="flex-1" disabled={pending} onClick={onNext}>
+      <Button type="button" className="h-11 flex-1 sm:h-8" disabled={pending} onClick={onNext}>
         {pending ? "Saving…" : "Continue"}
       </Button>
     </div>

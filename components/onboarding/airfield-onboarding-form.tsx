@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { FormMessage } from "@/components/auth/form-message";
+import { OptionalFileInput } from "@/components/onboarding/optional-file-input";
 import { submitAirfieldRequestAction, type ActionState } from "@/lib/onboarding/actions";
 import { airfieldRequestSchema } from "@/lib/auth/schemas";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,10 @@ export function AirfieldOnboardingForm() {
       form.setError("root", { message: state.error });
     }
   }, [state.error, form]);
+
+  const selectedFile = form.watch("file");
+  const file =
+    selectedFile instanceof File ? selectedFile : null;
 
   return (
     <div className="mx-auto max-w-xl space-y-8 px-4 py-8">
@@ -99,14 +104,17 @@ export function AirfieldOnboardingForm() {
               <label htmlFor="file" className="text-sm font-medium">
                 Operating licence (PDF/JPEG/PNG)
               </label>
-              <input
+              <OptionalFileInput
                 id="file"
-                type="file"
                 accept="image/jpeg,image/png,application/pdf"
-                className="block w-full text-sm"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) form.setValue("file", f, { shouldValidate: true });
+                file={file}
+                disabled={isPending}
+                onFileChange={(f) => {
+                  form.setValue(
+                    "file",
+                    (f ?? undefined) as unknown as File,
+                    { shouldValidate: true },
+                  );
                 }}
               />
               {form.formState.errors.file ? (

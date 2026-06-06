@@ -1,8 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { Menu } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import type { PassengerSidebarContext } from "@/lib/passenger/queries";
 import { createClient } from "@/lib/supabase/client";
 
@@ -72,16 +80,26 @@ const NAV = [
   },
 ];
 
-export function PassengerSidebar({ context }: { context: PassengerSidebarContext }) {
+function getCurrentLabel(pathname: string): string {
+  const match = NAV.find((item) =>
+    item.exact ? pathname === item.href : pathname.startsWith(item.href),
+  );
+  return match?.label ?? "Passenger";
+}
+
+function PassengerSidebarContent({
+  context,
+  onNavigate,
+}: {
+  context: PassengerSidebarContext;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const fullName = `${context.firstName} ${context.lastName}`.trim();
 
   return (
-    <aside
-      className="flex w-[248px] shrink-0 flex-col self-stretch border-r"
-      style={{ borderColor: "var(--line)", background: "var(--surface)" }}
-    >
+    <>
       <div className="border-b px-5 py-6" style={{ borderColor: "var(--line)" }}>
         <div
           className="mb-4 flex size-14 items-center justify-center rounded-full text-[15px] font-bold text-white"
@@ -119,6 +137,7 @@ export function PassengerSidebar({ context }: { context: PassengerSidebarContext
               <li key={item.href}>
                 <Link
                   href={item.href}
+                  onClick={onNavigate}
                   className="relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium transition-colors no-underline"
                   style={{
                     color: active ? "var(--primary-v2)" : "var(--ink-2)",
@@ -154,6 +173,7 @@ export function PassengerSidebar({ context }: { context: PassengerSidebarContext
           className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors hover:bg-[var(--surface-alt)]"
           style={{ color: "var(--ink-3)", background: "transparent", border: "none", cursor: "pointer" }}
           onClick={async () => {
+            onNavigate?.();
             const supabase = createClient();
             await supabase.auth.signOut();
             router.push("/login");
@@ -166,6 +186,48 @@ export function PassengerSidebar({ context }: { context: PassengerSidebarContext
           Log out
         </button>
       </div>
-    </aside>
+    </>
+  );
+}
+
+export function PassengerSidebar({ context }: { context: PassengerSidebarContext }) {
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  const currentLabel = getCurrentLabel(pathname);
+
+  return (
+    <>
+      <div
+        className="sticky top-0 z-40 flex items-center gap-3 border-b px-4 py-3 lg:hidden"
+        style={{ borderColor: "var(--line)", background: "var(--surface)" }}
+      >
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetTrigger
+            render={
+              <Button variant="ghost" size="icon" aria-label="Open passenger menu" />
+            }
+          >
+            <Menu className="size-5" />
+          </SheetTrigger>
+          <SheetContent
+            side="left"
+            className="flex w-[248px] flex-col gap-0 overflow-y-auto p-0 sm:max-w-[248px]"
+            style={{ background: "var(--surface)" }}
+          >
+            <PassengerSidebarContent context={context} onNavigate={() => setOpen(false)} />
+          </SheetContent>
+        </Sheet>
+        <span className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
+          {currentLabel}
+        </span>
+      </div>
+
+      <aside
+        className="hidden w-[248px] shrink-0 flex-col self-stretch border-r lg:flex"
+        style={{ borderColor: "var(--line)", background: "var(--surface)" }}
+      >
+        <PassengerSidebarContent context={context} />
+      </aside>
+    </>
   );
 }

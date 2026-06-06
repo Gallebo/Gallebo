@@ -65,11 +65,14 @@
   /* App shell */
   --header-height: 72px;
 
-  /* Admin dashboard (sidebar stays navy in light + dark) */
-  --admin-sidebar-bg: #0E1628;
-  --admin-sidebar-border: rgba(255, 255, 255, 0.08);
-  --admin-sidebar-muted: rgba(255, 255, 255, 0.45);
-  --admin-sidebar-active-bg: rgba(255, 140, 66, 0.16);
+  /* Admin dashboard */
+  --admin-sidebar-bg: var(--bg);
+  --admin-sidebar-border: var(--line);
+  --admin-sidebar-muted: var(--ink-3);
+  --admin-sidebar-fg: var(--ink);
+  --admin-sidebar-link: var(--ink-2);
+  --admin-sidebar-link-active: var(--ink);
+  --admin-sidebar-active-bg: var(--coral-soft);
 }
 
 /* Dark mode token overrides (Adriatic night) */
@@ -108,6 +111,11 @@
 
   --admin-sidebar-bg: #080C12;
   --admin-sidebar-border: rgba(255, 255, 255, 0.06);
+  --admin-sidebar-muted: rgba(255, 255, 255, 0.45);
+  --admin-sidebar-fg: var(--inverse-ink);
+  --admin-sidebar-link: rgba(255, 255, 255, 0.58);
+  --admin-sidebar-link-active: #ffffff;
+  --admin-sidebar-active-bg: rgba(255, 140, 66, 0.16);
 }
 
 /* ── Keyframe animations ──────────────────────────────────── */
@@ -426,14 +434,13 @@
 }
 
 .admin-sidebar {
-  display: flex;
   flex-direction: column;
   width: 248px;
   flex-shrink: 0;
   align-self: stretch;
   min-height: 100%;
   background: var(--admin-sidebar-bg);
-  color: var(--inverse-ink);
+  color: var(--admin-sidebar-fg);
   border-right: 1px solid var(--admin-sidebar-border);
 }
 
@@ -443,6 +450,15 @@
   min-height: 100%;
   overflow-y: auto;
   background: var(--bg);
+}
+
+.admin-sidebar-exit-link {
+  color: var(--admin-sidebar-muted);
+  text-decoration: none;
+}
+
+.admin-sidebar-exit-link:hover {
+  color: var(--admin-sidebar-link-active);
 }
 
 /* ── Theme toggle transition ─────────────────────────────── */

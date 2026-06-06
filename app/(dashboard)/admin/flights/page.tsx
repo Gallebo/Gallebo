@@ -67,6 +67,8 @@ export default async function AdminFlightsPage() {
 
       muted: true,
 
+      hideOnMobile: true,
+
       render: (row: (typeof flights)[0]) => row.dateLabel,
 
     },

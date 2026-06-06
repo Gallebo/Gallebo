@@ -1,7 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { Building2, Menu } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 const NAV = [
   {
@@ -24,7 +33,13 @@ const NAV = [
         <path d="M12 3l7 4v6c0 4.2-3 7.8-7 9-4-1.2-7-4.8-7-9V7l7-4z" />
       </svg>
     ),
-    badge: true,
+    badge: "kyc" as const,
+  },
+  {
+    href: "/admin/airfield-requests",
+    label: "Airfield Requests",
+    icon: <Building2 width={16} height={16} strokeWidth={1.7} aria-hidden="true" />,
+    badge: "airfield" as const,
   },
   {
     href: "/admin/bookings",
@@ -94,15 +109,26 @@ const NAV = [
   },
 ];
 
-interface AdminSidebarProps {
-  kycCount?: number;
+function getCurrentLabel(pathname: string): string {
+  const match = NAV.find((item) =>
+    item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href),
+  );
+  return match?.label ?? "Admin";
 }
 
-export function AdminSidebar({ kycCount = 0 }: AdminSidebarProps) {
+function AdminSidebarContent({
+  kycCount,
+  airfieldRequestsCount,
+  onNavigate,
+}: {
+  kycCount: number;
+  airfieldRequestsCount: number;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
 
   return (
-    <aside className="admin-sidebar">
+    <>
       <div className="border-b px-5 py-6" style={{ borderColor: "var(--admin-sidebar-border)" }}>
         <div className="flex items-center gap-3">
           <div
@@ -115,7 +141,12 @@ export function AdminSidebar({ kycCount = 0 }: AdminSidebarProps) {
             </svg>
           </div>
           <div>
-            <div className="text-[14px] font-semibold text-white">Admin Panel</div>
+            <div
+              className="text-[14px] font-semibold"
+              style={{ color: "var(--admin-sidebar-fg)" }}
+            >
+              Admin Panel
+            </div>
             <div
               className="text-[10px] font-semibold uppercase tracking-[0.14em]"
               style={{ color: "var(--admin-sidebar-muted)" }}
@@ -138,13 +169,22 @@ export function AdminSidebar({ kycCount = 0 }: AdminSidebarProps) {
             const active = item.href === "/admin"
               ? pathname === "/admin"
               : pathname.startsWith(item.href);
+            const badgeCount =
+              item.badge === "kyc"
+                ? kycCount
+                : item.badge === "airfield"
+                  ? airfieldRequestsCount
+                  : 0;
             return (
               <li key={item.href}>
                 <Link
                   href={item.href}
+                  onClick={onNavigate}
                   className="relative flex items-center gap-3 rounded-xl py-2.5 pl-3 pr-3 text-[13.5px] font-medium transition-colors"
                   style={{
-                    color: active ? "#fff" : "rgba(255,255,255,.58)",
+                    color: active
+                      ? "var(--admin-sidebar-link-active)"
+                      : "var(--admin-sidebar-link)",
                     background: active ? "var(--admin-sidebar-active-bg)" : "transparent",
                     textDecoration: "none",
                   }}
@@ -158,12 +198,12 @@ export function AdminSidebar({ kycCount = 0 }: AdminSidebarProps) {
                   ) : null}
                   <span style={{ opacity: active ? 1 : 0.75 }}>{item.icon}</span>
                   <span className="flex-1">{item.label}</span>
-                  {item.badge && kycCount > 0 ? (
+                  {item.badge && badgeCount > 0 ? (
                     <span
                       className="flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold text-white"
                       style={{ background: "var(--coral)" }}
                     >
-                      {kycCount}
+                      {badgeCount}
                     </span>
                   ) : null}
                 </Link>
@@ -176,8 +216,8 @@ export function AdminSidebar({ kycCount = 0 }: AdminSidebarProps) {
       <div className="border-t px-4 py-4" style={{ borderColor: "var(--admin-sidebar-border)" }}>
         <Link
           href="/dashboard"
-          className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-[13px] transition-colors hover:text-white"
-          style={{ color: "var(--admin-sidebar-muted)", textDecoration: "none" }}
+          onClick={onNavigate}
+          className="admin-sidebar-exit-link flex items-center gap-2 rounded-lg px-3 py-2.5 text-[13px] transition-colors"
         >
           <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
@@ -185,6 +225,71 @@ export function AdminSidebar({ kycCount = 0 }: AdminSidebarProps) {
           Exit admin
         </Link>
       </div>
-    </aside>
+    </>
+  );
+}
+
+interface AdminSidebarProps {
+  kycCount?: number;
+  airfieldRequestsCount?: number;
+}
+
+export function AdminSidebar({
+  kycCount = 0,
+  airfieldRequestsCount = 0,
+}: AdminSidebarProps) {
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  const currentLabel = getCurrentLabel(pathname);
+
+  return (
+    <>
+      <div
+        className="sticky top-0 z-40 flex items-center gap-3 border-b px-4 py-3 lg:hidden"
+        style={{
+          borderColor: "var(--admin-sidebar-border)",
+          background: "var(--admin-sidebar-bg)",
+          color: "var(--admin-sidebar-fg)",
+        }}
+      >
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-[var(--admin-sidebar-fg)] hover:bg-[color-mix(in_srgb,var(--admin-sidebar-fg)_10%,transparent)]"
+                aria-label="Open admin menu"
+              />
+            }
+          >
+            <Menu className="size-5" />
+          </SheetTrigger>
+          <SheetContent
+            side="left"
+            className="admin-sidebar flex w-[248px] flex-col gap-0 overflow-y-auto border-r-0 p-0 sm:max-w-[248px]"
+          >
+            <AdminSidebarContent
+              kycCount={kycCount}
+              airfieldRequestsCount={airfieldRequestsCount}
+              onNavigate={() => setOpen(false)}
+            />
+          </SheetContent>
+        </Sheet>
+        <span
+          className="text-sm font-semibold"
+          style={{ color: "var(--admin-sidebar-fg)" }}
+        >
+          {currentLabel}
+        </span>
+      </div>
+
+      <aside className="admin-sidebar hidden w-[248px] shrink-0 flex-col self-stretch lg:flex">
+        <AdminSidebarContent
+          kycCount={kycCount}
+          airfieldRequestsCount={airfieldRequestsCount}
+        />
+      </aside>
+    </>
   );
 }

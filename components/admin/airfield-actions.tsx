@@ -10,7 +10,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export function AirfieldActions({ requestId }: { requestId: string }) {
+export function AirfieldActions({
+  requestId,
+  linkExistingAirfield,
+}: {
+  requestId: string;
+  linkExistingAirfield: boolean;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -27,49 +33,73 @@ export function AirfieldActions({ requestId }: { requestId: string }) {
           startTransition(async () => {
             const res = await approveAirfieldRequestAction(requestId, fd);
             if (res.error) setError(res.error);
-            else router.push("/admin");
+            else router.push("/admin/airfield-requests");
           });
         }}
         className="space-y-4 rounded-lg border p-4"
       >
-        <h3 className="font-medium">Approve and create airfield</h3>
+        <h3 className="font-medium">
+          {linkExistingAirfield
+            ? "Approve and link operator"
+            : "Approve and create airfield"}
+        </h3>
         <p className="text-sm text-muted-foreground">
-          Enter coordinates and country before approving. The airfield will appear
-          on the public map.
+          {linkExistingAirfield
+            ? "An airfield with this ICAO code already exists in the database. Approving will assign this user as operator_user_id on the existing record."
+            : "Enter coordinates and country before approving. The airfield will appear on the public map."}
         </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-sm font-medium" htmlFor="latitude">
-              Latitude
-            </label>
-            <Input
-              id="latitude"
-              name="latitude"
-              type="number"
-              step="any"
-              placeholder="45.815"
-              required
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium" htmlFor="longitude">
-              Longitude
-            </label>
-            <Input
-              id="longitude"
-              name="longitude"
-              type="number"
-              step="any"
-              placeholder="15.9819"
-              required
-            />
-          </div>
-        </div>
+        {!linkExistingAirfield ? (
+          <>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-sm font-medium" htmlFor="latitude">
+                  Latitude
+                </label>
+                <Input
+                  id="latitude"
+                  name="latitude"
+                  type="number"
+                  step="any"
+                  placeholder="45.815"
+                  required
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium" htmlFor="longitude">
+                  Longitude
+                </label>
+                <Input
+                  id="longitude"
+                  name="longitude"
+                  type="number"
+                  step="any"
+                  placeholder="15.9819"
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium" htmlFor="country">
+                Country
+              </label>
+              <Input id="country" name="country" placeholder="Croatia" required />
+            </div>
+          </>
+        ) : null}
         <div>
-          <label className="mb-1 block text-sm font-medium" htmlFor="country">
-            Country
+          <label className="mb-1 block text-sm font-medium" htmlFor="adminNotes">
+            Verification notes
           </label>
-          <Input id="country" name="country" placeholder="Croatia" required />
+          <textarea
+            id="adminNotes"
+            name="adminNotes"
+            rows={3}
+            placeholder='e.g. "Verified via CCAA call", "Licence matches ICAO"'
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Saved on the request record for audit (optional).
+          </p>
         </div>
         <Button type="submit" disabled={pending}>
           Approve
@@ -87,7 +117,7 @@ export function AirfieldActions({ requestId }: { requestId: string }) {
               String(fd.get("reason") ?? "")
             );
             if (res.error) setError(res.error);
-            else router.push("/admin");
+            else router.push("/admin/airfield-requests");
           });
         }}
         className="flex gap-2"

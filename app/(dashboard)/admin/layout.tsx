@@ -11,14 +11,24 @@ export default async function AdminLayout({
   await requireAdmin();
 
   const admin = createAdminClient();
-  const { count: kycCount } = await admin
-    .from("verification_requests")
-    .select("id", { count: "exact", head: true })
-    .is("reviewed_at", null);
+  const [{ count: kycCount }, { count: airfieldRequestsCount }] =
+    await Promise.all([
+      admin
+        .from("verification_requests")
+        .select("id", { count: "exact", head: true })
+        .is("reviewed_at", null),
+      admin
+        .from("airfield_operator_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending"),
+    ]);
 
   return (
     <div className="admin-shell">
-      <AdminSidebar kycCount={kycCount ?? 0} />
+      <AdminSidebar
+        kycCount={kycCount ?? 0}
+        airfieldRequestsCount={airfieldRequestsCount ?? 0}
+      />
       <main className="admin-main">
         <div className="mx-auto max-w-6xl px-6 py-8 lg:px-10 lg:py-10">
           <RoleDashboardHeader />

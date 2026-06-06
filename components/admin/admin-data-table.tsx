@@ -1,9 +1,12 @@
+import { cn } from "@/lib/utils";
+
 interface Column<T> {
   key: string;
   label: string;
   render?: (row: T) => React.ReactNode;
   mono?: boolean;
   muted?: boolean;
+  hideOnMobile?: boolean;
 }
 
 interface AdminDataTableProps<T> {
@@ -46,7 +49,10 @@ export function AdminDataTable<T extends Record<string, unknown>>({
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className="px-5 py-3.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em]"
+                  className={cn(
+                    "px-5 py-3.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em]",
+                    col.hideOnMobile && "hidden sm:table-cell",
+                  )}
                   style={{ color: "var(--ink-3)" }}
                 >
                   {col.label}
@@ -64,7 +70,10 @@ export function AdminDataTable<T extends Record<string, unknown>>({
                 {columns.map((col) => (
                   <td
                     key={col.key}
-                    className="px-5 py-4 text-[13.5px]"
+                    className={cn(
+                      "px-5 py-4 text-[13.5px]",
+                      col.hideOnMobile && "hidden sm:table-cell",
+                    )}
                     style={{
                       color: col.muted ? "var(--ink-3)" : "var(--ink)",
                       fontFamily: col.mono ? "var(--font-mono-v2)" : undefined,

@@ -46,6 +46,7 @@ export default async function AdminBookingsPage({
       key: "flightDate",
       label: "Flight date",
       muted: true,
+      hideOnMobile: true,
       render: (row: (typeof bookings)[0]) => row.flightDateLabel,
     },
     {
@@ -56,6 +57,7 @@ export default async function AdminBookingsPage({
     {
       key: "pilot",
       label: "Pilot",
+      hideOnMobile: true,
       render: (row: (typeof bookings)[0]) => row.pilotName,
     },
     {
@@ -69,6 +71,7 @@ export default async function AdminBookingsPage({
       key: "created",
       label: "Requested",
       muted: true,
+      hideOnMobile: true,
       render: (row: (typeof bookings)[0]) => row.createdLabel,
     },
     {

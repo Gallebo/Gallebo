@@ -137,7 +137,7 @@ export function AirfieldsListing({
               type="button"
               onClick={() => setCountry(code)}
               className={cn(
-                "rounded-full border px-3.5 py-1.5 text-sm transition-colors",
+                "rounded-full border px-3.5 py-2.5 text-sm transition-colors",
                 country === code
                   ? "border-primary bg-primary/10 font-medium text-primary"
                   : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground",

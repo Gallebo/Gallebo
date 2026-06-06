@@ -18,10 +18,57 @@ export interface AdminUserRow {
   name: string;
   email: string;
   role: string;
+  roleVariant: "pilot" | "passenger" | "scheduled";
   flightsCount: number;
   joinedLabel: string;
   status: string;
   statusVariant: "active" | "kyc" | "scheduled";
+}
+
+function mapAdminUserRole(role: string | null): {
+  role: string;
+  roleVariant: AdminUserRow["roleVariant"];
+} {
+  if (!role) {
+    return { role: "UNASSIGNED", roleVariant: "scheduled" };
+  }
+  const normalized = role.toLowerCase();
+  if (normalized === "pilot") {
+    return { role: "PILOT", roleVariant: "pilot" };
+  }
+  if (normalized === "passenger") {
+    return { role: "PASSENGER", roleVariant: "passenger" };
+  }
+  return { role: role.toUpperCase(), roleVariant: "scheduled" };
+}
+
+function mapAdminUserStatus(
+  profileStatus: string,
+  role: string | null,
+  hasOpenVerificationRequest: boolean,
+): { status: string; statusVariant: AdminUserRow["statusVariant"] } {
+  if (profileStatus === "suspended") {
+    return { status: "SUSPENDED", statusVariant: "scheduled" };
+  }
+  if (profileStatus === "verified") {
+    return { status: "ACTIVE", statusVariant: "active" };
+  }
+  if (profileStatus === "pending") {
+    if (!role) {
+      return { status: "PENDING ONBOARDING", statusVariant: "scheduled" };
+    }
+    if (
+      (role === "passenger" || role === "pilot") &&
+      hasOpenVerificationRequest
+    ) {
+      return { status: "KYC PENDING", statusVariant: "kyc" };
+    }
+    return { status: "PENDING ONBOARDING", statusVariant: "scheduled" };
+  }
+  if (!role) {
+    return { status: "PENDING ONBOARDING", statusVariant: "scheduled" };
+  }
+  return { status: "ACTIVE", statusVariant: "active" };
 }
 
 export interface KycQueueItem {
@@ -168,23 +215,227 @@ export async function getAdminUsers(limit = 200): Promise<AdminUserRow[]> {
     flightsByPilot.set(f.pilot_user_id, (flightsByPilot.get(f.pilot_user_id) ?? 0) + 1);
   }
 
+  const { data: openVerificationRequests } = await admin
+    .from("verification_requests")
+    .select("user_id")
+    .in("user_id", ids)
+    .is("reviewed_at", null);
+
+  const usersWithOpenVerification = new Set(
+    (openVerificationRequests ?? []).map((r) => r.user_id),
+  );
+
   return profiles.map((p) => {
     const name = [p.first_name, p.last_name].filter(Boolean).join(" ") || "—";
-    const status = p.status ?? "registered";
-    const statusVariant: AdminUserRow["statusVariant"] =
-      status === "pending" ? "kyc" : "active";
+    const profileStatus = p.status ?? "registered";
+    const { role, roleVariant } = mapAdminUserRole(p.role);
+    const { status, statusVariant } = mapAdminUserStatus(
+      profileStatus,
+      p.role,
+      usersWithOpenVerification.has(p.id),
+    );
 
     return {
       id: p.id,
       name,
       email: emailMap.get(p.id) ?? "—",
-      role: (p.role ?? "passenger").toUpperCase(),
+      role,
+      roleVariant,
       flightsCount: flightsByPilot.get(p.id) ?? 0,
       joinedLabel: formatJoined(p.created_at),
-      status: status === "pending" ? "KYC PENDING" : "ACTIVE",
+      status,
       statusVariant,
     };
   });
+}
+
+export interface AirfieldOperatorRequestRow extends Record<string, unknown> {
+  id: string;
+  applicantName: string;
+  email: string;
+  airfieldName: string;
+  icaoCode: string;
+  status: string;
+  statusVariant: "kyc" | "completed" | "scheduled";
+  submittedLabel: string;
+}
+
+function mapAirfieldRequestStatus(status: string): {
+  status: string;
+  statusVariant: AirfieldOperatorRequestRow["statusVariant"];
+} {
+  switch (status) {
+    case "approved":
+      return { status: "APPROVED", statusVariant: "completed" };
+    case "rejected":
+      return { status: "REJECTED", statusVariant: "scheduled" };
+    default:
+      return { status: "PENDING", statusVariant: "kyc" };
+  }
+}
+
+export async function getAirfieldOperatorRequests(): Promise<
+  AirfieldOperatorRequestRow[]
+> {
+  const admin = createAdminClient();
+
+  const { data: requests } = await admin
+    .from("airfield_operator_requests")
+    .select(
+      "id, user_id, airfield_name, icao_code, contact_email, status, created_at",
+    )
+    .order("created_at", { ascending: false });
+
+  if (!requests?.length) return [];
+
+  const userIds = [...new Set(requests.map((r) => r.user_id))];
+  const { data: profiles } = await admin
+    .from("profiles")
+    .select("id, first_name, last_name")
+    .in("id", userIds);
+
+  const profileMap = new Map(
+    (profiles ?? []).map((p) => [
+      p.id,
+      [p.first_name, p.last_name].filter(Boolean).join(" ") || "—",
+    ]),
+  );
+
+  return requests.map((r) => {
+    const { status, statusVariant } = mapAirfieldRequestStatus(
+      r.status ?? "pending",
+    );
+
+    return {
+      id: r.id,
+      applicantName: profileMap.get(r.user_id) ?? "—",
+      email: r.contact_email,
+      airfieldName: r.airfield_name,
+      icaoCode: r.icao_code,
+      status,
+      statusVariant,
+      submittedLabel: formatShortDate(r.created_at),
+    };
+  });
+}
+
+export interface AdminVerificationHistoryItem {
+  id: string;
+  requestedRole: string;
+  diditStatus: string | null;
+  diditStatusLabel: string;
+  autoApproved: boolean;
+  createdLabel: string;
+  reviewedAtLabel: string | null;
+  rejectionReason: string | null;
+  isOpen: boolean;
+}
+
+export interface AdminUserDetail {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  roleVariant: AdminUserRow["roleVariant"];
+  rawRole: string | null;
+  status: string;
+  statusVariant: AdminUserRow["statusVariant"];
+  rawStatus: string;
+  joinedLabel: string;
+  updatedLabel: string;
+  flightsCount: number;
+  bookingsCount: number;
+  openVerificationId: string | null;
+  verificationHistory: AdminVerificationHistoryItem[];
+  isAdmin: boolean;
+}
+
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export async function getAdminUserDetail(
+  userId: string,
+): Promise<AdminUserDetail | null> {
+  const admin = createAdminClient();
+
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id, first_name, last_name, role, status, created_at, updated_at")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (!profile) return null;
+
+  const { data: authUser } = await admin.auth.admin.getUserById(userId);
+
+  const [{ count: flightsCount }, { count: bookingsCount }, { data: verifications }] =
+    await Promise.all([
+      admin
+        .from("flights")
+        .select("*", { count: "exact", head: true })
+        .eq("pilot_user_id", userId),
+      admin
+        .from("flight_booking_requests")
+        .select("*", { count: "exact", head: true })
+        .eq("passenger_user_id", userId),
+      admin
+        .from("verification_requests")
+        .select(
+          "id, requested_role, didit_status, auto_approved, created_at, reviewed_at, rejection_reason",
+        )
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false }),
+    ]);
+
+  const verificationHistory: AdminVerificationHistoryItem[] = (
+    verifications ?? []
+  ).map((vr) => ({
+    id: vr.id,
+    requestedRole: vr.requested_role,
+    diditStatus: vr.didit_status,
+    diditStatusLabel: formatDiditStatus(vr.didit_status),
+    autoApproved: vr.auto_approved ?? false,
+    createdLabel: formatDateTime(vr.created_at),
+    reviewedAtLabel: vr.reviewed_at ? formatDateTime(vr.reviewed_at) : null,
+    rejectionReason: vr.rejection_reason,
+    isOpen: !vr.reviewed_at,
+  }));
+
+  const openVerification = verificationHistory.find((vr) => vr.isOpen);
+  const profileStatus = profile.status ?? "registered";
+  const { role, roleVariant } = mapAdminUserRole(profile.role);
+  const { status, statusVariant } = mapAdminUserStatus(
+    profileStatus,
+    profile.role,
+    Boolean(openVerification),
+  );
+
+  return {
+    id: profile.id,
+    name:
+      [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "—",
+    email: authUser.user?.email ?? "—",
+    role,
+    roleVariant,
+    rawRole: profile.role,
+    status,
+    statusVariant,
+    rawStatus: profileStatus,
+    joinedLabel: formatJoined(profile.created_at),
+    updatedLabel: formatDateTime(profile.updated_at),
+    flightsCount: flightsCount ?? 0,
+    bookingsCount: bookingsCount ?? 0,
+    openVerificationId: openVerification?.id ?? null,
+    verificationHistory,
+    isAdmin: profile.role === "admin",
+  };
 }
 
 export async function getKycQueue(): Promise<KycQueueItem[]> {

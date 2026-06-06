@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useState, useTransition } from "react";
 
 import { DiditKycStep } from "@/components/onboarding/didit-kyc-step";
+import { OptionalFileInput } from "@/components/onboarding/optional-file-input";
 import { PersonalInfoFields } from "@/components/onboarding/personal-info-fields";
 import { StepCard } from "@/components/onboarding/step-card";
 import { StepIndicator } from "@/components/onboarding/step-indicator";
@@ -231,10 +232,12 @@ export function PilotOnboardingWizard({
                 LAPL
               </label>
             </div>
-            <input
-              type="file"
+            <OptionalFileInput
+              id="pilot-license-file"
               accept="image/jpeg,image/png,application/pdf"
-              onChange={(ev) => setLicenseFile(ev.target.files?.[0] ?? null)}
+              file={licenseFile}
+              disabled={pending}
+              onFileChange={setLicenseFile}
             />
             <Input
               type="date"
@@ -285,10 +288,12 @@ export function PilotOnboardingWizard({
                 Medical certificate already uploaded. Choose a new file below to replace it.
               </p>
             ) : null}
-            <input
-              type="file"
+            <OptionalFileInput
+              id="pilot-medical-file"
               accept="image/jpeg,image/png,application/pdf"
-              onChange={(ev) => setMedicalFile(ev.target.files?.[0] ?? null)}
+              file={medicalFile}
+              disabled={pending}
+              onFileChange={setMedicalFile}
             />
             <Input
               type="date"

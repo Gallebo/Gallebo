@@ -133,7 +133,7 @@ export function FlightsSearchHero({
                 <select
                   name="from"
                   defaultValue={sp.get("from") ?? ""}
-                  className="w-full appearance-none bg-transparent text-[15px] font-medium outline-none"
+                  className="min-h-[44px] w-full appearance-none bg-transparent text-[15px] font-medium outline-none"
                   style={{ color: "var(--ink)" }}
                 >
                   <option value="">Anywhere</option>
@@ -155,7 +155,7 @@ export function FlightsSearchHero({
                 <select
                   name="to"
                   defaultValue={sp.get("to") ?? ""}
-                  className="w-full appearance-none bg-transparent text-[15px] font-medium outline-none"
+                  className="min-h-[44px] w-full appearance-none bg-transparent text-[15px] font-medium outline-none"
                   style={{ color: "var(--ink)" }}
                 >
                   <option value="">Anywhere</option>
@@ -179,7 +179,7 @@ export function FlightsSearchHero({
                     type="date"
                     name="dateFrom"
                     defaultValue={sp.get("dateFrom") ?? ""}
-                    className="min-w-0 flex-1 bg-transparent outline-none"
+                    className="min-h-[44px] min-w-0 flex-1 bg-transparent outline-none"
                     aria-label="From date"
                   />
                   <span style={{ color: "var(--ink-3)" }}>—</span>
@@ -187,7 +187,7 @@ export function FlightsSearchHero({
                     type="date"
                     name="dateTo"
                     defaultValue={sp.get("dateTo") ?? ""}
-                    className="min-w-0 flex-1 bg-transparent outline-none"
+                    className="min-h-[44px] min-w-0 flex-1 bg-transparent outline-none"
                     aria-label="To date"
                   />
                 </div>

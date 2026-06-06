@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { AdminStatusPill } from "@/components/admin/admin-status-pill";
@@ -101,9 +102,7 @@ export function AdminUsersTable({ users }: { users: AdminUserRow[] }) {
                       </div>
                     </td>
                     <td className="px-5 py-4">
-                      <AdminStatusPill
-                        variant={row.role === "PILOT" ? "pilot" : "passenger"}
-                      >
+                      <AdminStatusPill variant={row.roleVariant}>
                         {row.role}
                       </AdminStatusPill>
                     </td>
@@ -118,19 +117,25 @@ export function AdminUsersTable({ users }: { users: AdminUserRow[] }) {
                     </td>
                     <td className="px-5 py-4">
                       <AdminStatusPill
-                        variant={row.statusVariant === "kyc" ? "kyc" : "completed"}
+                        variant={
+                          row.statusVariant === "kyc"
+                            ? "kyc"
+                            : row.statusVariant === "scheduled"
+                              ? "scheduled"
+                              : "completed"
+                        }
                       >
                         {row.status}
                       </AdminStatusPill>
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <button
-                        type="button"
-                        className="text-[13px] font-medium"
-                        style={{ color: "var(--ink-2)", background: "none", border: "none", cursor: "pointer" }}
+                      <Link
+                        href={`/admin/users/${row.id}`}
+                        className="text-[13px] font-medium hover:underline"
+                        style={{ color: "var(--ink-2)", textDecoration: "none" }}
                       >
                         View
-                      </button>
+                      </Link>
                     </td>
                   </tr>
                 ))
