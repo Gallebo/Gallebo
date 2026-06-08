@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 
 import { ProfileCard } from "@/components/dashboard/profile-card";
 import { StatusBanner } from "@/components/dashboard/status-banner";
-import { VerificationCta } from "@/components/dashboard/verification-cta";
 import { requireUser, getProfile } from "@/lib/auth/rbac";
 import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
@@ -65,7 +64,19 @@ export default async function DashboardPage() {
       <StatusBanner status={profile.status} />
       <ProfileCard profile={profile} email={authUser?.email ?? ""} />
 
-      {profile.status === "registered" ? <VerificationCta /> : null}
+      {profile.status === "registered" ? (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Complete identity verification to start using Gallebo.
+          </p>
+          <Link
+            href="/onboarding/passenger"
+            className={cn(buttonVariants({ variant: "default" }), "inline-flex")}
+          >
+            Complete verification
+          </Link>
+        </div>
+      ) : null}
 
       {profile.status === "pending" ? (
         <p className="text-sm text-muted-foreground">

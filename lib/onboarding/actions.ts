@@ -2,7 +2,12 @@
 
 import { redirect } from "next/navigation";
 
-import { requireUser } from "@/lib/auth/rbac";
+import { getProfile, requireUser } from "@/lib/auth/rbac";
+import {
+  assertPassengerIdentityVerified,
+  hasPendingUpgradeRequest,
+  isDiditApprovedStatus,
+} from "@/lib/onboarding/guards";
 import { airfieldRequestSchema, personalInfoSchema, pilotDocumentSchema } from "@/lib/auth/schemas";
 import { phoneToDbValue } from "@/lib/crypto/phone";
 import { weightToDbValue } from "@/lib/crypto/weight";
@@ -49,57 +54,57 @@ export async function savePassengerProfileAction(
   return { success: "Profile saved" };
 }
 
-const DIDIT_APPROVED_STATUSES = new Set(["approved", "verified", "passed"]);
-
 function isDiditApproved(status: string | null | undefined): boolean {
-  return DIDIT_APPROVED_STATUSES.has(String(status ?? "").toLowerCase());
+  return isDiditApprovedStatus(status);
+}
+
+export async function checkPilotUpgradeIdentityAction(): Promise<ActionState> {
+  const user = await requireUser();
+  const profile = await getProfile();
+  if (profile?.role !== "passenger" || profile.status !== "verified") {
+    return { error: "Only verified passengers can upgrade to pilot." };
+  }
+  const supabase = await createClient();
+  const identity = await assertPassengerIdentityVerified(supabase, user.id);
+  if (identity.error) return { error: identity.error };
+  return { success: "ok" };
 }
 
 export async function prepareDiditVerificationAction(
-  requestedRole: "passenger" | "pilot"
+  requestedRole: "passenger" | "pilot" = "passenger"
 ): Promise<ActionState> {
   const user = await requireUser();
+  const profile = await getProfile();
   const supabase = await createClient();
 
-  const { data: existing } = await supabase
-    .from("verification_requests")
-    .select("id, requested_role")
-    .eq("user_id", user.id)
-    .is("reviewed_at", null)
-    .maybeSingle();
-
-  if (existing && existing.requested_role !== requestedRole) {
-    return {
-      error:
-        "An open verification request exists for a different role. Contact support if this is wrong.",
-    };
-  }
-
-  if (!existing) {
-    const { error: vrError } = await supabase.from("verification_requests").insert({
-      user_id: user.id,
-      requested_role: requestedRole,
-    });
-    if (vrError) {
-      if (vrError.code === "23505") {
-        return { error: "Zahtjev za verifikaciju već postoji." };
-      }
-      return { error: vrError.message };
+  if (requestedRole === "pilot") {
+    if (profile?.role !== "pilot") {
+      return {
+        error:
+          "Pilot identity verification is only available for suspended pilots re-onboarding.",
+      };
     }
-  }
 
-  if (requestedRole === "passenger") {
-    const { error: statusError } = await supabase
-      .from("profiles")
-      .update({ status: "pending", role: "passenger" })
-      .eq("id", user.id);
-    if (statusError) return { error: statusError.message };
-  } else {
-    const { error: roleError } = await supabase
-      .from("profiles")
-      .update({ role: "pilot" })
-      .eq("id", user.id);
-    if (roleError) return { error: roleError.message };
+    const { data: existingPilot } = await supabase
+      .from("verification_requests")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("requested_role", "pilot")
+      .is("reviewed_at", null)
+      .maybeSingle();
+
+    if (!existingPilot) {
+      const { error: vrError } = await supabase.from("verification_requests").insert({
+        user_id: user.id,
+        requested_role: "pilot",
+      });
+      if (vrError) {
+        if (vrError.code === "23505") {
+          return { error: "Zahtjev za verifikaciju već postoji." };
+        }
+        return { error: vrError.message };
+      }
+    }
 
     const { data: pilotRow } = await supabase
       .from("pilot_profiles")
@@ -115,7 +120,36 @@ export async function prepareDiditVerificationAction(
       onboarding_draft: storedDraft as Json,
     });
     if (pilotError) return { error: pilotError.message };
+
+    return { success: "Ready for Didit" };
   }
+
+  const { data: existing } = await supabase
+    .from("verification_requests")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("requested_role", "passenger")
+    .is("reviewed_at", null)
+    .maybeSingle();
+
+  if (!existing) {
+    const { error: vrError } = await supabase.from("verification_requests").insert({
+      user_id: user.id,
+      requested_role: "passenger",
+    });
+    if (vrError) {
+      if (vrError.code === "23505") {
+        return { error: "Zahtjev za verifikaciju već postoji." };
+      }
+      return { error: vrError.message };
+    }
+  }
+
+  const { error: statusError } = await supabase
+    .from("profiles")
+    .update({ status: "pending", role: "passenger" })
+    .eq("id", user.id);
+  if (statusError) return { error: statusError.message };
 
   return { success: "Ready for Didit" };
 }
@@ -126,10 +160,14 @@ export async function getDiditVerificationStatusAction(): Promise<
   const user = await requireUser();
   const supabase = await createClient();
 
+  const profile = await getProfile();
+  const roleFilter = profile?.role === "pilot" ? "pilot" : "passenger";
+
   const { data: vr, error } = await supabase
     .from("verification_requests")
     .select("didit_status, requested_role")
     .eq("user_id", user.id)
+    .eq("requested_role", roleFilter)
     .is("reviewed_at", null)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -233,6 +271,14 @@ export async function savePilotLicenseDraftStepAction(
   formData: FormData
 ): Promise<ActionState> {
   const user = await requireUser();
+  const profile = await getProfile();
+  const supabase = await createClient();
+
+  if (profile?.role === "passenger" && profile.status === "verified") {
+    const identity = await assertPassengerIdentityVerified(supabase, user.id);
+    if (identity.error) return { error: identity.error };
+  }
+
   const draft = pilotDraftFromFormData(formData);
   const licenseExpiresAt = String(
     formData.get("licenseExpiresAt") ?? draft.licenseExpiresAt ?? ""
@@ -284,6 +330,14 @@ export async function savePilotMedicalDraftStepAction(
   formData: FormData
 ): Promise<ActionState> {
   const user = await requireUser();
+  const profile = await getProfile();
+  const supabase = await createClient();
+
+  if (profile?.role === "passenger" && profile.status === "verified") {
+    const identity = await assertPassengerIdentityVerified(supabase, user.id);
+    if (identity.error) return { error: identity.error };
+  }
+
   const draft = pilotDraftFromFormData(formData);
   const medicalExpiresAt = String(
     formData.get("medicalExpiresAt") ?? draft.medicalExpiresAt ?? ""
@@ -475,11 +529,168 @@ export async function submitPilotVerificationAction(
   redirect("/dashboard");
 }
 
+export async function submitPilotUpgradeAction(
+  formData: FormData
+): Promise<ActionState> {
+  const user = await requireUser();
+  const profile = await getProfile();
+  if (profile?.role !== "passenger" || profile.status !== "verified") {
+    return { error: "Only verified passengers can upgrade to pilot." };
+  }
+
+  const supabase = await createClient();
+
+  const identity = await assertPassengerIdentityVerified(supabase, user.id);
+  if (identity.error) return { error: identity.error };
+
+  if (await hasPendingUpgradeRequest(supabase, user.id)) {
+    return {
+      error:
+        "You already have a pending upgrade request. Contact support@gallebo.app to make changes.",
+    };
+  }
+
+  const profileResult = await savePassengerProfileAction({}, formData);
+  if (profileResult.error) return profileResult;
+
+  const docDatesParsed = pilotDocumentSchema.safeParse({
+    licenseExpiresAt: formData.get("licenseExpiresAt"),
+    medicalExpiresAt: formData.get("medicalExpiresAt"),
+  });
+  if (!docDatesParsed.success) {
+    return { error: docDatesParsed.error.issues[0]?.message ?? "Invalid document dates" };
+  }
+
+  const licenseType =
+    formData.get("licenseType") === "lapl_license" ? "lapl_license" : "ppl_license";
+  let licenseStoragePath = String(formData.get("licenseStoragePath") ?? "");
+  let medicalStoragePath = String(formData.get("medicalStoragePath") ?? "");
+
+  const licenseFile = formData.get("licenseFile");
+  if (licenseFile instanceof File && licenseFile.size > 0) {
+    const upload = await uploadDocumentAction(
+      buildUploadFormData(formData, "licenseFile", licenseType, "licenseExpiresAt")
+    );
+    if (upload.error) return { error: upload.error };
+    licenseStoragePath = upload.storagePath ?? "";
+  }
+
+  const medicalFile = formData.get("medicalFile");
+  if (medicalFile instanceof File && medicalFile.size > 0) {
+    const upload = await uploadDocumentAction(
+      buildUploadFormData(
+        formData,
+        "medicalFile",
+        "medical_certificate",
+        "medicalExpiresAt"
+      )
+    );
+    if (upload.error) return { error: upload.error };
+    medicalStoragePath = upload.storagePath ?? "";
+  }
+
+  if (!licenseStoragePath || !medicalStoragePath) {
+    const { data: pilotProfile } = await supabase
+      .from("pilot_profiles")
+      .select("onboarding_draft")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const dbDraft = pilotDraftFromJson(pilotProfile?.onboarding_draft);
+    if (!licenseStoragePath) {
+      licenseStoragePath = String(dbDraft.licenseStoragePath ?? "");
+    }
+    if (!medicalStoragePath) {
+      medicalStoragePath = String(dbDraft.medicalStoragePath ?? "");
+    }
+  }
+
+  if (!licenseStoragePath || !medicalStoragePath) {
+    return {
+      error: "Please upload your licence and medical certificate before submitting.",
+    };
+  }
+
+  const licenseOwned = await userOwnsDocumentStoragePath(user.id, licenseStoragePath);
+  const medicalOwned = await userOwnsDocumentStoragePath(user.id, medicalStoragePath);
+  if (!licenseOwned || !medicalOwned) {
+    return { error: "Uploaded documents could not be verified. Please re-upload." };
+  }
+
+  const taxAccepted = formData.get("taxDeclaration") === "on";
+  if (!taxAccepted) {
+    return { error: "You must accept the tax declaration" };
+  }
+
+  await supabase.from("pilot_profiles").upsert({
+    user_id: user.id,
+    license_expires_at: docDatesParsed.data.licenseExpiresAt,
+    medical_expires_at: docDatesParsed.data.medicalExpiresAt,
+    tax_declaration_accepted_at: new Date().toISOString(),
+    onboarding_step: 5,
+    onboarding_draft: {
+      ...pilotDraftFromFormData(formData),
+      licenseStoragePath,
+      medicalStoragePath,
+      licenseType,
+    } as Json,
+  });
+
+  const { data: existingPilotVr } = await supabase
+    .from("verification_requests")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("requested_role", "pilot")
+    .is("reviewed_at", null)
+    .maybeSingle();
+
+  if (!existingPilotVr) {
+    const { error: vrError } = await supabase.from("verification_requests").insert({
+      user_id: user.id,
+      requested_role: "pilot",
+    });
+    if (vrError) {
+      if (vrError.code === "23505") {
+        return {
+          error:
+            "You already have a pending upgrade request. Contact support@gallebo.app to make changes.",
+        };
+      }
+      return { error: vrError.message };
+    }
+  }
+
+  const { error: statusError } = await supabase
+    .from("profiles")
+    .update({ status: "pending" })
+    .eq("id", user.id);
+
+  if (statusError) return { error: statusError.message };
+
+  redirect("/passenger?upgradeSubmitted=pilot");
+}
+
 export async function submitAirfieldRequestAction(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
   const user = await requireUser();
+  const profile = await getProfile();
+  const supabase = await createClient();
+
+  if (profile?.role === "passenger" && profile.status === "verified") {
+    const identity = await assertPassengerIdentityVerified(supabase, user.id);
+    if (identity.error) return { error: identity.error };
+
+    if (await hasPendingUpgradeRequest(supabase, user.id)) {
+      return {
+        error:
+          "You already have a pending upgrade request. Contact support@gallebo.app to make changes.",
+      };
+    }
+  } else if (profile?.role !== null && profile?.role !== "passenger") {
+    return { error: "Airfield operator requests are only available during onboarding." };
+  }
+
   const parsed = airfieldRequestSchema.safeParse({
     airfieldName: formData.get("airfieldName"),
     icaoCode: formData.get("icaoCode"),
@@ -495,7 +706,6 @@ export async function submitAirfieldRequestAction(
   const upload = await uploadDocumentAction(formData);
   if (upload.error) return { error: upload.error };
 
-  const supabase = await createClient();
   const { error } = await supabase.from("airfield_operator_requests").insert({
     user_id: user.id,
     airfield_name: parsed.data.airfieldName,
@@ -507,12 +717,12 @@ export async function submitAirfieldRequestAction(
 
   if (error) return { error: error.message };
 
-  await supabase
-    .from("profiles")
-    .update({ status: "pending" })
-    .eq("id", user.id);
+  if (profile?.status !== "verified") {
+    await supabase.from("profiles").update({ status: "pending" }).eq("id", user.id);
+    redirect("/dashboard");
+  }
 
-  redirect("/dashboard");
+  redirect("/passenger?upgradeSubmitted=airfield");
 }
 
 function buildUploadFormData(

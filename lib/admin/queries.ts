@@ -408,7 +408,15 @@ export async function getAdminUserDetail(
     isOpen: !vr.reviewed_at,
   }));
 
-  const openVerification = verificationHistory.find((vr) => vr.isOpen);
+  const openVerification = verificationHistory.find(
+    (vr) =>
+      vr.isOpen &&
+      !isPassengerIdentityOnlyQueueItem(
+        vr.requestedRole,
+        vr.diditStatus,
+        vr.autoApproved
+      )
+  );
   const profileStatus = profile.status ?? "registered";
   const { role, roleVariant } = mapAdminUserRole(profile.role);
   const { status, statusVariant } = mapAdminUserStatus(
@@ -438,6 +446,17 @@ export async function getAdminUserDetail(
   };
 }
 
+function isPassengerIdentityOnlyQueueItem(
+  requestedRole: string,
+  diditStatus: string | null,
+  autoApproved: boolean | null
+): boolean {
+  return (
+    requestedRole === "passenger" &&
+    (Boolean(autoApproved) || isDiditApproved(diditStatus))
+  );
+}
+
 export async function getKycQueue(): Promise<KycQueueItem[]> {
   const admin = createAdminClient();
 
@@ -449,7 +468,25 @@ export async function getKycQueue(): Promise<KycQueueItem[]> {
 
   if (!requests?.length) return [];
 
-  const userIds = requests.map((r) => r.user_id);
+  const latestOpenByUser = new Map<string, (typeof requests)[number]>();
+  for (const row of requests) {
+    if (!latestOpenByUser.has(row.user_id)) {
+      latestOpenByUser.set(row.user_id, row);
+    }
+  }
+
+  const queueRequests = [...latestOpenByUser.values()].filter(
+    (r) =>
+      !isPassengerIdentityOnlyQueueItem(
+        r.requested_role ?? "pilot",
+        r.didit_status,
+        r.auto_approved
+      )
+  );
+
+  if (!queueRequests.length) return [];
+
+  const userIds = queueRequests.map((r) => r.user_id);
   const [{ data: profiles }, { data: documents }] = await Promise.all([
     admin.from("profiles").select("id, first_name, last_name").in("id", userIds),
     admin.from("documents").select("user_id, type").in("user_id", userIds),
@@ -471,7 +508,7 @@ export async function getKycQueue(): Promise<KycQueueItem[]> {
     docsByUser.set(doc.user_id, list);
   }
 
-  return requests.map((r) => {
+  return queueRequests.map((r) => {
     const requestedRole = r.requested_role ?? "pilot";
     const isPassenger = requestedRole === "passenger";
     const diditApproved = isDiditApproved(r.didit_status);

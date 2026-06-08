@@ -2,20 +2,66 @@ import Link from "next/link";
 
 import { VerificationTracker } from "@/components/analytics/verification-tracker";
 import { PassengerBookingCardV3 } from "@/components/passenger/passenger-booking-card-v3";
+import { PassengerUpgradeCta } from "@/components/passenger/passenger-upgrade-cta";
 import { PilotMetricCard } from "@/components/pilot/pilot-metric-card";
 import { requireVerifiedPassenger } from "@/lib/auth/rbac";
+import {
+  hasPendingUpgradeRequest,
+  UPGRADE_PENDING_MESSAGE,
+  UPGRADE_PENDING_QUERY,
+} from "@/lib/onboarding/guards";
 import { getPassengerOverviewData } from "@/lib/passenger/queries";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Passenger dashboard — Gallebo" };
 
-export default async function PassengerOverviewPage() {
+type PageProps = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
+
+export default async function PassengerOverviewPage({ searchParams }: PageProps) {
   const { user } = await requireVerifiedPassenger();
+  const params = await searchParams;
   const data = await getPassengerOverviewData(user.id);
   const greeting = getGreeting(data.sidebar.firstName);
+
+  const supabase = await createClient();
+  const pendingUpgrade = await hasPendingUpgradeRequest(supabase, user.id);
+  const showUpgradePendingBanner = params[UPGRADE_PENDING_QUERY] === "1" || pendingUpgrade;
+  const upgradeSubmitted = params.upgradeSubmitted;
 
   return (
     <div>
       <VerificationTracker isVerified />
+
+      {showUpgradePendingBanner ? (
+        <div
+          className="mb-6 rounded-lg border px-4 py-3 text-sm"
+          style={{
+            borderColor: "var(--line)",
+            background: "var(--surface-alt)",
+            color: "var(--ink-2)",
+          }}
+          role="status"
+        >
+          {UPGRADE_PENDING_MESSAGE}
+        </div>
+      ) : null}
+
+      {upgradeSubmitted === "pilot" || upgradeSubmitted === "airfield" ? (
+        <div
+          className="mb-6 rounded-lg border px-4 py-3 text-sm"
+          style={{
+            borderColor: "var(--line)",
+            background: "color-mix(in srgb, var(--success) 10%, var(--surface))",
+            color: "var(--ink-2)",
+          }}
+          role="status"
+        >
+          Your upgrade request has been submitted. We will notify you when admin review is
+          complete.
+        </div>
+      ) : null}
       <div className="mb-8">
         <p
           className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
@@ -38,6 +84,11 @@ export default async function PassengerOverviewPage() {
             : ""}
         </p>
       </div>
+
+      <PassengerUpgradeCta
+        showPilot={!pendingUpgrade}
+        showAirfield={!pendingUpgrade}
+      />
 
       <div className="mb-10 grid gap-4 sm:grid-cols-3">
         <PilotMetricCard

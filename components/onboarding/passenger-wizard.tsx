@@ -22,10 +22,10 @@ export function PassengerOnboardingWizard() {
 
   return (
     <div className="mx-auto max-w-xl space-y-8 px-4 py-8">
-      <Link href="/onboarding" className="text-sm text-primary hover:underline">
-        ← Choose role
+      <Link href="/dashboard" className="text-sm text-primary hover:underline">
+        ← Back to dashboard
       </Link>
-      <h1 className="text-2xl font-semibold">Passenger verification</h1>
+      <h1 className="text-2xl font-semibold">Complete your profile</h1>
       <StepIndicator steps={[...STEPS]} current={step} />
 
       {step === 1 ? (

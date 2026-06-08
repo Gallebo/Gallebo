@@ -6,6 +6,8 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { PostHogProvider } from "@/components/analytics/posthog-provider";
 import { SiteFooterGate } from "@/components/layout/site-footer-gate";
 import { SiteHeader } from "@/components/layout/site-header";
+import { becomePilotHref } from "@/lib/onboarding/guards";
+import { createClient } from "@/lib/supabase/server";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { getSiteUrl, getDefaultOgImageUrl, SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE } from "@/lib/seo/site";
 
@@ -70,11 +72,28 @@ export const metadata: Metadata = {
 
 const themeInitScript = `(function(){try{var t=localStorage.getItem('gallebo-theme');if(t==='dark'){document.documentElement.classList.add('dark');}else if(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.classList.add('dark');}}catch(e){}})();`;
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let profile: { role: string | null; status: string } | null = null;
+  if (user) {
+    const { data } = await supabase
+      .from("profiles")
+      .select("role, status")
+      .eq("id", user.id)
+      .single();
+    profile = data;
+  }
+
+  const pilotLink = becomePilotHref(Boolean(user), profile);
+
   return (
     <html
       lang="en"
@@ -89,7 +108,7 @@ export default function RootLayout({
           <PostHogProvider>
             <SiteHeader />
             <main className="flex min-h-0 flex-1 flex-col">{children}</main>
-            <SiteFooterGate />
+            <SiteFooterGate becomePilotHref={pilotLink} />
           </PostHogProvider>
           <Analytics />
           <SpeedInsights />

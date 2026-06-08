@@ -1,5 +1,6 @@
 import { PilotOnboardingWizard } from "@/components/onboarding/pilot-wizard";
 import { requireUser, getProfile } from "@/lib/auth/rbac";
+import { redirectVerifiedPassengerFromLegacyOnboarding } from "@/lib/onboarding/guards";
 import { mapPilotOnboardingStep, pilotDraftDiditApproved } from "@/lib/onboarding/pilot-step";
 import { weightFromDbValue } from "@/lib/crypto/weight";
 import { createClient } from "@/lib/supabase/server";
@@ -20,6 +21,12 @@ function isDiditApproved(status: string | null | undefined): boolean {
 export default async function PilotOnboardingPage() {
   const user = await requireUser();
   const profile = await getProfile();
+
+  const isSuspendedPilot =
+    profile?.role === "pilot" && profile.status === "suspended";
+  if (!isSuspendedPilot) {
+    await redirectVerifiedPassengerFromLegacyOnboarding();
+  }
   const supabase = await createClient();
   const { data: pilotProfile } = await supabase
     .from("pilot_profiles")

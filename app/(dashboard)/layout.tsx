@@ -3,7 +3,7 @@ import { DashboardTopBar } from "@/components/layout/DashboardTopBar";
 
 const PASSENGER_LINKS = [
   { href: "/dashboard", label: "Overview" },
-  { href: "/onboarding", label: "Onboarding" },
+  { href: "/onboarding/passenger", label: "Onboarding" },
   { href: "/dashboard/settings", label: "Settings" },
 ];
 

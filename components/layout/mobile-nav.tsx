@@ -16,21 +16,26 @@ import {
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { logoutAction } from "@/lib/auth/actions";
 
-const NAV_LINKS = [
-  { href: "/flights", label: "Find a flight" },
-  { href: "/airfields", label: "Airfields" },
-  { href: "/onboarding/pilot", label: "Become a pilot" },
-  { href: "/#how", label: "How it works" },
-  { href: "/#faq", label: "FAQ" },
-] as const;
+function buildNavLinks(becomePilotHref: string) {
+  return [
+    { href: "/flights", label: "Find a flight" },
+    { href: "/airfields", label: "Airfields" },
+    { href: becomePilotHref, label: "Become a pilot" },
+    { href: "/#how", label: "How it works" },
+    { href: "/#faq", label: "FAQ" },
+  ] as const;
+}
 
 export function MobileNav({
   user,
   isAdmin,
+  becomePilotHref = "/login",
 }: {
   user: { email: string } | null;
   isAdmin: boolean;
+  becomePilotHref?: string;
 }) {
+  const navLinks = buildNavLinks(becomePilotHref);
   const [pending, startTransition] = useTransition();
 
   function handleLogout() {
@@ -58,7 +63,7 @@ export function MobileNav({
           <SheetTitle className="text-left text-base font-semibold">Menu</SheetTitle>
         </SheetHeader>
         <nav className="flex flex-col gap-1 px-3 py-4">
-          {NAV_LINKS.map(({ href, label }) => (
+          {navLinks.map(({ href, label }) => (
             <SheetClose
               key={href}
               render={

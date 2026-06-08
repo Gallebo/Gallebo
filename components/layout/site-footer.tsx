@@ -52,7 +52,7 @@ function FooterCol({
   );
 }
 
-export function SiteFooter() {
+export function SiteFooter({ becomePilotHref = "/login" }: { becomePilotHref?: string }) {
   return (
     <footer
       style={{
@@ -105,7 +105,7 @@ export function SiteFooter() {
             title="Product"
             items={[
               { label: "Find a flight", href: "/flights" },
-              { label: "Become a pilot", href: "/onboarding/pilot" },
+              { label: "Become a pilot", href: becomePilotHref },
               { label: "How it works", href: "/#how" },
               { label: "Safety", href: "/safety" },
             ]}

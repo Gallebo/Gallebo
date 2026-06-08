@@ -5,7 +5,11 @@ import { usePathname } from "next/navigation";
 import { SiteFooter } from "@/components/layout/site-footer";
 
 /** App shells (sidebar dashboards) fill the viewport; marketing footer is omitted. */
-export function SiteFooterGate() {
+export function SiteFooterGate({
+  becomePilotHref = "/login",
+}: {
+  becomePilotHref?: string;
+}) {
   const pathname = usePathname();
   const hideFooter =
     pathname?.startsWith("/pilot") ||
@@ -16,5 +20,5 @@ export function SiteFooterGate() {
     return null;
   }
 
-  return <SiteFooter />;
+  return <SiteFooter becomePilotHref={becomePilotHref} />;
 }

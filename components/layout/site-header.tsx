@@ -4,6 +4,7 @@ import { MobileNav } from "@/components/layout/mobile-nav";
 import { UserMenu } from "@/components/layout/user-menu";
 import { GalleboWordmark } from "@/components/marketing/seagull-wordmark";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { becomePilotHref } from "@/lib/onboarding/guards";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
@@ -28,18 +29,20 @@ export async function SiteHeader({ className }: { className?: string }) {
     first_name: string | null;
     last_name: string | null;
     role: string | null;
+    status: string;
   } | null = null;
 
   if (user) {
     const { data } = await supabase
       .from("profiles")
-      .select("first_name, last_name, role")
+      .select("first_name, last_name, role, status")
       .eq("id", user.id)
       .single();
     profile = data;
   }
 
   const isAdmin = profile?.role === "admin";
+  const pilotLink = becomePilotHref(Boolean(user), profile);
 
   return (
     <header
@@ -72,7 +75,7 @@ export async function SiteHeader({ className }: { className?: string }) {
           {[
             { href: "/flights", label: "Find a flight" },
             { href: "/airfields", label: "Airfields" },
-            { href: "/onboarding/pilot", label: "Become a pilot" },
+            { href: pilotLink, label: "Become a pilot" },
             { href: "/#how", label: "How it works" },
             { href: "/#faq", label: "FAQ" },
           ].map(({ href, label }) => (
@@ -95,6 +98,7 @@ export async function SiteHeader({ className }: { className?: string }) {
           <MobileNav
             user={user ? { email: user.email ?? "" } : null}
             isAdmin={isAdmin}
+            becomePilotHref={pilotLink}
           />
           {!user ? <ThemeToggle className="hidden md:inline-flex" /> : null}
           {user ? (
