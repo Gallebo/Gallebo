@@ -58,7 +58,10 @@ export async function createPilotConnectAccount(
  * UVIJEK generira novi link — Stripe linkovi istječu za 24h i jednokratni su.
  * Ne sprema URL u bazu.
  */
-export async function createOnboardingLink(stripeAccountId: string): Promise<string> {
+export async function createOnboardingLink(
+  stripeAccountId: string,
+  linkType: "account_onboarding" | "account_update" = "account_onboarding",
+): Promise<string> {
   const appUrl = getAppUrl();
   if (!isStripeConfigured() || stripeAccountId.startsWith("acct_stub_")) {
     return `${appUrl}/pilot/stripe/complete?stub=1`;
@@ -69,7 +72,7 @@ export async function createOnboardingLink(stripeAccountId: string): Promise<str
     account: stripeAccountId,
     refresh_url: `${appUrl}/pilot/stripe/refresh`,
     return_url: `${appUrl}/pilot/stripe/complete`,
-    type: "account_onboarding",
+    type: linkType,
   });
 
   return link.url;

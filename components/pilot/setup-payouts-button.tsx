@@ -4,7 +4,13 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
-export function SetupPayoutsButton({ label }: { label: string }) {
+export function SetupPayoutsButton({
+  label,
+  apiPath = "/api/pilot/setup-payouts",
+}: {
+  label: string;
+  apiPath?: string;
+}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -12,7 +18,7 @@ export function SetupPayoutsButton({ label }: { label: string }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/pilot/setup-payouts", { method: "POST" });
+      const res = await fetch(apiPath, { method: "POST" });
       const data = (await res.json()) as { onboardingUrl?: string; error?: string };
       if (!res.ok || !data.onboardingUrl) {
         setError(data.error ?? "Failed to create onboarding link");

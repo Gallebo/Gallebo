@@ -41,6 +41,12 @@ export default async function PilotStripePage() {
           <p className="mt-1 text-green-700">
             Your payout account is set up. Funds will be transferred automatically after each completed flight.
           </p>
+          <div className="mt-4">
+            <SetupPayoutsButton
+              label="Edit payout details"
+              apiPath="/api/pilot/edit-payouts"
+            />
+          </div>
         </div>
       ) : stripe_account_id ? (
         <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm">
