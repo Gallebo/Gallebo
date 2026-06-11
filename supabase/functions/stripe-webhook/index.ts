@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import type Stripe from "https://esm.sh/stripe@17.7.0?target=deno";
 
 import { getStripeClient } from "../_shared/connect.ts";
@@ -10,7 +9,7 @@ import {
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
