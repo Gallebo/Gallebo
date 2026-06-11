@@ -1,5 +1,5 @@
-import Stripe from "https://esm.sh/stripe@17.7.0?target=deno";
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2?target=deno";
+import Stripe from "npm:stripe@17.7.0";
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 /**
  * Vraća instancu Stripe klijenta ili null ako STRIPE_SECRET_KEY nije postavljen.
