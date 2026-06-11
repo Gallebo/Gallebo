@@ -148,12 +148,25 @@ function renderFlightAlertExpiryWarning(name: string): string {
   return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your route alert expires tomorrow. Renew it in one tap to keep getting notified when pilots post matching flights.</p><p><a href="https://gallebo.app/passenger/alerts">Renew alert</a></p></body></html>`;
 }
 
+function renderPilotUpgradeSubmitted(
+  passengerName: string,
+  requestId: string,
+): string {
+  const name = escapeHtml(passengerName);
+  const id = escapeHtml(requestId);
+  return `<!DOCTYPE html><html><body><p>A verified passenger submitted a <strong>pilot upgrade</strong> request.</p><p>Passenger: <strong>${name}</strong></p><p><a href="https://gallebo.app/admin/verifications/${id}">Review in admin</a></p></body></html>`;
+}
+
 function notificationDeepLink(
   type: string,
   payload: Record<string, unknown>,
 ): string {
   const bookingId = payload.bookingId;
   const flightId = payload.flightId;
+  const requestId = payload.requestId;
+  if (type === "pilot_upgrade_submitted" && typeof requestId === "string") {
+    return `https://gallebo.app/admin/verifications/${requestId}`;
+  }
   if (type === "flight_alert_expiry_warning") {
     return "https://gallebo.app/passenger/alerts";
   }
@@ -474,6 +487,15 @@ serve(async (req) => {
         break;
       }
 
+      case "pilot_upgrade_submitted": {
+        subject = "Gallebo: pilot upgrade request pending review";
+        html = renderPilotUpgradeSubmitted(
+          displayName,
+          String(payload.requestId ?? ""),
+        );
+        break;
+      }
+
       default:
         console.warn(`[process-notifications] unknown type: ${notification.type}`);
         await markNotificationFailed(supabase, notification.id, true);
@@ -487,10 +509,14 @@ serve(async (req) => {
         ? `Flight on ${String(payload.flightDate ?? "")} departs in about 24 hours.`
         : subject;
 
+    const isAdminPilotUpgrade = notification.type === "pilot_upgrade_submitted";
+    const adminEmail = Deno.env.get("ADMIN_EMAIL") ?? "admin@test.ai";
+    const recipientEmail = isAdminPilotUpgrade ? adminEmail : email;
+
     let emailOk = false;
 
-    if (emailEnabled) {
-      if (!email) {
+    if (isAdminPilotUpgrade || emailEnabled) {
+      if (!recipientEmail) {
         console.warn(
           `[process-notifications] no email for user ${notification.user_id}`,
         );
@@ -500,7 +526,7 @@ serve(async (req) => {
       }
 
       const emailLimit = await checkRateLimit(
-        `email:${notification.user_id}`,
+        `email:${isAdminPilotUpgrade ? "admin" : notification.user_id}`,
         10,
         3600,
       );
@@ -510,7 +536,7 @@ serve(async (req) => {
         );
         emailOk = false;
       } else {
-      const result = await sendEmail({ to: email, subject, html });
+      const result = await sendEmail({ to: recipientEmail, subject, html });
       emailOk = result.ok;
       if (!result.ok) {
         console.error(
@@ -526,7 +552,7 @@ serve(async (req) => {
       emailOk = true;
     }
 
-    if (pushEnabled) {
+    if (pushEnabled && !isAdminPilotUpgrade) {
       await sendPushToUser(supabase, notification.user_id, {
         title: subject,
         body: pushBody,

@@ -12,6 +12,7 @@ import { airfieldRequestSchema, personalInfoSchema, pilotDocumentSchema } from "
 import { phoneToDbValue } from "@/lib/crypto/phone";
 import { weightToDbValue } from "@/lib/crypto/weight";
 import { uploadDocumentAction } from "@/lib/documents/upload";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/types/database";
 
@@ -643,11 +644,20 @@ export async function submitPilotUpgradeAction(
     .is("reviewed_at", null)
     .maybeSingle();
 
-  if (!existingPilotVr) {
-    const { error: vrError } = await supabase.from("verification_requests").insert({
-      user_id: user.id,
-      requested_role: "pilot",
-    });
+  let pilotVrId: string;
+
+  if (existingPilotVr) {
+    pilotVrId = existingPilotVr.id;
+  } else {
+    const { data: inserted, error: vrError } = await supabase
+      .from("verification_requests")
+      .insert({
+        user_id: user.id,
+        requested_role: "pilot",
+      })
+      .select("id")
+      .single();
+
     if (vrError) {
       if (vrError.code === "23505") {
         return {
@@ -657,6 +667,8 @@ export async function submitPilotUpgradeAction(
       }
       return { error: vrError.message };
     }
+
+    pilotVrId = inserted.id;
   }
 
   const { error: statusError } = await supabase
@@ -665,6 +677,16 @@ export async function submitPilotUpgradeAction(
     .eq("id", user.id);
 
   if (statusError) return { error: statusError.message };
+
+  const admin = createAdminClient();
+  const { error: notifyError } = await admin.from("notification_queue").insert({
+    user_id: user.id,
+    type: "pilot_upgrade_submitted",
+    payload: { requestId: pilotVrId },
+  });
+  if (notifyError) {
+    console.error("[submitPilotUpgradeAction] notify admin:", notifyError.message);
+  }
 
   redirect("/passenger?upgradeSubmitted=pilot");
 }

@@ -59,6 +59,10 @@ function mapUpgradeStep(storedStep: number): number {
   return 3;
 }
 
+function needsPhoneInput(phone: string): boolean {
+  return phone.trim().length < 6;
+}
+
 export function PilotUpgradeWizard({
   initialStep,
   initialDraft,
@@ -174,6 +178,21 @@ export function PilotUpgradeWizard({
               disabled={pending}
               onFileChange={setLicenseFile}
             />
+            {needsPhoneInput(String(draft.phone ?? "")) ? (
+              <div className="space-y-2">
+                <label htmlFor="pilot-upgrade-phone" className="text-sm font-medium">
+                  Phone
+                </label>
+                <Input
+                  id="pilot-upgrade-phone"
+                  type="tel"
+                  value={String(draft.phone ?? "")}
+                  onChange={(ev) =>
+                    setDraft((d) => ({ ...d, phone: ev.target.value }))
+                  }
+                />
+              </div>
+            ) : null}
             <div className="space-y-2">
               <label
                 htmlFor="pilot-upgrade-license-expires"
@@ -196,7 +215,8 @@ export function PilotUpgradeWizard({
               disabled={
                 pending ||
                 (!licenseFile && !hasLicenseDocument(draft)) ||
-                !String(draft.licenseExpiresAt ?? "")
+                !String(draft.licenseExpiresAt ?? "") ||
+                needsPhoneInput(String(draft.phone ?? ""))
               }
               onClick={() =>
                 startTransition(async () => {

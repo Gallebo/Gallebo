@@ -1,5 +1,6 @@
 import { PilotUpgradeWizard } from "@/components/onboarding/pilot-upgrade-wizard";
 import { getProfile } from "@/lib/auth/rbac";
+import { phoneFromDbValue } from "@/lib/crypto/phone";
 import { weightFromDbValue } from "@/lib/crypto/weight";
 import { requireVerifiedPassengerForUpgrade } from "@/lib/onboarding/guards";
 import { createClient } from "@/lib/supabase/server";
@@ -26,7 +27,9 @@ export default async function PassengerPilotUpgradePage() {
         firstName: profile?.first_name ?? null,
         lastName: profile?.last_name ?? null,
         dateOfBirth: profile?.date_of_birth ?? null,
-        phone: null,
+        phone: profile?.phone_encrypted
+          ? phoneFromDbValue(profile.phone_encrypted)
+          : null,
         weightKg: profile?.weight_encrypted
           ? weightFromDbValue(profile.weight_encrypted)
           : null,
