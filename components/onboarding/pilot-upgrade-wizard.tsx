@@ -174,13 +174,22 @@ export function PilotUpgradeWizard({
               disabled={pending}
               onFileChange={setLicenseFile}
             />
-            <Input
-              type="date"
-              value={String(draft.licenseExpiresAt ?? "")}
-              onChange={(ev) =>
-                setDraft((d) => ({ ...d, licenseExpiresAt: ev.target.value }))
-              }
-            />
+            <div className="space-y-2">
+              <label
+                htmlFor="pilot-upgrade-license-expires"
+                className="text-sm font-medium"
+              >
+                Licence expiry date
+              </label>
+              <Input
+                id="pilot-upgrade-license-expires"
+                type="date"
+                value={String(draft.licenseExpiresAt ?? "")}
+                onChange={(ev) =>
+                  setDraft((d) => ({ ...d, licenseExpiresAt: ev.target.value }))
+                }
+              />
+            </div>
             <Button
               type="button"
               className="w-full"

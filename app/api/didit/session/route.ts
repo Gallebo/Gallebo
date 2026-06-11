@@ -34,11 +34,35 @@ export async function POST() {
   try {
     const session = await createVerificationSession(user.id);
 
-    await supabase
+    const { data, error, count } = await supabase
       .from("verification_requests")
       .update({ didit_session_id: session.sessionId })
       .eq("user_id", user.id)
-      .is("reviewed_at", null);
+      .eq("requested_role", "passenger")
+      .is("reviewed_at", null)
+      .select("id", { count: "exact" });
+
+    const updatedCount = count ?? data?.length ?? 0;
+
+    console.log("[didit/session] verification_requests update", {
+      userId: user.id,
+      sessionId: session.sessionId,
+      data,
+      error,
+      count: updatedCount,
+    });
+
+    if (error) {
+      console.error("[didit/session] failed to persist didit_session_id", {
+        userId: user.id,
+        error,
+      });
+    } else if (updatedCount === 0) {
+      console.warn(
+        "[didit/session] no open passenger verification_request matched update",
+        { userId: user.id, sessionId: session.sessionId },
+      );
+    }
 
     return NextResponse.json({ redirectUrl: session.redirectUrl });
   } catch (e) {
