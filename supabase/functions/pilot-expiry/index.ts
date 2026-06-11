@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createAdminClient } from "../_shared/supabase.ts";
 
 function daysUntil(dateStr: string): number {
@@ -9,7 +8,7 @@ function daysUntil(dateStr: string): number {
   return Math.round((target.getTime() - today.getTime()) / 86_400_000);
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const secret = Deno.env.get("CRON_SECRET");
   const auth = req.headers.get("Authorization") ?? "";
   if (!secret || auth !== `Bearer ${secret}`) {

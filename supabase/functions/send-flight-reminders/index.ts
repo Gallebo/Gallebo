@@ -1,5 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
 import { createAdminClient } from "../_shared/supabase.ts";
 
 function tomorrowUtcDateString(): string {
@@ -8,7 +6,7 @@ function tomorrowUtcDateString(): string {
   return d.toISOString().slice(0, 10);
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const secret = Deno.env.get("CRON_SECRET");
   const auth = req.headers.get("Authorization") ?? "";
   if (!secret || auth !== `Bearer ${secret}`) {

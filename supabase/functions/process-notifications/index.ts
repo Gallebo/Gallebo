@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { checkRateLimit } from "../_shared/rate-limit.ts";
 import { createAdminClient } from "../_shared/supabase.ts";
 import { sendPushToUser } from "../_shared/push.ts";
@@ -214,7 +213,7 @@ async function markNotificationFailed(
   await supabase.from("notification_queue").update(update).eq("id", notificationId);
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const secret = Deno.env.get("CRON_SECRET");
   const auth = req.headers.get("Authorization") ?? "";
   if (!secret || auth !== `Bearer ${secret}`) {
