@@ -18,14 +18,20 @@ function formatFlightDate(iso: string): { month: string; day: string } {
   };
 }
 
-export function FlightResultRow({ flight }: { flight: FlightListItem }) {
+export function FlightResultRow({
+  flight,
+  revealPilotName = false,
+}: {
+  flight: FlightListItem;
+  revealPilotName?: boolean;
+}) {
   const { month, day } = formatFlightDate(flight.flight_date);
   const time = String(flight.departure_time).slice(0, 5);
   const route = flightRouteMeta(flight);
   const badge = flightTypeBadge(flight.flight_type);
   const seatsLeft = availableSeats(flight);
   const totalSeats = flight.passenger_seats;
-  const pilotName = pilotDisplayName(flight.pilot);
+  const pilotName = pilotDisplayName(flight.pilot, { revealFull: revealPilotName });
   const avatarUrl =
     flight.pilot?.avatar_path && flight.pilot.avatar_path.length > 0
       ? publicStorageUrl("profile-photos", flight.pilot.avatar_path)

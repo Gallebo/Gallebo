@@ -83,6 +83,7 @@ export function flightPageJsonLd(flight: FlightListItem): JsonLd {
     provider: flight.pilot
       ? {
           "@type": "Person",
+          // TODO: Apply pilot name masking for users without a confirmed booking.
           name: pilotDisplayName(flight.pilot),
           url: `${getSiteUrl()}/pilots/${flight.pilot.id}`,
         }

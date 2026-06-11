@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Menu } from "lucide-react";
+import { Menu, Plane } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -36,6 +36,11 @@ const NAV = [
         <path d="M21 11l-9.5 5.5L9 19l-1.5-1.5L9.5 13 4 13l-1.5-1.5L4 10l5 .5L11.5 6 13 4.5 14.5 6 13 11l8-1z" />
       </svg>
     ),
+  },
+  {
+    href: "/pilot/aircraft",
+    label: "My Aircraft",
+    icon: <Plane size={16} strokeWidth={1.7} aria-hidden="true" />,
   },
   {
     href: "/pilot/bookings",

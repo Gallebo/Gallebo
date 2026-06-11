@@ -10,8 +10,11 @@ import {
 } from "@/lib/flights/search-filters";
 import { FlightsResultsToolbar } from "@/components/flights/flights-results-toolbar";
 import { FlightsSearchHero } from "@/components/flights/flights-search-hero";
+import { getProfile, getSessionUser } from "@/lib/auth/rbac";
+import { getConfirmedBookingFlightIds } from "@/lib/flights/pilot-privacy";
 import { searchPublishedFlights } from "@/lib/flights/search";
 import type { FlightSearchParams, FlightType } from "@/lib/flights/types";
+import { shouldRevealPilotName } from "@/lib/flights/utils";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = {
@@ -99,6 +102,18 @@ export default async function FlightsSearchPage({
   });
 
   const supabase = await createClient();
+  const authUser = await getSessionUser();
+  const profile = await getProfile();
+
+  let confirmedFlightIds = new Set<string>();
+  if (authUser && profile?.role !== "admin" && flights.length > 0) {
+    confirmedFlightIds = await getConfirmedBookingFlightIds(
+      supabase,
+      authUser.id,
+      flights.map((f) => f.id),
+    );
+  }
+
   const { data: airfields } = await supabase
     .from("airfields")
     .select("id, name, icao_code")
@@ -141,7 +156,16 @@ export default async function FlightsSearchPage({
             {flights.length > 0 ? (
               <div className="flex flex-col gap-4">
                 {flights.map((f) => (
-                  <FlightResultRow key={f.id} flight={f} />
+                  <FlightResultRow
+                    key={f.id}
+                    flight={f}
+                    revealPilotName={shouldRevealPilotName({
+                      viewerUserId: authUser?.id ?? null,
+                      viewerRole: profile?.role ?? null,
+                      flightPilotUserId: f.pilot_user_id,
+                      hasConfirmedBooking: confirmedFlightIds.has(f.id),
+                    })}
+                  />
                 ))}
               </div>
             ) : (

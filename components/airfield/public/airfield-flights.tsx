@@ -36,6 +36,7 @@ function FlightRow({ flight, direction }: { flight: FlightRow; direction: "depar
   const month = date.toLocaleString("en-GB", { month: "short" }).toUpperCase();
   const time = date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
+  // TODO: Apply pilot name masking (first name + last initial) for users without a confirmed booking.
   const pilotName = flight.pilot
     ? [flight.pilot.first_name, flight.pilot.last_name].filter(Boolean).join(" ")
     : "Pilot";

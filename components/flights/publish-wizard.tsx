@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { StepCard } from "@/components/onboarding/step-card";
@@ -80,6 +81,10 @@ export function PublishFlightWizard({
     avg: number | null;
   }>({ warning: null, avg: null });
   const [waitingPassengers, setWaitingPassengers] = useState<number | null>(null);
+  const [photoUploadProgress, setPhotoUploadProgress] = useState<{
+    completed: number;
+    total: number;
+  } | null>(null);
 
   const pricePerPassenger = useMemo(() => {
     if (!draft.totalCostEur || !draft.passengerSeats) return null;
@@ -216,25 +221,34 @@ export function PublishFlightWizard({
   const handleAddPhotos = (files: FileList | null) => {
     if (!files?.length) return;
     setStepError(null);
+    const fileList = Array.from(files);
+    setPhotoUploadProgress({ completed: 0, total: fileList.length });
     startTransition(async () => {
-      let paths = [...(draft.photoPaths ?? [])];
-      for (const file of Array.from(files)) {
-        if (paths.length >= MAX_FLIGHT_PHOTOS) {
-          setStepError(`Maximum ${MAX_FLIGHT_PHOTOS} photos allowed`);
-          break;
+      try {
+        let paths = [...(draft.photoPaths ?? [])];
+        let completed = 0;
+        for (const file of fileList) {
+          if (paths.length >= MAX_FLIGHT_PHOTOS) {
+            setStepError(`Maximum ${MAX_FLIGHT_PHOTOS} photos allowed`);
+            break;
+          }
+          const fd = new FormData();
+          fd.set("file", file);
+          const res = await uploadFlightDraftPhotoAction(fd);
+          if (res.error) {
+            setStepError(res.error);
+            break;
+          }
+          if (res.path) paths.push(res.path);
+          completed += 1;
+          setPhotoUploadProgress({ completed, total: fileList.length });
         }
-        const fd = new FormData();
-        fd.set("file", file);
-        const res = await uploadFlightDraftPhotoAction(fd);
-        if (res.error) {
-          setStepError(res.error);
-          break;
-        }
-        if (res.path) paths.push(res.path);
+        const next = { ...draft, photoPaths: paths };
+        setDraft(next);
+        await saveFlightDraftAction(8, next);
+      } finally {
+        setPhotoUploadProgress(null);
       }
-      const next = { ...draft, photoPaths: paths };
-      setDraft(next);
-      await saveFlightDraftAction(8, next);
     });
   };
 
@@ -776,7 +790,7 @@ export function PublishFlightWizard({
                           variant="ghost"
                           size="sm"
                           className="h-8 self-start px-2 text-destructive hover:text-destructive"
-                          disabled={pending}
+                          disabled={pending || photoUploadProgress !== null}
                           onClick={() => handleRemovePhoto(path)}
                         >
                           Remove
@@ -800,7 +814,9 @@ export function PublishFlightWizard({
                 accept="image/jpeg,image/png,image/webp"
                 multiple
                 disabled={
-                  pending || (draft.photoPaths?.length ?? 0) >= MAX_FLIGHT_PHOTOS
+                  pending ||
+                  photoUploadProgress !== null ||
+                  (draft.photoPaths?.length ?? 0) >= MAX_FLIGHT_PHOTOS
                 }
                 onChange={(e) => {
                   handleAddPhotos(e.target.files);
@@ -808,6 +824,17 @@ export function PublishFlightWizard({
                 }}
               />
             </div>
+            {photoUploadProgress ? (
+              <p
+                className="flex items-center gap-2 text-sm text-muted-foreground"
+                role="status"
+                aria-live="polite"
+              >
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                Uploading... ({photoUploadProgress.completed} of{" "}
+                {photoUploadProgress.total})
+              </p>
+            ) : null}
             <p className="text-xs text-muted-foreground">
               {draft.photoPaths?.length ?? 0} of {MAX_FLIGHT_PHOTOS} photos · min{" "}
               {MIN_FLIGHT_PHOTOS} required
@@ -815,7 +842,14 @@ export function PublishFlightWizard({
           </div>
           {stepError ? <p className="text-sm text-destructive">{stepError}</p> : null}
           <NavButtons
-            pending={pending}
+            pending={pending || photoUploadProgress !== null}
+            nextLabel={
+              photoUploadProgress
+                ? "Uploading…"
+                : pending
+                  ? "Saving…"
+                  : undefined
+            }
             onBack={() => setStep(7)}
             onNext={() => {
               if (!draft.description || draft.description.length < 20) {
@@ -1038,15 +1072,20 @@ export function PublishFlightWizard({
 
 function NavButtons({
   pending,
+  nextLabel,
   onBack,
   onNext,
   showBack = true,
 }: {
   pending: boolean;
+  nextLabel?: string;
   onBack: () => void;
   onNext: () => void;
   showBack?: boolean;
 }) {
+  const continueLabel =
+    nextLabel ?? (pending ? "Saving…" : "Continue");
+
   return (
     <div className="mt-6 flex gap-2">
       {showBack ? (
@@ -1055,7 +1094,7 @@ function NavButtons({
         </Button>
       ) : null}
       <Button type="button" className="h-11 flex-1 sm:h-8" disabled={pending} onClick={onNext}>
-        {pending ? "Saving…" : "Continue"}
+        {continueLabel}
       </Button>
     </div>
   );

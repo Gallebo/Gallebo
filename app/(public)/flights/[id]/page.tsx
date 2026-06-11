@@ -10,11 +10,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FLIGHT_LANGUAGE_LABELS, FLIGHT_TYPE_LABELS } from "@/lib/flights/constants";
 import { getPassengerWeightWarning } from "@/lib/flights/weight-check";
 import { getFlightById } from "@/lib/flights/search";
+import { hasConfirmedBookingForFlight } from "@/lib/flights/pilot-privacy";
 import {
   availableSeats,
   flightPhotoUrl,
   formatFlightRoute,
   pilotDisplayName,
+  shouldRevealPilotName,
 } from "@/lib/flights/utils";
 import { getProfile, getSessionUser } from "@/lib/auth/rbac";
 import {
@@ -102,7 +104,17 @@ export default async function FlightDetailPage({
     (a, b) => (a.position ?? 0) - (b.position ?? 0),
   );
 
-  const pilotName = pilotDisplayName(flight.pilot);
+  const hasConfirmedBooking =
+    authUser && profile?.role !== "admin"
+      ? await hasConfirmedBookingForFlight(supabase, authUser.id, flight.id)
+      : false;
+  const revealPilotName = shouldRevealPilotName({
+    viewerUserId: authUser?.id ?? null,
+    viewerRole: profile?.role ?? null,
+    flightPilotUserId: flight.pilot_user_id,
+    hasConfirmedBooking,
+  });
+  const pilotName = pilotDisplayName(flight.pilot, { revealFull: revealPilotName });
   const avatarUrl =
     flight.pilot?.avatar_path && flight.pilot.avatar_path.length > 0
       ? publicStorageUrl("profile-photos", flight.pilot.avatar_path)

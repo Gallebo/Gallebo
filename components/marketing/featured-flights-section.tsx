@@ -12,6 +12,7 @@ function FlightCard({ flight }: { flight: FlightListItem }) {
   );
   const cover = photos[0];
   const seats = availableSeats(flight);
+  // TODO: Apply pilot name masking (first name + last initial) for users without a confirmed booking.
   const pilotName = pilotDisplayName(flight.pilot);
   const avatarUrl =
     flight.pilot?.avatar_path && flight.pilot.avatar_path.length > 0

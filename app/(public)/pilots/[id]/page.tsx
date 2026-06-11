@@ -108,6 +108,7 @@ export default async function PublicPilotProfilePage({
   const aircraftRows = (rawAircraft ?? []) as AircraftWithPhotos[];
   const flightsOnGallebo = completedFlightCount ?? 0;
 
+  // TODO: Apply pilot name masking (first name + last initial) for users without a confirmed booking.
   const displayName =
     pub.first_name && pub.last_name
       ? `${pub.first_name} ${pub.last_name}`
