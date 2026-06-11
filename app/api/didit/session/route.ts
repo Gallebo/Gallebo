@@ -4,6 +4,7 @@ import { createVerificationSession } from "@/lib/didit/client";
 import { DiditNotAllowedError } from "@/lib/didit/guards";
 import { isDiditConfigured } from "@/lib/env";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST() {
@@ -34,7 +35,8 @@ export async function POST() {
   try {
     const session = await createVerificationSession(user.id);
 
-    const { data, error } = await supabase
+    const adminSupabase = createAdminClient();
+    const { data, error } = await adminSupabase
       .from("verification_requests")
       .update({ didit_session_id: session.sessionId })
       .eq("user_id", user.id)
