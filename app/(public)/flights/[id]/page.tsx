@@ -121,23 +121,23 @@ export default async function FlightDetailPage({
       : null;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-10 px-4 py-12 sm:px-6">
+    <div className="mx-auto w-full max-w-5xl space-y-10 px-4 py-12 sm:px-6">
       <JsonLd data={flightPageJsonLd(flight)} />
-      <div className="grid gap-8 lg:grid-cols-2">
-        <div className="space-y-4">
+      <div className="grid gap-8 md:grid-cols-2">
+        <div className="space-y-4 max-sm:-mx-4 sm:mx-0">
           {photos.length > 0 ? (
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {photos.map((p, i) => (
                 <div
                   key={p.id}
-                  className={`relative overflow-hidden rounded-lg bg-muted ${i === 0 ? "sm:col-span-2 aspect-[16/10]" : "aspect-[4/3]"}`}
+                  className={`relative overflow-hidden bg-muted max-sm:rounded-none sm:rounded-lg ${i === 0 ? "aspect-[16/10] sm:col-span-2" : "aspect-[4/3]"}`}
                 >
                   <Image
                     src={flightPhotoUrl(p.storage_path)}
                     alt=""
                     fill
                     className="object-cover"
-                    sizes="(max-width: 640px) 100vw, 50vw"
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     priority={i === 0}
                   />
                 </div>

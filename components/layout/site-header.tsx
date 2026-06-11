@@ -71,7 +71,7 @@ export async function SiteHeader({ className }: { className?: string }) {
         </Link>
 
         {/* Centre nav */}
-        <nav className="hidden items-center gap-7 md:flex">
+        <nav className="hidden items-center gap-7 lg:flex">
           {[
             { href: "/flights", label: "Find a flight" },
             { href: "/airfields", label: "Airfields" },
@@ -100,7 +100,7 @@ export async function SiteHeader({ className }: { className?: string }) {
             isAdmin={isAdmin}
             becomePilotHref={pilotLink}
           />
-          {!user ? <ThemeToggle className="hidden md:inline-flex" /> : null}
+          {!user ? <ThemeToggle className="hidden lg:inline-flex" /> : null}
           {user ? (
             <UserMenu
               initials={initialsFrom(
