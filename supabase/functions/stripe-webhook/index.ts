@@ -9,6 +9,55 @@ import {
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
+type WebhookSecretScope = "platform" | "connect";
+
+async function constructWebhookEvent(
+  stripe: NonNullable<ReturnType<typeof getStripeClient>>,
+  rawBody: string,
+  signature: string,
+  secret: string,
+): Promise<Stripe.Event> {
+  return stripe.webhooks.constructEventAsync(rawBody, signature, secret);
+}
+
+async function verifyWebhookSignature(
+  stripe: NonNullable<ReturnType<typeof getStripeClient>>,
+  rawBody: string,
+  signature: string,
+  platformSecret: string | undefined,
+  connectSecret: string | undefined,
+): Promise<{ event: Stripe.Event; scope: WebhookSecretScope } | null> {
+  if (platformSecret) {
+    try {
+      const event = await constructWebhookEvent(
+        stripe,
+        rawBody,
+        signature,
+        platformSecret,
+      );
+      return { event, scope: "platform" };
+    } catch {
+      // Fall through to Connect secret.
+    }
+  }
+
+  if (connectSecret) {
+    try {
+      const event = await constructWebhookEvent(
+        stripe,
+        rawBody,
+        signature,
+        connectSecret,
+      );
+      return { event, scope: "connect" };
+    } catch {
+      // Both secrets failed (or only Connect was configured).
+    }
+  }
+
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
@@ -18,7 +67,8 @@ Deno.serve(async (req) => {
   }
 
   const stripe = getStripeClient();
-  const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+  const platformWebhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+  const connectWebhookSecret = Deno.env.get("STRIPE_CONNECT_WEBHOOK_SECRET");
 
   if (!stripe) {
     return new Response(JSON.stringify({ error: "Not configured" }), {
@@ -27,8 +77,8 @@ Deno.serve(async (req) => {
     });
   }
 
-  if (!webhookSecret) {
-    return new Response(JSON.stringify({ error: "Webhook secret not set" }), {
+  if (!platformWebhookSecret && !connectWebhookSecret) {
+    return new Response(JSON.stringify({ error: "Webhook secrets not set" }), {
       status: 503,
       headers: JSON_HEADERS,
     });
@@ -49,22 +99,30 @@ Deno.serve(async (req) => {
     });
   }
 
-  let event: Stripe.Event;
-  try {
-    event = await stripe.webhooks.constructEventAsync(
-      rawBody,
-      signature,
-      webhookSecret,
+  const verified = await verifyWebhookSignature(
+    stripe,
+    rawBody,
+    signature,
+    platformWebhookSecret ?? undefined,
+    connectWebhookSecret ?? undefined,
+  );
+
+  if (!verified) {
+    console.error(
+      "[stripe/webhook] signature verification failed for platform and connect secrets",
     );
-    console.log("[stripe/webhook] signature verified, event type:", event.type);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Invalid signature";
-    console.error("[stripe/webhook] signature verification failed:", message);
-    return new Response(JSON.stringify({ error: message }), {
+    return new Response(JSON.stringify({ error: "Invalid signature" }), {
       status: 400,
       headers: JSON_HEADERS,
     });
   }
+
+  const { event, scope: verifiedScope } = verified;
+
+  console.log(
+    `[stripe/webhook] signature verified (${verifiedScope} secret), event type:`,
+    event.type,
+  );
 
   try {
     switch (event.type) {
