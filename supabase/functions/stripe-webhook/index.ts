@@ -38,6 +38,11 @@ serve(async (req) => {
   const rawBody = await req.text();
   const signature = req.headers.get("stripe-signature");
 
+  console.log(
+    "[stripe/webhook] request received, stripe-signature present:",
+    signature !== null,
+  );
+
   if (!signature) {
     return new Response(JSON.stringify({ error: "Missing signature" }), {
       status: 400,
@@ -52,8 +57,10 @@ serve(async (req) => {
       signature,
       webhookSecret,
     );
+    console.log("[stripe/webhook] signature verified, event type:", event.type);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Invalid signature";
+    console.error("[stripe/webhook] signature verification failed:", message);
     return new Response(JSON.stringify({ error: message }), {
       status: 400,
       headers: JSON_HEADERS,
