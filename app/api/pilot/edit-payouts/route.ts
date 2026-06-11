@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { requirePilot } from "@/lib/auth/rbac";
-import { createOnboardingLink } from "@/lib/stripe/connect";
+import { getAppUrl } from "@/lib/env";
+import { getStripe } from "@/lib/stripe/client";
+import { isStripeConfigured } from "@/lib/stripe/config";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST() {
@@ -26,16 +28,20 @@ export async function POST() {
       );
     }
 
-    const onboardingUrl = await createOnboardingLink(
-      pilot.stripe_account_id,
-      "account_update",
-    );
+    if (!isStripeConfigured() || pilot.stripe_account_id.startsWith("acct_stub_")) {
+      return NextResponse.json({
+        onboardingUrl: `${getAppUrl()}/pilot/stripe/complete?stub=1`,
+      });
+    }
 
-    return NextResponse.json({ onboardingUrl });
+    const stripe = getStripe();
+    const loginLink = await stripe.accounts.createLoginLink(pilot.stripe_account_id);
+
+    return NextResponse.json({ onboardingUrl: loginLink.url });
   } catch (err) {
     console.error("[edit-payouts]", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to create update link" },
+      { error: err instanceof Error ? err.message : "Failed to create login link" },
       { status: 500 },
     );
   }
