@@ -34,15 +34,15 @@ export async function POST() {
   try {
     const session = await createVerificationSession(user.id);
 
-    const { data, error, count } = await supabase
+    const { data, error } = await supabase
       .from("verification_requests")
       .update({ didit_session_id: session.sessionId })
       .eq("user_id", user.id)
       .eq("requested_role", "passenger")
       .is("reviewed_at", null)
-      .select("id", { count: "exact" });
+      .select("id");
 
-    const updatedCount = count ?? data?.length ?? 0;
+    const updatedCount = data?.length ?? 0;
 
     console.log("[didit/session] verification_requests update", {
       userId: user.id,
