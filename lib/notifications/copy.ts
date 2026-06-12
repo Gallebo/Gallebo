@@ -15,7 +15,7 @@ export function inAppCopyForType(
     case "booking_accepted":
       return {
         title: "Booking accepted",
-        body: "Pay within 30 minutes to confirm your seat.",
+        body: "Pay within 24 hours to confirm your seat.",
       };
     case "booking_rejected":
       return {

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import {
   calculateBookingAmounts,
+  flightDepartureUtc,
   hasFlightDeparted,
   passengerRefundEligible,
 } from "@/lib/bookings/pricing";
@@ -86,7 +87,7 @@ export async function acceptBookingAction(
       Number(flight.price_per_passenger_eur),
     );
     const now = new Date();
-    const paymentExpires = new Date(now.getTime() + 30 * 60 * 1000);
+    const paymentExpires = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
     const { error } = await supabase
       .from("flight_booking_requests")
@@ -106,7 +107,7 @@ export async function acceptBookingAction(
 
     await insertSystemMessage(
       bookingId,
-      "Booking je prihvaćen. Putnik ima 30 minuta za plaćanje.",
+      "Booking je prihvaćen. Putnik ima 24 sata za plaćanje.",
     );
 
     await notify(admin, booking.passenger_user_id, "booking_accepted", {
@@ -120,7 +121,7 @@ export async function acceptBookingAction(
     revalidatePath("/passenger/bookings");
     revalidatePath(`/flights/${booking.flight_id}`);
 
-    return { success: "Booking accepted. Passenger has 30 minutes to pay." };
+    return { success: "Booking accepted. Passenger has 24 hours to pay." };
   } catch (e) {
     return {
       error: e instanceof Error ? e.message : "Failed to accept booking",
@@ -216,11 +217,43 @@ export async function startCheckoutAction(
       return { error: "Booking not available for payment" };
     }
 
-    const expiresAt = booking.payment_expires_at
-      ? new Date(booking.payment_expires_at)
-      : null;
-    if (expiresAt && expiresAt.getTime() < Date.now()) {
+    if (
+      booking.payment_expires_at &&
+      new Date(booking.payment_expires_at).getTime() < Date.now()
+    ) {
       return { error: "Payment window has expired" };
+    }
+
+    const { data: flight } = await supabase
+      .from("flights")
+      .select("flight_date, departure_time")
+      .eq("id", booking.flight_id)
+      .maybeSingle();
+
+    if (!flight?.flight_date || !flight.departure_time) {
+      return { error: "Flight not found" };
+    }
+
+    const now = new Date();
+    const twentyFourHoursMs = 24 * 60 * 60 * 1000;
+    const thirtyMinutesMs = 30 * 60 * 1000;
+    const twoHoursMs = 2 * 60 * 60 * 1000;
+    const departureUtc = flightDepartureUtc(
+      flight.flight_date,
+      flight.departure_time,
+    );
+    const msUntilDeparture = departureUtc.getTime() - now.getTime();
+
+    let checkoutExpiresAt = new Date(now.getTime() + twentyFourHoursMs);
+    if (msUntilDeparture < twentyFourHoursMs) {
+      checkoutExpiresAt = new Date(departureUtc.getTime() - twoHoursMs);
+    }
+
+    if (
+      checkoutExpiresAt.getTime() <
+      now.getTime() + thirtyMinutesMs
+    ) {
+      return { error: "Payment window too close to departure" };
     }
 
     const amount = Number(booking.passenger_amount_eur ?? 0);
@@ -233,7 +266,7 @@ export async function startCheckoutAction(
       flightId: booking.flight_id,
       passengerUserId: user.id,
       passengerAmountEur: amount,
-      paymentExpiresAt: expiresAt ?? new Date(Date.now() + 30 * 60 * 1000),
+      paymentExpiresAt: checkoutExpiresAt,
     });
 
     if ("error" in result) {

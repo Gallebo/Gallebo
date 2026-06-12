@@ -81,7 +81,7 @@ function renderBookingAccepted(
   expires: string,
 ): string {
   const n = escapeHtml(name);
-  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your booking for flight <strong>${escapeHtml(flightId)}</strong> was <strong>accepted</strong>.</p><p>Pay <strong>€${escapeHtml(amount)}</strong> (incl. 4% platform fee) within 30 minutes: <a href="https://gallebo.app/dashboard/bookings">My bookings</a>.</p><p>Payment deadline: ${escapeHtml(expires)}</p></body></html>`;
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your booking for flight <strong>${escapeHtml(flightId)}</strong> was <strong>accepted</strong>.</p><p>Pay <strong>€${escapeHtml(amount)}</strong> (incl. 4% platform fee) within 24 hours: <a href="https://gallebo.app/dashboard/bookings">My bookings</a>.</p><p>Payment deadline: ${escapeHtml(expires)}</p></body></html>`;
 }
 
 function renderBookingRejected(name: string, flightId: string): string {
@@ -381,14 +381,14 @@ Deno.serve(async (req) => {
       }
 
       case "booking_accepted": {
-        subject = "Your booking was accepted — pay within 30 minutes";
+        subject = "Your booking was accepted — pay within 24 hours";
         html = renderBookingAccepted(
           displayName,
           String(payload.flightId ?? ""),
           String(payload.passengerAmountEur ?? ""),
           payload.paymentExpiresAt
             ? new Date(String(payload.paymentExpiresAt)).toLocaleString()
-            : "30 minutes",
+            : "24 hours",
         );
         break;
       }

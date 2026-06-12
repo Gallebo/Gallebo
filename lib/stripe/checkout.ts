@@ -19,7 +19,7 @@ export async function createBookingCheckoutSession(params: {
 
   const expiresAt = Math.floor(params.paymentExpiresAt.getTime() / 1000);
   const nowSec = Math.floor(Date.now() / 1000);
-  const minExpires = nowSec + 60;
+  const minExpires = nowSec + 30 * 60;
   const sessionExpiresAt = Math.max(expiresAt, minExpires);
 
   const session = await stripe.checkout.sessions.create({

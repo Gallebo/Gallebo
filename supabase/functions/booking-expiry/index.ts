@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
       await supabase.from("chat_messages").insert({
         booking_id: b.id,
         sender_user_id: null,
-        content: "Booking je istekao — plaćanje nije izvršeno u roku od 30 minuta.",
+        content: "Booking je istekao — plaćanje nije izvršeno u roku od 24 sata.",
         is_system: true,
       });
       const { data: settings } = await supabase
