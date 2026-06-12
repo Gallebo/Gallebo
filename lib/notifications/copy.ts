@@ -17,11 +17,16 @@ export function inAppCopyForType(
         title: "Booking accepted",
         body: "Pay within 24 hours to confirm your seat.",
       };
-    case "booking_rejected":
+    case "booking_rejected": {
+      const reason =
+        typeof payload.reason === "string" ? payload.reason.trim() : "";
       return {
         title: "Booking not accepted",
-        body: "The pilot did not accept your booking request.",
+        body: reason
+          ? `The pilot declined your request: ${reason}`
+          : "The pilot did not accept your booking request.",
       };
+    }
     case "booking_expired_no_response":
       return {
         title: "Booking expired",

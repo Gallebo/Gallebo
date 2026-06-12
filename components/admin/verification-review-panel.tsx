@@ -1,4 +1,3 @@
-import { BUCKET_BY_TYPE } from "@/lib/documents/constants";
 import {
   adminDocumentLinkLabel,
   formatDiditStatus,
@@ -8,7 +7,6 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AdminStatusPill } from "@/components/admin/admin-status-pill";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { DocumentType } from "@/lib/types/profile";
 
 type VerificationRequest = {
   id: string;
@@ -29,33 +27,27 @@ export async function VerificationReviewPanel({
   const isPilot = role === "pilot";
   const diditApproved = isDiditApproved(request.didit_status);
 
-  const signedUrls: { type: string; label: string; url: string }[] = [];
+  const documentLinks: { type: string; label: string; url: string }[] = [];
 
   if (isPilot) {
     const { data: documents } = await admin
       .from("documents")
-      .select("type, storage_path")
+      .select("id, type, storage_path")
       .eq("user_id", request.user_id)
       .in("type", ["ppl_license", "lapl_license", "medical_certificate"]);
 
     for (const doc of documents ?? []) {
       if (!isPilotProfessionalDocument(doc.type)) continue;
-      const bucket = BUCKET_BY_TYPE[doc.type as DocumentType];
-      const { data } = await admin.storage
-        .from(bucket)
-        .createSignedUrl(doc.storage_path, 300);
-      if (data?.signedUrl) {
-        signedUrls.push({
-          type: doc.type,
-          label: adminDocumentLinkLabel(doc.type),
-          url: data.signedUrl,
-        });
-      }
+      documentLinks.push({
+        type: doc.type,
+        label: adminDocumentLinkLabel(doc.type),
+        url: `/api/admin/documents/${doc.id}`,
+      });
     }
 
     const order = ["ppl_license", "lapl_license", "medical_certificate"];
-    signedUrls.sort(
-      (a, b) => order.indexOf(a.type) - order.indexOf(b.type)
+    documentLinks.sort(
+      (a, b) => order.indexOf(a.type) - order.indexOf(b.type),
     );
   }
 
@@ -99,9 +91,9 @@ export async function VerificationReviewPanel({
         {isPilot ? (
           <div className="space-y-2">
             <p className="font-medium text-foreground">Professional documents</p>
-            {signedUrls.length > 0 ? (
+            {documentLinks.length > 0 ? (
               <ul className="space-y-2">
-                {signedUrls.map((d) => (
+                {documentLinks.map((d) => (
                   <li key={d.type}>
                     <a
                       href={d.url}
@@ -109,7 +101,7 @@ export async function VerificationReviewPanel({
                       rel="noopener noreferrer"
                       className="text-primary hover:underline"
                     >
-                      {d.label} (5 min link)
+                      {d.label}
                     </a>
                   </li>
                 ))}

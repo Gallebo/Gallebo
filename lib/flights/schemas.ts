@@ -111,6 +111,7 @@ export const publishFlightSchema = z
     returnNote: z.string().max(2000).optional(),
     pilotReturnDate: z.string().optional(),
     costAcknowledged: z.literal("on").optional(),
+    airworthinessDeclared: z.literal("on"),
   })
   .superRefine((data, ctx) => {
     const hasOwned = Boolean(data.aircraftId);

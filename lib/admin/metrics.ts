@@ -1,3 +1,4 @@
+import { getKycPendingCount } from "@/lib/admin/queries";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface PlatformMetrics {
@@ -27,7 +28,7 @@ export async function getPlatformMetrics(): Promise<PlatformMetrics> {
     { count: publishedFlights },
     { count: totalBookings },
     { data: gmvData },
-    { count: pendingKyc },
+    pendingKyc,
   ] = await Promise.all([
     admin.from("profiles").select("id", { count: "exact", head: true }),
     admin
@@ -43,10 +44,7 @@ export async function getPlatformMetrics(): Promise<PlatformMetrics> {
     admin
       .from("ledger")
       .select("type, amount_eur"),
-    admin
-      .from("verification_requests")
-      .select("id", { count: "exact", head: true })
-      .is("reviewed_at", null),
+    getKycPendingCount(),
   ]);
 
   let gmvEur = 0;
@@ -66,7 +64,7 @@ export async function getPlatformMetrics(): Promise<PlatformMetrics> {
     totalBookings: totalBookings ?? 0,
     gmvEur,
     platformFeeEur,
-    pendingKyc: pendingKyc ?? 0,
+    pendingKyc,
   };
 }
 

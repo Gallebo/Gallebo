@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 
-import { authInputClassName, authInputStyle } from "@/components/auth/auth-form-styles";
 import { createClient } from "@/lib/supabase/client";
+import {
+  formControlClassName,
+  formInputSizeClassName,
+} from "@/lib/ui/form-controls";
 import { cn } from "@/lib/utils";
 
 type OAuthProvider = "google" | "apple";
@@ -73,10 +76,10 @@ function SocialButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        authInputClassName,
-        "inline-flex h-12 w-full items-center justify-center gap-3 text-[15px] font-medium transition-all hover:brightness-[0.98] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+        formControlClassName,
+        formInputSizeClassName.lg,
+        "inline-flex w-full items-center justify-center gap-3 font-medium transition-all hover:brightness-[0.98] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60",
       )}
-      style={authInputStyle}
     >
       {icon}
       {label}

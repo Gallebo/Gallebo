@@ -11,8 +11,12 @@ import {
   AirfieldCombobox,
   type AirfieldOption,
 } from "@/components/flights/airfield-combobox";
+import { ChoiceCheckbox, ChoiceGroup } from "@/components/ui/choice-group";
 import { Button } from "@/components/ui/button";
+import { FormField, FormHint, FormLabel } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import {
   FLIGHT_LANGUAGE_LABELS,
   FLIGHT_TYPE_LABELS,
@@ -85,6 +89,8 @@ export function PublishFlightWizard({
     completed: number;
     total: number;
   } | null>(null);
+  const [airworthinessDeclared, setAirworthinessDeclared] = useState(false);
+  const [costAcknowledged, setCostAcknowledged] = useState(false);
 
   const pricePerPassenger = useMemo(() => {
     if (!draft.totalCostEur || !draft.passengerSeats) return null;
@@ -111,10 +117,18 @@ export function PublishFlightWizard({
   async function handlePublishSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setPublishError(null);
+    if (!airworthinessDeclared) {
+      setPublishError("Please confirm the airworthiness declaration before publishing.");
+      return;
+    }
     setPublishing(true);
     try {
       const form = e.currentTarget;
       const fd = new FormData(form);
+      fd.set("airworthinessDeclared", "on");
+      if (pricePreview.warning && costAcknowledged) {
+        fd.set("costAcknowledged", "on");
+      }
       const pathsRaw = fd.get("photoPaths");
       if (typeof pathsRaw === "string") {
         try {
@@ -419,19 +433,15 @@ export function PublishFlightWizard({
 
       {step === 1 ? (
         <StepCard step={1} title="Flight type" description="Choose how you will fly">
-          <div className="space-y-3">
-            {(["panoramic", "excursion", "one_way"] as const).map((t) => (
-              <label key={t} className="flex items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  name="flightType"
-                  checked={draft.flightType === t}
-                  onChange={() => setDraft((d) => ({ ...d, flightType: t }))}
-                />
-                {FLIGHT_TYPE_LABELS[t]}
-              </label>
-            ))}
-          </div>
+          <ChoiceGroup
+            name="flightType"
+            value={draft.flightType ?? "excursion"}
+            onChange={(t) => setDraft((d) => ({ ...d, flightType: t }))}
+            options={(["panoramic", "excursion", "one_way"] as const).map((t) => ({
+              value: t,
+              label: FLIGHT_TYPE_LABELS[t],
+            }))}
+          />
           {stepError ? <p className="text-sm text-destructive">{stepError}</p> : null}
           <NavButtons
             pending={pending}
@@ -449,22 +459,39 @@ export function PublishFlightWizard({
       {step === 2 ? (
         <StepCard step={2} title="Aircraft" description="Your aircraft or rented">
           <div className="space-y-4">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                checked={draft.aircraftMode !== "rented"}
-                onChange={() =>
-                  setDraft((d) => ({
-                    ...d,
-                    aircraftMode: "owned",
-                    rentedModel: undefined,
-                    rentedRegistration: undefined,
-                    rentedSeats: undefined,
-                  }))
-                }
-              />
-              My registered aircraft
-            </label>
+            <ChoiceGroup
+              name="aircraftMode"
+              value={draft.aircraftMode === "rented" ? "rented" : "owned"}
+              onChange={(mode) =>
+                setDraft((d) =>
+                  mode === "rented"
+                    ? {
+                        ...d,
+                        aircraftMode: "rented",
+                        aircraftId: undefined,
+                      }
+                    : {
+                        ...d,
+                        aircraftMode: "owned",
+                        rentedModel: undefined,
+                        rentedRegistration: undefined,
+                        rentedSeats: undefined,
+                      },
+                )
+              }
+              options={[
+                {
+                  value: "owned",
+                  label: "My registered aircraft",
+                  description: "Select from aircraft you have added to Gallebo.",
+                },
+                {
+                  value: "rented",
+                  label: "Rented aircraft",
+                  description: "Enter details for a one-off rental.",
+                },
+              ]}
+            />
             {draft.aircraftMode !== "rented" ? (
               aircraftList.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
@@ -474,67 +501,71 @@ export function PublishFlightWizard({
                   </Link>
                 </p>
               ) : (
-                <select
-                  className="w-full rounded-md border px-3 py-2 text-sm"
-                  value={draft.aircraftId ?? ""}
-                  onChange={(e) =>
-                    setDraft((d) => ({ ...d, aircraftId: e.target.value, aircraftMode: "owned" }))
-                  }
-                >
-                  <option value="">Select aircraft</option>
-                  {aircraftList.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.model} — {a.registration} ({a.seats} seats)
-                    </option>
-                  ))}
-                </select>
+                <FormField>
+                  <FormLabel htmlFor="publish-aircraft-select">Aircraft</FormLabel>
+                  <Select
+                    id="publish-aircraft-select"
+                    value={draft.aircraftId ?? ""}
+                    onChange={(e) =>
+                      setDraft((d) => ({ ...d, aircraftId: e.target.value, aircraftMode: "owned" }))
+                    }
+                  >
+                    <option value="">Select aircraft</option>
+                    {aircraftList.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.model} — {a.registration} ({a.seats} seats)
+                      </option>
+                    ))}
+                  </Select>
+                </FormField>
               )
             ) : null}
 
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                checked={draft.aircraftMode === "rented"}
-                onChange={() =>
-                  setDraft((d) => ({
-                    ...d,
-                    aircraftMode: "rented",
-                    aircraftId: undefined,
-                  }))
-                }
-              />
-              Rented aircraft (per flight)
-            </label>
             {draft.aircraftMode === "rented" ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Input
-                  placeholder="Model"
-                  value={draft.rentedModel ?? ""}
-                  onChange={(e) =>
-                    setDraft((d) => ({ ...d, rentedModel: e.target.value }))
-                  }
-                />
-                <Input
-                  placeholder="Registration"
-                  className="font-mono uppercase"
-                  value={draft.rentedRegistration ?? ""}
-                  onChange={(e) =>
-                    setDraft((d) => ({ ...d, rentedRegistration: e.target.value }))
-                  }
-                />
-                <Input
-                  type="number"
-                  min={2}
-                  max={6}
-                  placeholder="Seats"
-                  value={draft.rentedSeats ?? ""}
-                  onChange={(e) =>
-                    setDraft((d) => ({
-                      ...d,
-                      rentedSeats: Number(e.target.value),
-                    }))
-                  }
-                />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField>
+                  <FormLabel htmlFor="rented-model">Model</FormLabel>
+                  <Input
+                    id="rented-model"
+                    placeholder="Cessna 172"
+                    value={draft.rentedModel ?? ""}
+                    onChange={(e) =>
+                      setDraft((d) => ({ ...d, rentedModel: e.target.value }))
+                    }
+                  />
+                </FormField>
+                <FormField>
+                  <FormLabel htmlFor="rented-registration">Registration</FormLabel>
+                  <Input
+                    id="rented-registration"
+                    placeholder="9A-ABC"
+                    className="font-mono uppercase"
+                    required
+                    minLength={2}
+                    maxLength={12}
+                    value={draft.rentedRegistration ?? ""}
+                    onChange={(e) =>
+                      setDraft((d) => ({ ...d, rentedRegistration: e.target.value }))
+                    }
+                  />
+                </FormField>
+                <FormField className="sm:col-span-2">
+                  <FormLabel htmlFor="rented-seats">Seats</FormLabel>
+                  <Input
+                    id="rented-seats"
+                    type="number"
+                    min={2}
+                    max={6}
+                    placeholder="4"
+                    value={draft.rentedSeats ?? ""}
+                    onChange={(e) =>
+                      setDraft((d) => ({
+                        ...d,
+                        rentedSeats: Number(e.target.value),
+                      }))
+                    }
+                  />
+                </FormField>
               </div>
             ) : null}
           </div>
@@ -621,16 +652,17 @@ export function PublishFlightWizard({
       {step === 4 ? (
         <StepCard step={4} title="Date & time">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Date</label>
+            <FormField>
+              <FormLabel htmlFor="publish-flight-date">Date</FormLabel>
               <Input
+                id="publish-flight-date"
                 type="date"
                 value={draft.flightDate ?? ""}
                 onChange={(e) =>
                   setDraft((d) => ({ ...d, flightDate: e.target.value }))
                 }
               />
-            </div>
+            </FormField>
             {waitingPassengers != null && waitingPassengers > 0 ? (
               <p
                 className="sm:col-span-2 rounded-lg border px-3 py-2 text-sm"
@@ -645,16 +677,17 @@ export function PublishFlightWizard({
                   : `${waitingPassengers} passengers are waiting for this route in your selected period`}
               </p>
             ) : null}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Departure time</label>
+            <FormField>
+              <FormLabel htmlFor="publish-departure-time">Departure time</FormLabel>
               <Input
+                id="publish-departure-time"
                 type="time"
                 value={draft.departureTime ?? ""}
                 onChange={(e) =>
                   setDraft((d) => ({ ...d, departureTime: e.target.value }))
                 }
               />
-            </div>
+            </FormField>
           </div>
           {stepError ? <p className="text-sm text-destructive">{stepError}</p> : null}
           <NavButtons
@@ -671,18 +704,22 @@ export function PublishFlightWizard({
 
       {step === 5 ? (
         <StepCard step={5} title="Total cost" description="Full flight cost in EUR">
-          <Input
-            type="number"
-            step="0.01"
-            min={1}
-            value={draft.totalCostEur ?? ""}
-            onChange={(e) =>
-              setDraft((d) => ({
-                ...d,
-                totalCostEur: Number(e.target.value),
-              }))
-            }
-          />
+          <FormField>
+            <FormLabel htmlFor="publish-total-cost">Total cost (EUR)</FormLabel>
+            <Input
+              id="publish-total-cost"
+              type="number"
+              step="0.01"
+              min={1}
+              value={draft.totalCostEur ?? ""}
+              onChange={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  totalCostEur: Number(e.target.value),
+                }))
+              }
+            />
+          </FormField>
           {stepError ? <p className="text-sm text-destructive">{stepError}</p> : null}
           <NavButtons
             pending={pending}
@@ -698,18 +735,22 @@ export function PublishFlightWizard({
 
       {step === 6 ? (
         <StepCard step={6} title="Passenger seats" description="Max 5 (6 incl. pilot)">
-          <Input
-            type="number"
-            min={1}
-            max={5}
-            value={draft.passengerSeats ?? ""}
-            onChange={(e) =>
-              setDraft((d) => ({
-                ...d,
-                passengerSeats: Number(e.target.value),
-              }))
-            }
-          />
+          <FormField>
+            <FormLabel htmlFor="publish-passenger-seats">Passenger seats</FormLabel>
+            <Input
+              id="publish-passenger-seats"
+              type="number"
+              min={1}
+              max={5}
+              value={draft.passengerSeats ?? ""}
+              onChange={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  passengerSeats: Number(e.target.value),
+                }))
+              }
+            />
+          </FormField>
           {stepError ? <p className="text-sm text-destructive">{stepError}</p> : null}
           <NavButtons
             pending={pending}
@@ -750,14 +791,17 @@ export function PublishFlightWizard({
           title="Description & photos"
           description={`Min ${MIN_FLIGHT_PHOTOS} photos`}
         >
-          <textarea
-            className="min-h-[120px] w-full rounded-md border px-3 py-2 text-sm"
-            value={draft.description ?? ""}
-            onChange={(e) =>
-              setDraft((d) => ({ ...d, description: e.target.value }))
-            }
-            placeholder="Describe the flight experience…"
-          />
+          <FormField>
+            <FormLabel htmlFor="publish-description">Description</FormLabel>
+            <Textarea
+              id="publish-description"
+              value={draft.description ?? ""}
+              onChange={(e) =>
+                setDraft((d) => ({ ...d, description: e.target.value }))
+              }
+              placeholder="Describe the flight experience…"
+            />
+          </FormField>
           <div className="space-y-3">
             {(draft.photoPaths?.length ?? 0) > 0 ? (
               <ul className="grid gap-3 sm:grid-cols-2">
@@ -803,16 +847,31 @@ export function PublishFlightWizard({
             ) : (
               <p className="text-sm text-muted-foreground">No photos yet.</p>
             )}
-            <div className="space-y-1">
-              <label className="text-sm font-medium">
+            <FormField>
+              <FormLabel htmlFor="publish-flight-photos">
                 {(draft.photoPaths?.length ?? 0) >= MAX_FLIGHT_PHOTOS
                   ? "Maximum photos reached"
                   : "Add photos"}
+              </FormLabel>
+              <label
+                htmlFor="publish-flight-photos"
+                className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-[var(--radius-base)] border border-dashed px-4 py-6 text-center transition-colors hover:border-[var(--primary-v2)] hover:bg-[var(--primary-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+                style={{
+                  borderColor: "var(--line-strong)",
+                  background: "var(--surface-alt)",
+                }}
+              >
+                <span className="text-[14px] font-medium text-[var(--ink)]">
+                  Choose photos
+                </span>
+                <FormHint>JPEG, PNG or WebP</FormHint>
               </label>
               <input
+                id="publish-flight-photos"
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
                 multiple
+                className="sr-only"
                 disabled={
                   pending ||
                   photoUploadProgress !== null ||
@@ -823,7 +882,7 @@ export function PublishFlightWizard({
                   e.target.value = "";
                 }}
               />
-            </div>
+            </FormField>
             {photoUploadProgress ? (
               <p
                 className="flex items-center gap-2 text-sm text-muted-foreground"
@@ -873,20 +932,18 @@ export function PublishFlightWizard({
 
       {step === 9 ? (
         <StepCard step={9} title="Communication language">
-          <div className="flex flex-wrap gap-4">
-            {(["hr", "en", "it"] as const).map((lang) => (
-              <label key={lang} className="flex items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  checked={draft.communicationLanguage === lang}
-                  onChange={() =>
-                    setDraft((d) => ({ ...d, communicationLanguage: lang }))
-                  }
-                />
-                {FLIGHT_LANGUAGE_LABELS[lang]}
-              </label>
-            ))}
-          </div>
+          <ChoiceGroup
+            name="communicationLanguage"
+            value={draft.communicationLanguage ?? "en"}
+            onChange={(lang) =>
+              setDraft((d) => ({ ...d, communicationLanguage: lang }))
+            }
+            layout="grid"
+            options={(["hr", "en", "it"] as const).map((lang) => ({
+              value: lang,
+              label: FLIGHT_LANGUAGE_LABELS[lang],
+            }))}
+          />
           {stepError ? <p className="text-sm text-destructive">{stepError}</p> : null}
           <NavButtons
             pending={pending}
@@ -903,24 +960,29 @@ export function PublishFlightWizard({
 
       {step === 10 && draft.flightType === "one_way" ? (
         <StepCard step={10} title="Return note" description="Optional">
-          <textarea
-            className="min-h-[80px] w-full rounded-md border px-3 py-2 text-sm"
-            value={draft.returnNote ?? ""}
-            onChange={(e) =>
-              setDraft((d) => ({ ...d, returnNote: e.target.value }))
-            }
-            placeholder="When you plan to return…"
-          />
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Pilot return date (optional)</label>
+          <FormField>
+            <FormLabel htmlFor="publish-return-note">Return note (optional)</FormLabel>
+            <Textarea
+              id="publish-return-note"
+              className="min-h-[80px]"
+              value={draft.returnNote ?? ""}
+              onChange={(e) =>
+                setDraft((d) => ({ ...d, returnNote: e.target.value }))
+              }
+              placeholder="When you plan to return…"
+            />
+          </FormField>
+          <FormField>
+            <FormLabel htmlFor="publish-return-date">Pilot return date (optional)</FormLabel>
             <Input
+              id="publish-return-date"
               type="date"
               value={draft.pilotReturnDate ?? ""}
               onChange={(e) =>
                 setDraft((d) => ({ ...d, pilotReturnDate: e.target.value }))
               }
             />
-          </div>
+          </FormField>
           <NavButtons
             pending={pending}
             onBack={() => setStep(9)}
@@ -945,6 +1007,22 @@ export function PublishFlightWizard({
             </li>
             <li>
               <strong>When:</strong> {draft.flightDate} {draft.departureTime}
+            </li>
+            <li>
+              <strong>Aircraft:</strong>{" "}
+              {draft.aircraftMode === "rented" ? (
+                <>
+                  {draft.rentedModel ?? "—"} ({draft.rentedRegistration ?? "—"}) —{" "}
+                  {draft.rentedSeats ?? "—"} seats
+                </>
+              ) : (
+                (() => {
+                  const ac = aircraftList.find((a) => a.id === draft.aircraftId);
+                  return ac
+                    ? `${ac.model} — ${ac.registration} (${ac.seats} seats)`
+                    : "—";
+                })()
+              )}
             </li>
             <li>
               <strong>Price / passenger:</strong> €
@@ -1039,11 +1117,23 @@ export function PublishFlightWizard({
               )}
             />
             {pricePreview.warning ? (
-              <label className="flex items-start gap-2 text-sm">
-                <input type="checkbox" name="costAcknowledged" required />
+              <ChoiceCheckbox
+                name="costAcknowledged"
+                checked={costAcknowledged}
+                onChange={setCostAcknowledged}
+              >
                 I confirm this amount reflects actual shared costs without profit.
-              </label>
+              </ChoiceCheckbox>
             ) : null}
+            <ChoiceCheckbox
+              name="airworthinessDeclared"
+              checked={airworthinessDeclared}
+              onChange={setAirworthinessDeclared}
+            >
+              I confirm that the aircraft is airworthy, insured for flights with
+              passengers, and that I have valid authorization to operate this aircraft
+              on this flight.
+            </ChoiceCheckbox>
             {publishError ? (
               <p className="text-sm text-destructive">{publishError}</p>
             ) : null}
@@ -1058,7 +1148,15 @@ export function PublishFlightWizard({
               >
                 Back
               </Button>
-              <Button type="submit" disabled={publishing || pending}>
+              <Button
+                type="submit"
+                disabled={
+                  publishing ||
+                  pending ||
+                  !airworthinessDeclared ||
+                  (pricePreview.warning !== null && !costAcknowledged)
+                }
+              >
                 {publishing ? "Publishing…" : "Publish flight"}
               </Button>
             </div>

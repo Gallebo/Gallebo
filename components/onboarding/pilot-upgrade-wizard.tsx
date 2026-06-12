@@ -16,6 +16,8 @@ import {
   submitPilotUpgradeAction,
   type ActionState,
 } from "@/lib/onboarding/actions";
+import { ChoiceCheckbox, ChoiceGroup } from "@/components/ui/choice-group";
+import { FormField, FormLabel } from "@/components/ui/form-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Json } from "@/types/database";
@@ -112,6 +114,7 @@ export function PilotUpgradeWizard({
   );
   const [licenseFile, setLicenseFile] = useState<File | null>(null);
   const [medicalFile, setMedicalFile] = useState<File | null>(null);
+  const [taxAccepted, setTaxAccepted] = useState(false);
   const [state, setState] = useState<ActionState>({});
   const [pending, startTransition] = useTransition();
 
@@ -149,28 +152,16 @@ export function PilotUpgradeWizard({
                 Licence already uploaded. Choose a new file below to replace it.
               </p>
             ) : null}
-            <div className="flex gap-4 text-sm">
-              <label className="flex cursor-pointer items-center gap-2">
-                <input
-                  type="radio"
-                  name="licenseType"
-                  value="ppl_license"
-                  checked={licenseType === "ppl_license"}
-                  onChange={() => setLicenseType("ppl_license")}
-                />
-                PPL
-              </label>
-              <label className="flex cursor-pointer items-center gap-2">
-                <input
-                  type="radio"
-                  name="licenseType"
-                  value="lapl_license"
-                  checked={licenseType === "lapl_license"}
-                  onChange={() => setLicenseType("lapl_license")}
-                />
-                LAPL
-              </label>
-            </div>
+            <ChoiceGroup
+              name="licenseType"
+              value={licenseType}
+              onChange={setLicenseType}
+              layout="grid"
+              options={[
+                { value: "ppl_license", label: "PPL" },
+                { value: "lapl_license", label: "LAPL" },
+              ]}
+            />
             <OptionalFileInput
               id="pilot-upgrade-license-file"
               accept="image/jpeg,image/png,application/pdf"
@@ -179,10 +170,8 @@ export function PilotUpgradeWizard({
               onFileChange={setLicenseFile}
             />
             {needsPhoneInput(String(draft.phone ?? "")) ? (
-              <div className="space-y-2">
-                <label htmlFor="pilot-upgrade-phone" className="text-sm font-medium">
-                  Phone
-                </label>
+              <FormField>
+                <FormLabel htmlFor="pilot-upgrade-phone">Phone</FormLabel>
                 <Input
                   id="pilot-upgrade-phone"
                   type="tel"
@@ -191,15 +180,12 @@ export function PilotUpgradeWizard({
                     setDraft((d) => ({ ...d, phone: ev.target.value }))
                   }
                 />
-              </div>
+              </FormField>
             ) : null}
-            <div className="space-y-2">
-              <label
-                htmlFor="pilot-upgrade-license-expires"
-                className="text-sm font-medium"
-              >
+            <FormField>
+              <FormLabel htmlFor="pilot-upgrade-license-expires">
                 Licence expiry date
-              </label>
+              </FormLabel>
               <Input
                 id="pilot-upgrade-license-expires"
                 type="date"
@@ -208,7 +194,7 @@ export function PilotUpgradeWizard({
                   setDraft((d) => ({ ...d, licenseExpiresAt: ev.target.value }))
                 }
               />
-            </div>
+            </FormField>
             <Button
               type="button"
               className="w-full"
@@ -259,13 +245,19 @@ export function PilotUpgradeWizard({
               disabled={pending}
               onFileChange={setMedicalFile}
             />
-            <Input
-              type="date"
-              value={String(draft.medicalExpiresAt ?? "")}
-              onChange={(ev) =>
-                setDraft((d) => ({ ...d, medicalExpiresAt: ev.target.value }))
-              }
-            />
+            <FormField>
+              <FormLabel htmlFor="pilot-upgrade-medical-expires">
+                Medical expiry date
+              </FormLabel>
+              <Input
+                id="pilot-upgrade-medical-expires"
+                type="date"
+                value={String(draft.medicalExpiresAt ?? "")}
+                onChange={(ev) =>
+                  setDraft((d) => ({ ...d, medicalExpiresAt: ev.target.value }))
+                }
+              />
+            </FormField>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button type="button" variant="ghost" onClick={() => setStep(1)}>
                 Back
@@ -314,11 +306,7 @@ export function PilotUpgradeWizard({
                 });
                 return;
               }
-              const formEl = e.currentTarget;
-              const tax = formEl.querySelector(
-                'input[name="taxDeclaration"]'
-              ) as HTMLInputElement | null;
-              if (!tax?.checked) {
+              if (!taxAccepted) {
                 setState({ error: "You must accept the tax declaration." });
                 return;
               }
@@ -342,10 +330,13 @@ export function PilotUpgradeWizard({
               });
             }}
           >
-            <label className="flex items-start gap-2 text-sm">
-              <input name="taxDeclaration" type="checkbox" required className="mt-1" />
+            <ChoiceCheckbox
+              name="taxDeclaration"
+              checked={taxAccepted}
+              onChange={setTaxAccepted}
+            >
               I declare that my tax information is accurate for flight cost sharing.
-            </label>
+            </ChoiceCheckbox>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button type="button" variant="ghost" onClick={() => setStep(2)}>
                 Back

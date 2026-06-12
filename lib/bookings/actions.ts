@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 import {
   calculateBookingAmounts,
@@ -27,6 +28,12 @@ export type BookingActionState = {
   success?: string;
   checkoutUrl?: string;
 };
+
+const pilotRejectionReasonSchema = z
+  .string()
+  .trim()
+  .min(10, "Rejection reason must be at least 10 characters")
+  .max(500, "Rejection reason must be at most 500 characters");
 
 async function notify(
   admin: ReturnType<typeof createAdminClient>,
@@ -73,7 +80,9 @@ export async function acceptBookingAction(
 
     const { data: flight } = await supabase
       .from("flights")
-      .select("pilot_user_id, price_per_passenger_eur, status")
+      .select(
+        "pilot_user_id, price_per_passenger_eur, status, cancellation_locked_at",
+      )
       .eq("id", booking.flight_id)
       .eq("pilot_user_id", user.id)
       .eq("status", "published")
@@ -81,6 +90,13 @@ export async function acceptBookingAction(
 
     if (!flight) {
       return { error: "Not authorized or flight not available" };
+    }
+
+    if (flight.cancellation_locked_at) {
+      return {
+        error:
+          "Flight is locked pending support review. Contact support@gallebo.app.",
+      };
     }
 
     const amounts = calculateBookingAmounts(
@@ -131,8 +147,18 @@ export async function acceptBookingAction(
 
 export async function rejectBookingAction(
   bookingId: string,
+  reason: string,
 ): Promise<BookingActionState> {
   try {
+    const parsedReason = pilotRejectionReasonSchema.safeParse(reason);
+    if (!parsedReason.success) {
+      return {
+        error:
+          parsedReason.error.issues[0]?.message ??
+          "Rejection reason is required",
+      };
+    }
+
     const { user } = await requirePilot();
     const supabase = await createClient();
     const admin = createAdminClient();
@@ -159,11 +185,14 @@ export async function rejectBookingAction(
       return { error: "Not authorized" };
     }
 
+    const rejectionReason = parsedReason.data;
+
     const { error } = await supabase
       .from("flight_booking_requests")
       .update({
         status: "rejected",
         pilot_responded_at: new Date().toISOString(),
+        pilot_rejection_reason: rejectionReason,
         payout_status: "not_applicable",
       })
       .eq("id", bookingId)
@@ -173,12 +202,13 @@ export async function rejectBookingAction(
 
     await insertSystemMessage(
       bookingId,
-      "Booking je odbijen od strane pilota.",
+      `Booking odbijen: ${rejectionReason}`,
     );
 
     await notify(admin, booking.passenger_user_id, "booking_rejected", {
       bookingId,
       flightId: booking.flight_id,
+      reason: rejectionReason,
     });
 
     revalidatePath("/pilot/bookings");
@@ -433,7 +463,9 @@ export async function markFlightCompletedAction(
 
     const { data: flight } = await supabase
       .from("flights")
-      .select("id, pilot_user_id, status, flight_date, departure_time")
+      .select(
+        "id, pilot_user_id, status, flight_date, departure_time, cancellation_locked_at",
+      )
       .eq("id", flightId)
       .eq("pilot_user_id", user.id)
       .eq("status", "published")
@@ -441,6 +473,13 @@ export async function markFlightCompletedAction(
 
     if (!flight) {
       return { error: "Flight not found or not published" };
+    }
+
+    if (flight.cancellation_locked_at) {
+      return {
+        error:
+          "Flight is locked pending support review. Contact support@gallebo.app.",
+      };
     }
 
     if (

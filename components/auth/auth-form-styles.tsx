@@ -1,21 +1,8 @@
 import Link from "next/link";
 
-import { cn } from "@/lib/utils";
+import { formLabelClassName } from "@/lib/ui/form-controls";
 
-export const authInputClassName = cn(
-  "h-12 rounded-xl border px-4 text-[15px] shadow-none",
-  "placeholder:text-[var(--ink-3)]",
-  "focus-visible:border-[var(--primary-v2)] focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--primary-v2)_18%,transparent)]"
-);
-
-export const authInputStyle = {
-  borderColor: "var(--line)",
-  background: "var(--surface)",
-  color: "var(--ink)",
-} as const;
-
-export const authLabelClassName =
-  "text-[13px] font-medium tracking-[-0.01em]";
+export { formLabelClassName as authLabelClassName };
 
 export function AuthSubmitButton({
   children,

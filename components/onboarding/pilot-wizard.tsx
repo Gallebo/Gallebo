@@ -18,6 +18,8 @@ import {
   submitPilotVerificationAction,
   type ActionState,
 } from "@/lib/onboarding/actions";
+import { ChoiceCheckbox, ChoiceGroup } from "@/components/ui/choice-group";
+import { FormField, FormLabel } from "@/components/ui/form-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Json } from "@/types/database";
@@ -105,6 +107,7 @@ export function PilotOnboardingWizard({
   );
   const [licenseFile, setLicenseFile] = useState<File | null>(null);
   const [medicalFile, setMedicalFile] = useState<File | null>(null);
+  const [taxAccepted, setTaxAccepted] = useState(false);
   const [state, setState] = useState<ActionState>({});
   const [pending, startTransition] = useTransition();
 
@@ -210,28 +213,16 @@ export function PilotOnboardingWizard({
                 Licence already uploaded. Choose a new file below to replace it.
               </p>
             ) : null}
-            <div className="flex gap-4 text-sm">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="licenseType"
-                  value="ppl_license"
-                  checked={licenseType === "ppl_license"}
-                  onChange={() => setLicenseType("ppl_license")}
-                />
-                PPL
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="licenseType"
-                  value="lapl_license"
-                  checked={licenseType === "lapl_license"}
-                  onChange={() => setLicenseType("lapl_license")}
-                />
-                LAPL
-              </label>
-            </div>
+            <ChoiceGroup
+              name="licenseType"
+              value={licenseType}
+              onChange={setLicenseType}
+              layout="grid"
+              options={[
+                { value: "ppl_license", label: "PPL" },
+                { value: "lapl_license", label: "LAPL" },
+              ]}
+            />
             <OptionalFileInput
               id="pilot-license-file"
               accept="image/jpeg,image/png,application/pdf"
@@ -239,13 +230,17 @@ export function PilotOnboardingWizard({
               disabled={pending}
               onFileChange={setLicenseFile}
             />
-            <Input
-              type="date"
-              value={String(draft.licenseExpiresAt ?? "")}
-              onChange={(ev) =>
-                setDraft((d) => ({ ...d, licenseExpiresAt: ev.target.value }))
-              }
-            />
+            <FormField>
+              <FormLabel htmlFor="pilot-license-expires">Licence expiry date</FormLabel>
+              <Input
+                id="pilot-license-expires"
+                type="date"
+                value={String(draft.licenseExpiresAt ?? "")}
+                onChange={(ev) =>
+                  setDraft((d) => ({ ...d, licenseExpiresAt: ev.target.value }))
+                }
+              />
+            </FormField>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button type="button" variant="ghost" onClick={() => setStep(2)}>
                 Back
@@ -295,13 +290,17 @@ export function PilotOnboardingWizard({
               disabled={pending}
               onFileChange={setMedicalFile}
             />
-            <Input
-              type="date"
-              value={String(draft.medicalExpiresAt ?? "")}
-              onChange={(ev) =>
-                setDraft((d) => ({ ...d, medicalExpiresAt: ev.target.value }))
-              }
-            />
+            <FormField>
+              <FormLabel htmlFor="pilot-medical-expires">Medical expiry date</FormLabel>
+              <Input
+                id="pilot-medical-expires"
+                type="date"
+                value={String(draft.medicalExpiresAt ?? "")}
+                onChange={(ev) =>
+                  setDraft((d) => ({ ...d, medicalExpiresAt: ev.target.value }))
+                }
+              />
+            </FormField>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button type="button" variant="ghost" onClick={() => setStep(3)}>
                 Back
@@ -349,11 +348,7 @@ export function PilotOnboardingWizard({
                 });
                 return;
               }
-              const formEl = e.currentTarget;
-              const tax = formEl.querySelector(
-                'input[name="taxDeclaration"]'
-              ) as HTMLInputElement | null;
-              if (!tax?.checked) {
+              if (!taxAccepted) {
                 setState({ error: "You must accept the tax declaration." });
                 return;
               }
@@ -377,10 +372,13 @@ export function PilotOnboardingWizard({
               });
             }}
           >
-            <label className="flex items-start gap-2 text-sm">
-              <input name="taxDeclaration" type="checkbox" required className="mt-1" />
+            <ChoiceCheckbox
+              name="taxDeclaration"
+              checked={taxAccepted}
+              onChange={setTaxAccepted}
+            >
               I declare that my tax information is accurate for flight cost sharing.
-            </label>
+            </ChoiceCheckbox>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button type="button" variant="ghost" onClick={() => setStep(4)}>
                 Back

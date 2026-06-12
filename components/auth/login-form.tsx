@@ -4,8 +4,6 @@ import { useActionState, useEffect, useTransition, useState } from "react";
 
 import {
   AuthSubmitButton,
-  authInputClassName,
-  authInputStyle,
   authLabelClassName,
 } from "@/components/auth/auth-form-styles";
 import { FormMessage } from "@/components/auth/form-message";
@@ -83,10 +81,9 @@ export function LoginForm({ next }: { next?: string }) {
             id="email"
             name="email"
             type="email"
+            size="lg"
             autoComplete="email"
             placeholder="you@example.com"
-            className={authInputClassName}
-            style={authInputStyle}
             aria-invalid={Boolean(errors.email)}
             value={email}
             onChange={(event) => {
@@ -112,10 +109,9 @@ export function LoginForm({ next }: { next?: string }) {
             id="password"
             name="password"
             type="password"
+            size="lg"
             autoComplete="current-password"
             placeholder="At least 8 characters"
-            className={authInputClassName}
-            style={authInputStyle}
             aria-invalid={Boolean(errors.password)}
             value={password}
             onChange={(event) => {

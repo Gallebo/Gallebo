@@ -14,10 +14,6 @@ import {
 
   AuthSubmitButton,
 
-  authInputClassName,
-
-  authInputStyle,
-
   authLabelClassName,
 
 } from "@/components/auth/auth-form-styles";
@@ -120,9 +116,7 @@ export function ResetPasswordForm() {
 
           placeholder="At least 8 characters"
 
-          className={authInputClassName}
-
-          style={authInputStyle}
+          size="lg"
 
           aria-invalid={Boolean(form.formState.errors.password)}
 
@@ -162,9 +156,7 @@ export function ResetPasswordForm() {
 
           placeholder="Repeat your password"
 
-          className={authInputClassName}
-
-          style={authInputStyle}
+          size="lg"
 
           aria-invalid={Boolean(form.formState.errors.confirmPassword)}
 

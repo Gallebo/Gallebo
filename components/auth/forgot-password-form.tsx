@@ -14,10 +14,6 @@ import {
 
   AuthSubmitButton,
 
-  authInputClassName,
-
-  authInputStyle,
-
   authLabelClassName,
 
 } from "@/components/auth/auth-form-styles";
@@ -116,9 +112,7 @@ export function ForgotPasswordForm() {
 
           placeholder="you@example.com"
 
-          className={authInputClassName}
-
-          style={authInputStyle}
+          size="lg"
 
           aria-invalid={Boolean(form.formState.errors.email)}
 

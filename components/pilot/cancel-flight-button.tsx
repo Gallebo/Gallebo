@@ -5,7 +5,13 @@ import { useState, useTransition } from "react";
 
 import { cancelFlightAction } from "@/lib/flights/actions";
 
-export function CancelFlightButton({ flightId }: { flightId: string }) {
+export function CancelFlightButton({
+  flightId,
+  hasPaidBookings = false,
+}: {
+  flightId: string;
+  hasPaidBookings?: boolean;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -38,8 +44,9 @@ export function CancelFlightButton({ flightId }: { flightId: string }) {
         Cancel this flight?
       </p>
       <p className="text-sm" style={{ color: "var(--ink-3)" }}>
-        The listing will be removed. Pending or accepted booking requests will be
-        cancelled. This cannot be undone.
+        {hasPaidBookings
+          ? "This will cancel the entire flight and issue a full refund to every passenger who has already paid. The listing will be removed. This cannot be undone."
+          : "The listing will be removed. Pending or accepted booking requests will be cancelled without a refund. This cannot be undone."}
       </p>
       {message ? (
         <p

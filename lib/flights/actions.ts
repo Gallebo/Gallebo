@@ -28,6 +28,7 @@ import {
   sanitizePhotoPathsForPublish,
 } from "@/lib/flights/sanitize-draft";
 import { rethrowIfNextRedirect } from "@/lib/navigation/redirect-error";
+import { createBookingRefund } from "@/lib/stripe/refund";
 import type { Json } from "@/types/database";
 
 export type FlightActionState = {
@@ -38,6 +39,54 @@ export type FlightActionState = {
   avgRoutePrice?: number | null;
   draft?: FlightDraft;
 };
+
+async function notifyPassengerBookingEvent(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+  type: string,
+  payload: Json,
+): Promise<void> {
+  const payloadObj = (payload ?? {}) as Record<string, unknown>;
+  const copy = inAppCopyForType(type, payloadObj);
+  await queueUserNotification(
+    admin,
+    userId,
+    type,
+    payload,
+    copy
+      ? {
+          title: copy.title,
+          body: copy.body,
+          bookingId:
+            typeof payloadObj.bookingId === "string"
+              ? payloadObj.bookingId
+              : undefined,
+          flightId:
+            typeof payloadObj.flightId === "string"
+              ? payloadObj.flightId
+              : undefined,
+        }
+      : undefined,
+  );
+}
+
+async function notifyAdminFlightCancelRefundFailed(
+  admin: ReturnType<typeof createAdminClient>,
+  pilotUserId: string,
+  payload: { flightId: string; bookingId: string; error: string },
+): Promise<void> {
+  const { error } = await admin.from("notification_queue").insert({
+    user_id: pilotUserId,
+    type: "flight_cancel_refund_failed",
+    payload,
+  });
+  if (error) {
+    console.error(
+      "[cancelFlightAction] admin refund-fail notify:",
+      error.message,
+    );
+  }
+}
 
 async function notifyAdminsPriceDeviation(
   flightId: string,
@@ -376,6 +425,8 @@ export async function publishFlightAction(
       pilotReturnDate: formData.get("pilotReturnDate") || undefined,
       costAcknowledged:
         formData.get("costAcknowledged") === "on" ? "on" : undefined,
+      airworthinessDeclared:
+        formData.get("airworthinessDeclared") === "on" ? "on" : undefined,
     });
 
     if (!parsed.success) {
@@ -451,6 +502,7 @@ export async function publishFlightAction(
       route_avg_price_eur: priceCheck.avgPrice,
       price_deviation_flag: priceCheck.deviationFlag,
       published_at: new Date().toISOString(),
+      airworthiness_declared_at: new Date().toISOString(),
     };
 
     const { data: flight, error: flightError } = await supabase
@@ -657,7 +709,7 @@ export async function cancelFlightAction(
 
     const { data: flight } = await supabase
       .from("flights")
-      .select("id, status")
+      .select("id, status, cancellation_locked_at")
       .eq("id", flightId)
       .eq("pilot_user_id", user.id)
       .maybeSingle();
@@ -666,30 +718,12 @@ export async function cancelFlightAction(
     if (flight.status !== "published") {
       return { error: "Only published flights can be cancelled" };
     }
-
-    const { count: confirmedCount } = await supabase
-      .from("flight_booking_requests")
-      .select("id", { count: "exact", head: true })
-      .eq("flight_id", flightId)
-      .eq("status", "confirmed");
-
-    if ((confirmedCount ?? 0) > 0) {
+    if (flight.cancellation_locked_at) {
       return {
         error:
-          "Cannot cancel a flight with confirmed bookings. Cancel individual bookings first.",
+          "Cancellation is blocked pending support review. Our team has been notified.",
       };
     }
-
-    const { data, error } = await supabase
-      .from("flights")
-      .update({ status: "cancelled" })
-      .eq("id", flightId)
-      .eq("pilot_user_id", user.id)
-      .select("id")
-      .maybeSingle();
-
-    if (error) return { error: error.message };
-    if (!data) return { error: "Flight not found or already cancelled" };
 
     const admin = createAdminClient();
     const { data: activeBookings } = await admin
@@ -700,54 +734,80 @@ export async function cancelFlightAction(
       .eq("flight_id", flightId)
       .in("status", ["pending", "accepted", "confirmed"]);
 
-    if (activeBookings?.length) {
-      const { createBookingRefund } = await import("@/lib/stripe/refund");
-      const now = new Date().toISOString();
+    const refundByBookingId = new Map<string, string>();
 
-      for (const b of activeBookings) {
-        if (b.status === "confirmed" && b.payment_intent_id) {
-          const refundResult = await createBookingRefund(
-            b.payment_intent_id,
-            `flight_cancel:${b.id}`,
-          );
-          if (!("error" in refundResult)) {
-            await admin
-              .from("flight_booking_requests")
-              .update({
-                status: "cancelled",
-                cancelled_at: now,
-                refund_id: refundResult.refundId,
-                refunded_at: now,
-              })
-              .eq("id", b.id);
-          } else {
-            await admin
-              .from("flight_booking_requests")
-              .update({ status: "cancelled", cancelled_at: now })
-              .eq("id", b.id);
-          }
-        } else {
+    for (const b of activeBookings ?? []) {
+      if (b.status === "confirmed" && b.payment_intent_id) {
+        const refundResult = await createBookingRefund(
+          b.payment_intent_id,
+          `flight_cancel:${b.id}`,
+        );
+        if ("error" in refundResult) {
           await admin
-            .from("flight_booking_requests")
-            .update({ status: "cancelled", cancelled_at: now })
-            .eq("id", b.id);
-        }
+            .from("flights")
+            .update({
+              cancellation_locked_at: new Date().toISOString(),
+              cancellation_lock_reason: "refund_failed",
+            })
+            .eq("id", flightId);
 
-        const { error: notifyErr } = await admin.from("notification_queue").insert({
-          user_id: b.passenger_user_id,
-          type: "booking_cancelled_by_pilot",
-          payload: { flightId, bookingId: b.id, refundFull: true },
-        });
-        if (notifyErr) {
-          console.error("[cancelFlightAction] notify passenger:", notifyErr.message);
+          await notifyAdminFlightCancelRefundFailed(admin, user.id, {
+            flightId,
+            bookingId: b.id,
+            error: refundResult.error,
+          });
+
+          revalidatePath("/pilot/flights");
+          revalidatePath(`/flights/${flightId}`);
+
+          return {
+            error:
+              "Refund failed. Flight locked — our team has been notified.",
+          };
         }
+        refundByBookingId.set(b.id, refundResult.refundId);
       }
     }
+
+    const now = new Date().toISOString();
+
+    for (const b of activeBookings ?? []) {
+      const refundId = refundByBookingId.get(b.id);
+      const isPaidConfirmed = b.status === "confirmed";
+
+      await admin
+        .from("flight_booking_requests")
+        .update({
+          status: "cancelled",
+          cancelled_at: now,
+          cancelled_by: user.id,
+          payout_status: "not_applicable",
+          ...(refundId ? { refund_id: refundId, refunded_at: now } : {}),
+        })
+        .eq("id", b.id);
+
+      await insertSystemMessage(b.id, "Let je otkazan.");
+
+      await notifyPassengerBookingEvent(admin, b.passenger_user_id, "booking_cancelled_by_pilot", {
+        flightId,
+        bookingId: b.id,
+        refundFull: isPaidConfirmed,
+      });
+    }
+
+    const { error } = await admin
+      .from("flights")
+      .update({ status: "cancelled" })
+      .eq("id", flightId)
+      .eq("pilot_user_id", user.id);
+
+    if (error) return { error: error.message };
 
     revalidatePath("/flights");
     revalidatePath(`/flights/${flightId}`);
     revalidatePath("/pilot/flights");
     revalidatePath("/pilot/bookings");
+    revalidatePath("/passenger/bookings");
     revalidatePath(`/pilots/${user.id}`);
     return { success: "Flight cancelled" };
   } catch (e) {

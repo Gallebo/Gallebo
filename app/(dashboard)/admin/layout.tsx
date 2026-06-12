@@ -1,5 +1,6 @@
 import { RoleDashboardHeader } from "@/components/layout/role-dashboard-header";
 import { AdminSidebar } from "@/components/admin/admin-sidebar";
+import { getKycPendingCount } from "@/lib/admin/queries";
 import { requireAdmin } from "@/lib/auth/rbac";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -11,22 +12,18 @@ export default async function AdminLayout({
   await requireAdmin();
 
   const admin = createAdminClient();
-  const [{ count: kycCount }, { count: airfieldRequestsCount }] =
-    await Promise.all([
-      admin
-        .from("verification_requests")
-        .select("id", { count: "exact", head: true })
-        .is("reviewed_at", null),
-      admin
-        .from("airfield_operator_requests")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "pending"),
-    ]);
+  const [kycCount, { count: airfieldRequestsCount }] = await Promise.all([
+    getKycPendingCount(),
+    admin
+      .from("airfield_operator_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending"),
+  ]);
 
   return (
     <div className="admin-shell">
       <AdminSidebar
-        kycCount={kycCount ?? 0}
+        kycCount={kycCount}
         airfieldRequestsCount={airfieldRequestsCount ?? 0}
       />
       <main className="admin-main">

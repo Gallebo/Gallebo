@@ -1,11 +1,4 @@
 import { cn } from "@/lib/utils";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 
 type StepCardProps = {
   step: number;
@@ -15,7 +8,7 @@ type StepCardProps = {
   className?: string;
 };
 
-/** Wrapper for a single onboarding step (plan: StepCard). */
+/** Open step section — no bordered card chrome. */
 export function StepCard({
   step,
   title,
@@ -24,14 +17,27 @@ export function StepCard({
   className,
 }: StepCardProps) {
   return (
-    <Card className={cn(className)}>
-      <CardHeader>
-        <CardTitle className="text-lg">
-          Step {step} — {title}
-        </CardTitle>
-        {description ? <CardDescription>{description}</CardDescription> : null}
-      </CardHeader>
-      <CardContent className="space-y-4">{children}</CardContent>
-    </Card>
+    <section className={cn("space-y-5", className)}>
+      <header
+        className="border-b pb-4"
+        style={{ borderColor: "var(--line)" }}
+      >
+        <span className="badge-v2 badge-v2-primary mb-3 inline-flex">
+          Step {step}
+        </span>
+        <h2
+          className="text-[1.15rem] font-semibold tracking-[-0.02em]"
+          style={{ color: "var(--ink)" }}
+        >
+          {title}
+        </h2>
+        {description ? (
+          <p className="mt-1.5 text-[14px] leading-relaxed" style={{ color: "var(--ink-2)" }}>
+            {description}
+          </p>
+        ) : null}
+      </header>
+      <div className="space-y-5">{children}</div>
+    </section>
   );
 }

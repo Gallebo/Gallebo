@@ -671,6 +671,14 @@ export async function submitPilotUpgradeAction(
     pilotVrId = inserted.id;
   }
 
+  const submittedAt = new Date().toISOString();
+  const { error: submittedAtError } = await supabase
+    .from("verification_requests")
+    .update({ submitted_at: submittedAt })
+    .eq("id", pilotVrId);
+
+  if (submittedAtError) return { error: submittedAtError.message };
+
   const { error: statusError } = await supabase
     .from("profiles")
     .update({ status: "pending" })

@@ -1,3 +1,4 @@
+import { FormField, FormLabel } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 
 export function PersonalInfoFields({
@@ -19,33 +20,29 @@ export function PersonalInfoFields({
   return (
     <>
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <label htmlFor="firstName" className="text-sm font-medium">
-            First name
-          </label>
+        <FormField>
+          <FormLabel htmlFor="firstName">First name</FormLabel>
           <Input
             id="firstName"
             name="firstName"
             required
+            autoComplete="given-name"
             defaultValue={defaultValues?.firstName ?? undefined}
           />
-        </div>
-        <div className="space-y-2">
-          <label htmlFor="lastName" className="text-sm font-medium">
-            Last name
-          </label>
+        </FormField>
+        <FormField>
+          <FormLabel htmlFor="lastName">Last name</FormLabel>
           <Input
             id="lastName"
             name="lastName"
             required
+            autoComplete="family-name"
             defaultValue={defaultValues?.lastName ?? undefined}
           />
-        </div>
+        </FormField>
       </div>
-      <div className="space-y-2">
-        <label htmlFor="dateOfBirth" className="text-sm font-medium">
-          Date of birth
-        </label>
+      <FormField>
+        <FormLabel htmlFor="dateOfBirth">Date of birth</FormLabel>
         <Input
           id="dateOfBirth"
           name="dateOfBirth"
@@ -53,23 +50,20 @@ export function PersonalInfoFields({
           required
           defaultValue={defaultValues?.dateOfBirth ?? undefined}
         />
-      </div>
-      <div className="space-y-2">
-        <label htmlFor="phone" className="text-sm font-medium">
-          Phone
-        </label>
+      </FormField>
+      <FormField>
+        <FormLabel htmlFor="phone">Phone</FormLabel>
         <Input
           id="phone"
           name="phone"
           type="tel"
           required
+          autoComplete="tel"
           defaultValue={defaultValues?.phone ?? undefined}
         />
-      </div>
-      <div className="space-y-2">
-        <label htmlFor="weightKg" className="text-sm font-medium">
-          Weight (kg)
-        </label>
+      </FormField>
+      <FormField>
+        <FormLabel htmlFor="weightKg">Weight (kg)</FormLabel>
         <Input
           id="weightKg"
           name="weightKg"
@@ -79,7 +73,7 @@ export function PersonalInfoFields({
           required
           defaultValue={w}
         />
-      </div>
+      </FormField>
     </>
   );
 }

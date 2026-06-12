@@ -20,6 +20,7 @@ export type PilotFlightRow = {
   flight_date: string;
   departure_time: string;
   status: string;
+  cancellation_locked_at: string | null;
   passenger_seats: number;
   booked_seats: number;
   confirmed_bookings: number;
@@ -190,7 +191,7 @@ async function fetchPilotFlights(userId: string): Promise<PilotFlightRow[]> {
     .from("flights")
     .select(
       `
-      id, flight_date, departure_time, status, passenger_seats, price_per_passenger_eur,
+      id, flight_date, departure_time, status, cancellation_locked_at, passenger_seats, price_per_passenger_eur,
       departure_airfield:airfields!flights_departure_airfield_id_fkey ( icao_code, name ),
       arrival_airfield:airfields!flights_arrival_airfield_id_fkey ( icao_code, name )
     `,
@@ -212,6 +213,7 @@ async function fetchPilotFlights(userId: string): Promise<PilotFlightRow[]> {
       flight_date: f.flight_date,
       departure_time: String(f.departure_time).slice(0, 5),
       status: f.status,
+      cancellation_locked_at: f.cancellation_locked_at,
       passenger_seats: f.passenger_seats,
       booked_seats: counts.booked,
       confirmed_bookings: counts.confirmed,
@@ -260,7 +262,7 @@ export async function getPilotFlightsLog(
     .from("flights")
     .select(
       `
-      id, flight_date, departure_time, status, passenger_seats, price_per_passenger_eur,
+      id, flight_date, departure_time, status, cancellation_locked_at, passenger_seats, price_per_passenger_eur,
       departure_airfield:airfields!flights_departure_airfield_id_fkey ( icao_code, name ),
       arrival_airfield:airfields!flights_arrival_airfield_id_fkey ( icao_code, name )
     `,
@@ -294,6 +296,7 @@ export async function getPilotFlightsLog(
       flight_date: f.flight_date,
       departure_time: String(f.departure_time).slice(0, 5),
       status: f.status,
+      cancellation_locked_at: f.cancellation_locked_at,
       passenger_seats: f.passenger_seats,
       booked_seats: counts.booked,
       confirmed_bookings: counts.confirmed,

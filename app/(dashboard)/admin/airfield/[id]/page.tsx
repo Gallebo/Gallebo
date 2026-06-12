@@ -5,7 +5,6 @@ import { AirfieldActions } from "@/components/admin/airfield-actions";
 import { AdminStatusPill } from "@/components/admin/admin-status-pill";
 import { getRegulatoryAuthority } from "@/lib/admin/airfield-review";
 import { formatDiditStatus, isDiditApproved } from "@/lib/admin/didit";
-import { BUCKET_BY_TYPE } from "@/lib/documents/constants";
 import { privatePageRobots } from "@/lib/seo/site";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,7 +40,7 @@ export default async function AirfieldReviewPage({
     await Promise.all([
       admin
         .from("documents")
-        .select("storage_path")
+        .select("id, storage_path")
         .eq("user_id", request.user_id)
         .eq("type", "airfield_operating_license")
         .maybeSingle(),
@@ -59,13 +58,7 @@ export default async function AirfieldReviewPage({
         .maybeSingle(),
     ]);
 
-  let docUrl: string | null = null;
-  if (doc?.storage_path) {
-    const { data } = await admin.storage
-      .from(BUCKET_BY_TYPE.airfield_operating_license)
-      .createSignedUrl(doc.storage_path, 300);
-    docUrl = data?.signedUrl ?? null;
-  }
+  const docDownloadUrl = doc?.id ? `/api/admin/documents/${doc.id}` : null;
 
   const operatorName =
     [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") ||
@@ -155,8 +148,8 @@ export default async function AirfieldReviewPage({
               </Link>
             </p>
           ) : null}
-          {docUrl ? (
-            <a href={docUrl} className="text-primary hover:underline">
+          {docDownloadUrl ? (
+            <a href={docDownloadUrl} className="text-primary hover:underline">
               View licence document
             </a>
           ) : null}

@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useActionState, useEffect } from "react";
 
 import { SubmitButton } from "@/components/auth/submit-button";
+import { FileInput } from "@/components/ui/file-input";
+import { FormError, FormField, FormHint, FormLabel } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { addAircraftAction } from "@/lib/aircraft/actions";
 
@@ -18,11 +20,9 @@ export function NewAircraftForm() {
   }, [state.success, state.aircraftId, router]);
 
   return (
-    <form action={formAction} className="max-w-lg space-y-6">
-      <div className="space-y-2">
-        <label className="text-sm font-medium" htmlFor="model">
-          Model
-        </label>
+    <form action={formAction} className="max-w-lg space-y-5">
+      <FormField>
+        <FormLabel htmlFor="model">Model</FormLabel>
         <Input
           id="model"
           name="model"
@@ -30,24 +30,21 @@ export function NewAircraftForm() {
           required
           minLength={2}
         />
-      </div>
-      <div className="space-y-2">
-        <label className="text-sm font-medium" htmlFor="registration">
-          Registration
-        </label>
+      </FormField>
+      <FormField>
+        <FormLabel htmlFor="registration">Registration</FormLabel>
         <Input
           id="registration"
           name="registration"
           className="font-mono uppercase"
+          placeholder="9A-ABC"
           required
           minLength={2}
           maxLength={12}
         />
-      </div>
-      <div className="space-y-2">
-        <label className="text-sm font-medium" htmlFor="seats">
-          Seats (incl. pilot, max 6)
-        </label>
+      </FormField>
+      <FormField>
+        <FormLabel htmlFor="seats">Seats (incl. pilot, max 6)</FormLabel>
         <Input
           id="seats"
           name="seats"
@@ -57,21 +54,21 @@ export function NewAircraftForm() {
           defaultValue={4}
           required
         />
-      </div>
+      </FormField>
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Photos</label>
-        <p className="text-xs text-muted-foreground">JPEG or PNG, minimum 1, max 5MB each.</p>
-        <input
-          type="file"
+      <FormField>
+        <FormLabel htmlFor="photos">Photos</FormLabel>
+        <FormHint>JPEG or PNG, minimum 1, max 5MB each.</FormHint>
+        <FileInput
+          id="photos"
           name="photos"
           accept="image/jpeg,image/png"
-          multiple
           required
+          hint="Select one or more images"
         />
-      </div>
+      </FormField>
 
-      {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
+      <FormError>{state.error}</FormError>
       <SubmitButton label="Create aircraft" />
     </form>
   );

@@ -12,8 +12,8 @@ import { RoleChangeWarning } from "@/components/onboarding/role-change-warning";
 import { submitAirfieldRequestAction, type ActionState } from "@/lib/onboarding/actions";
 import { airfieldRequestSchema } from "@/lib/auth/schemas";
 import { Button } from "@/components/ui/button";
+import { FormError, FormField, FormLabel } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const airfieldFormSchema = airfieldRequestSchema.extend({
   file: z
@@ -58,65 +58,92 @@ export function AirfieldUpgradeForm() {
       <h1 className="text-2xl font-semibold">Upgrade to airfield operator</h1>
       <RoleChangeWarning />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Airfield details</CardTitle>
-          <CardDescription>Admin will review your operating licence</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form
-            className="space-y-4"
-            onSubmit={form.handleSubmit((data) => {
-              form.clearErrors("root");
-              if (!(data.file instanceof File)) return;
-              const fd = new FormData();
-              fd.append("airfieldName", data.airfieldName);
-              fd.append("icaoCode", data.icaoCode);
-              fd.append("location", data.location);
-              fd.append("contactEmail", data.contactEmail);
-              fd.append("contactPhone", data.contactPhone);
-              fd.append("type", "airfield_operating_license");
-              fd.append("file", data.file);
-              startTransition(() => {
-                formAction(fd);
-              });
-            })}
-          >
-            <Input placeholder="Airfield name" {...form.register("airfieldName")} />
+      <section className="space-y-5">
+        <header className="border-b pb-4" style={{ borderColor: "var(--line)" }}>
+          <h2 className="text-[1.15rem] font-semibold" style={{ color: "var(--ink)" }}>
+            Airfield details
+          </h2>
+          <p className="mt-1.5 text-[14px]" style={{ color: "var(--ink-2)" }}>
+            Admin will review your operating licence
+          </p>
+        </header>
+
+        <form
+          className="space-y-4"
+          onSubmit={form.handleSubmit((data) => {
+            form.clearErrors("root");
+            if (!(data.file instanceof File)) return;
+            const fd = new FormData();
+            fd.append("airfieldName", data.airfieldName);
+            fd.append("icaoCode", data.icaoCode);
+            fd.append("location", data.location);
+            fd.append("contactEmail", data.contactEmail);
+            fd.append("contactPhone", data.contactPhone);
+            fd.append("type", "airfield_operating_license");
+            fd.append("file", data.file);
+            startTransition(() => {
+              formAction(fd);
+            });
+          })}
+        >
+          <FormField>
+            <FormLabel htmlFor="airfield-upgrade-name">Airfield name</FormLabel>
+            <Input id="airfield-upgrade-name" placeholder="e.g. Split Airport" {...form.register("airfieldName")} />
+            <FormError>{form.formState.errors.airfieldName?.message}</FormError>
+          </FormField>
+          <FormField>
+            <FormLabel htmlFor="airfield-upgrade-icao">ICAO code</FormLabel>
             <Input
-              placeholder="ICAO (4 chars)"
+              id="airfield-upgrade-icao"
+              placeholder="LDSP"
               maxLength={4}
+              className="font-mono uppercase"
               {...form.register("icaoCode")}
             />
-            <Input placeholder="Location" {...form.register("location")} />
-            <Input type="email" placeholder="Contact email" {...form.register("contactEmail")} />
-            <Input type="tel" placeholder="Contact phone" {...form.register("contactPhone")} />
-            <div className="space-y-2">
-              <label htmlFor="airfield-upgrade-license" className="text-sm font-medium">
-                Operating licence (PDF/JPEG/PNG)
-              </label>
-              <OptionalFileInput
-                id="airfield-upgrade-license"
-                accept="image/jpeg,image/png,application/pdf"
-                file={file}
-                disabled={isPending}
-                onFileChange={(f) => {
-                  form.setValue(
-                    "file",
-                    (f ?? undefined) as unknown as File,
-                    { shouldValidate: true }
-                  );
-                }}
-              />
-            </div>
-            <RoleChangeWarning />
-            <FormMessage error={state.error || form.formState.errors.root?.message} />
-            <Button type="submit" className="w-full" disabled={isPending}>
-              {isPending ? "Submitting…" : "Submit for admin review"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+            <FormError>{form.formState.errors.icaoCode?.message}</FormError>
+          </FormField>
+          <FormField>
+            <FormLabel htmlFor="airfield-upgrade-location">Location</FormLabel>
+            <Input id="airfield-upgrade-location" placeholder="City, country" {...form.register("location")} />
+            <FormError>{form.formState.errors.location?.message}</FormError>
+          </FormField>
+          <FormField>
+            <FormLabel htmlFor="airfield-upgrade-email">Contact email</FormLabel>
+            <Input id="airfield-upgrade-email" type="email" placeholder="ops@airfield.example" {...form.register("contactEmail")} />
+            <FormError>{form.formState.errors.contactEmail?.message}</FormError>
+          </FormField>
+          <FormField>
+            <FormLabel htmlFor="airfield-upgrade-phone">Contact phone</FormLabel>
+            <Input id="airfield-upgrade-phone" type="tel" placeholder="+385 …" {...form.register("contactPhone")} />
+            <FormError>{form.formState.errors.contactPhone?.message}</FormError>
+          </FormField>
+          <FormField>
+            <FormLabel htmlFor="airfield-upgrade-file">Operating licence</FormLabel>
+            <OptionalFileInput
+              id="airfield-upgrade-file"
+              accept="image/jpeg,image/png,application/pdf"
+              file={file}
+              disabled={isPending}
+              onFileChange={(f) => {
+                form.setValue(
+                  "file",
+                  (f ?? undefined) as unknown as File,
+                  { shouldValidate: true },
+                );
+              }}
+            />
+            <FormError>
+              {form.formState.errors.file
+                ? String(form.formState.errors.file.message)
+                : null}
+            </FormError>
+          </FormField>
+          <FormMessage error={form.formState.errors.root?.message} success={state.success} />
+          <Button type="submit" className="w-full" disabled={isPending}>
+            {isPending ? "Submitting…" : "Submit request"}
+          </Button>
+        </form>
+      </section>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { ProfileCard } from "@/components/dashboard/profile-card";
+import { RegisteredWelcome } from "@/components/dashboard/registered-welcome";
 import { StatusBanner } from "@/components/dashboard/status-banner";
 import { requireUser, getProfile } from "@/lib/auth/rbac";
 import { createClient } from "@/lib/supabase/server";
@@ -58,25 +59,17 @@ export default async function DashboardPage() {
     );
   }
 
+  if (profile.status === "registered") {
+    return (
+      <RegisteredWelcome profile={profile} email={authUser?.email ?? ""} />
+    );
+  }
+
   return (
     <div className="space-y-8">
       <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
       <StatusBanner status={profile.status} />
       <ProfileCard profile={profile} email={authUser?.email ?? ""} />
-
-      {profile.status === "registered" ? (
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Complete identity verification to start using Gallebo.
-          </p>
-          <Link
-            href="/onboarding/passenger"
-            className={cn(buttonVariants({ variant: "default" }), "inline-flex")}
-          >
-            Complete verification
-          </Link>
-        </div>
-      ) : null}
 
       {profile.status === "pending" ? (
         <p className="text-sm text-muted-foreground">

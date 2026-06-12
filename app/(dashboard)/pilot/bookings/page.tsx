@@ -1,3 +1,4 @@
+import { BookingConversationsAccordion } from "@/components/bookings/BookingConversationsAccordion";
 import { PilotBookingCard } from "@/components/bookings/pilot-booking-card";
 import { PilotBookingRequestRow } from "@/components/pilot/pilot-booking-request-row";
 import { PilotPageHeader } from "@/components/pilot/pilot-page-header";
@@ -55,15 +56,15 @@ export default async function PilotBookingsPage() {
         />
 
         {activeBookings.length > 0 ? (
-          <ul className="flex flex-col gap-4" style={{ listStyle: "none", margin: 0, padding: 0 }}>
-            {activeBookings.map((b) => (
+          <BookingConversationsAccordion items={activeBookings}>
+            {(booking, accordion) => (
               <PilotBookingCard
-                key={b.id}
-                booking={b}
+                booking={booking}
                 currentUserId={user.id}
+                accordion={accordion}
               />
-            ))}
-          </ul>
+            )}
+          </BookingConversationsAccordion>
         ) : (
           <p className="text-[14px]" style={{ color: "var(--ink-3)" }}>
             No active bookings with chat yet. Accept a request to start messaging.

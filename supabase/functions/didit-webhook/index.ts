@@ -210,6 +210,11 @@ Deno.serve(async (req) => {
         .from("profiles")
         .update({ status: "verified", role: "passenger" })
         .eq("id", userId);
+
+      await admin
+        .from("verification_requests")
+        .update({ reviewed_at: new Date().toISOString() })
+        .eq("didit_session_id", sessionId);
     }
   }
 

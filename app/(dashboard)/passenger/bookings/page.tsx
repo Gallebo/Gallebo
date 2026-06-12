@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { BookingConversationsAccordion } from "@/components/bookings/BookingConversationsAccordion";
 import { PassengerBookingCardV3 } from "@/components/passenger/passenger-booking-card-v3";
 import { PassengerBookingTabs } from "@/components/passenger/passenger-booking-tabs";
 import { PilotPageHeader } from "@/components/pilot/pilot-page-header";
@@ -59,15 +60,15 @@ export default async function PassengerBookingsPage({
       </Suspense>
 
       {bookings.length > 0 ? (
-        <div className="flex flex-col gap-4">
-          {bookings.map((b) => (
+        <BookingConversationsAccordion items={bookings}>
+          {(booking, accordion) => (
             <PassengerBookingCardV3
-              key={b.id}
-              booking={b}
+              booking={booking}
               currentUserId={user.id}
+              accordion={accordion}
             />
-          ))}
-        </div>
+          )}
+        </BookingConversationsAccordion>
       ) : (
         <p className="text-[14px]" style={{ color: "var(--ink-3)" }}>
           No {tab} bookings.{" "}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { FormField, FormLabel } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 
@@ -58,8 +59,8 @@ export function AirfieldCombobox({
   }, [searchQuery]);
 
   return (
-    <div className="space-y-2">
-      <label className="text-sm font-medium">{label}</label>
+    <FormField>
+      <FormLabel>{label}</FormLabel>
       <Input
         value={inputValue}
         onChange={(e) => {
@@ -72,12 +73,19 @@ export function AirfieldCombobox({
         autoComplete="off"
       />
       {options.length > 0 ? (
-        <ul className="max-h-40 overflow-auto rounded-md border bg-card text-sm">
+        <ul
+          className="max-h-40 overflow-auto rounded-[var(--radius-base)] border text-sm shadow-[var(--shadow-sm)]"
+          style={{
+            borderColor: "var(--line)",
+            background: "var(--surface)",
+          }}
+        >
           {options.map((opt) => (
             <li key={opt.id}>
               <button
                 type="button"
-                className="w-full px-3 py-2 text-left hover:bg-muted"
+                className="w-full px-3.5 py-2.5 text-left text-[14px] transition-colors hover:bg-[var(--surface-alt)]"
+                style={{ color: "var(--ink)" }}
                 onClick={() => {
                   onChange(opt);
                   setQuery("");
@@ -90,6 +98,6 @@ export function AirfieldCombobox({
           ))}
         </ul>
       ) : null}
-    </div>
+    </FormField>
   );
 }

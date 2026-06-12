@@ -84,9 +84,17 @@ function renderBookingAccepted(
   return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>Your booking for flight <strong>${escapeHtml(flightId)}</strong> was <strong>accepted</strong>.</p><p>Pay <strong>€${escapeHtml(amount)}</strong> (incl. 4% platform fee) within 24 hours: <a href="https://gallebo.app/dashboard/bookings">My bookings</a>.</p><p>Payment deadline: ${escapeHtml(expires)}</p></body></html>`;
 }
 
-function renderBookingRejected(name: string, flightId: string): string {
+function renderBookingRejected(
+  name: string,
+  flightId: string,
+  reason: string,
+): string {
   const n = escapeHtml(name);
-  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>The pilot couldn't accept your request for flight <strong>${escapeHtml(flightId)}</strong> this time.</p><p>There are other flights waiting. <a href="https://gallebo.app/flights">Browse open seats</a></p></body></html>`;
+  const r = escapeHtml(reason);
+  const reasonBlock = reason
+    ? `<p><strong>Reason:</strong> ${r}</p>`
+    : "";
+  return `<!DOCTYPE html><html><body><p>Hello ${n},</p><p>The pilot couldn't accept your request for flight <strong>${escapeHtml(flightId)}</strong> this time.</p>${reasonBlock}<p>There are other flights waiting. <a href="https://gallebo.app/flights">Browse open seats</a></p></body></html>`;
 }
 
 function renderBookingExpired(name: string, flightId: string, reason: string): string {
@@ -156,6 +164,15 @@ function renderPilotUpgradeSubmitted(
   return `<!DOCTYPE html><html><body><p>A verified passenger submitted a <strong>pilot upgrade</strong> request.</p><p>Passenger: <strong>${name}</strong></p><p><a href="https://gallebo.app/admin/verifications/${id}">Review in admin</a></p></body></html>`;
 }
 
+function renderFlightCancelRefundFailed(
+  flightId: string,
+  bookingId: string,
+  pilotUserId: string,
+  errorMessage: string,
+): string {
+  return `<!DOCTYPE html><html><body><p>A pilot attempted to cancel flight <strong>${escapeHtml(flightId)}</strong>, but the Stripe refund failed.</p><p>Booking: <strong>${escapeHtml(bookingId)}</strong></p><p>Pilot user ID: <strong>${escapeHtml(pilotUserId)}</strong></p><p>Error: <strong>${escapeHtml(errorMessage)}</strong></p><p>The flight has been locked until resolved.</p><p><a href="https://gallebo.app/flights/${escapeHtml(flightId)}">View flight</a></p></body></html>`;
+}
+
 function notificationDeepLink(
   type: string,
   payload: Record<string, unknown>,
@@ -165,6 +182,9 @@ function notificationDeepLink(
   const requestId = payload.requestId;
   if (type === "pilot_upgrade_submitted" && typeof requestId === "string") {
     return `https://gallebo.app/admin/verifications/${requestId}`;
+  }
+  if (type === "flight_cancel_refund_failed" && typeof flightId === "string") {
+    return `https://gallebo.app/flights/${flightId}`;
   }
   if (type === "flight_alert_expiry_warning") {
     return "https://gallebo.app/passenger/alerts";
@@ -398,6 +418,7 @@ Deno.serve(async (req) => {
         html = renderBookingRejected(
           displayName,
           String(payload.flightId ?? ""),
+          typeof payload.reason === "string" ? payload.reason.trim() : "",
         );
         break;
       }
@@ -495,6 +516,17 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case "flight_cancel_refund_failed": {
+        subject = "Gallebo: flight cancel refund failed — flight locked";
+        html = renderFlightCancelRefundFailed(
+          String(payload.flightId ?? ""),
+          String(payload.bookingId ?? ""),
+          notification.user_id,
+          String(payload.error ?? "Unknown error"),
+        );
+        break;
+      }
+
       default:
         console.warn(`[process-notifications] unknown type: ${notification.type}`);
         await markNotificationFailed(supabase, notification.id, true);
@@ -508,13 +540,15 @@ Deno.serve(async (req) => {
         ? `Flight on ${String(payload.flightDate ?? "")} departs in about 24 hours.`
         : subject;
 
-    const isAdminPilotUpgrade = notification.type === "pilot_upgrade_submitted";
+    const isAdminRoutedEmail =
+      notification.type === "pilot_upgrade_submitted" ||
+      notification.type === "flight_cancel_refund_failed";
     const adminEmail = Deno.env.get("ADMIN_EMAIL") ?? "admin@test.ai";
-    const recipientEmail = isAdminPilotUpgrade ? adminEmail : email;
+    const recipientEmail = isAdminRoutedEmail ? adminEmail : email;
 
     let emailOk = false;
 
-    if (isAdminPilotUpgrade || emailEnabled) {
+    if (isAdminRoutedEmail || emailEnabled) {
       if (!recipientEmail) {
         console.warn(
           `[process-notifications] no email for user ${notification.user_id}`,
@@ -525,7 +559,7 @@ Deno.serve(async (req) => {
       }
 
       const emailLimit = await checkRateLimit(
-        `email:${isAdminPilotUpgrade ? "admin" : notification.user_id}`,
+        `email:${isAdminRoutedEmail ? "admin" : notification.user_id}`,
         10,
         3600,
       );

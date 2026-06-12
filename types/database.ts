@@ -361,6 +361,7 @@ export type Database = {
           payment_expires_at: string | null;
           payment_intent_id: string | null;
           pilot_payout_eur: number | null;
+          pilot_rejection_reason: string | null;
           pilot_responded_at: string | null;
           pilot_response_expires_at: string | null;
           platform_fee_eur: number | null;
@@ -388,6 +389,7 @@ export type Database = {
           payment_expires_at?: string | null;
           payment_intent_id?: string | null;
           pilot_payout_eur?: number | null;
+          pilot_rejection_reason?: string | null;
           pilot_responded_at?: string | null;
           pilot_response_expires_at?: string | null;
           review_deadline_at?: string | null;
@@ -417,6 +419,7 @@ export type Database = {
           payment_expires_at?: string | null;
           payment_intent_id?: string | null;
           pilot_payout_eur?: number | null;
+          pilot_rejection_reason?: string | null;
           pilot_responded_at?: string | null;
           pilot_response_expires_at?: string | null;
           review_deadline_at?: string | null;
@@ -608,9 +611,12 @@ export type Database = {
       };
       flights: {
         Row: {
+          airworthiness_declared_at: string | null;
           aircraft_id: string | null;
           arrival_airfield_id: string;
           communication_language: Database["public"]["Enums"]["flight_language"];
+          cancellation_lock_reason: string | null;
+          cancellation_locked_at: string | null;
           completed_at: string | null;
           created_at: string;
           departure_airfield_id: string;
@@ -635,9 +641,12 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          airworthiness_declared_at?: string | null;
           aircraft_id?: string | null;
           arrival_airfield_id: string;
           communication_language?: Database["public"]["Enums"]["flight_language"];
+          cancellation_lock_reason?: string | null;
+          cancellation_locked_at?: string | null;
           completed_at?: string | null;
           created_at?: string;
           departure_airfield_id: string;
@@ -662,9 +671,12 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          airworthiness_declared_at?: string | null;
           aircraft_id?: string | null;
           arrival_airfield_id?: string;
           communication_language?: Database["public"]["Enums"]["flight_language"];
+          cancellation_lock_reason?: string | null;
+          cancellation_locked_at?: string | null;
           completed_at?: string | null;
           created_at?: string;
           departure_airfield_id?: string;
@@ -1013,6 +1025,7 @@ export type Database = {
           requested_role: Database["public"]["Enums"]["user_role"];
           reviewed_at: string | null;
           reviewed_by: string | null;
+          submitted_at: string | null;
           user_id: string;
         };
         Insert: {
@@ -1025,6 +1038,7 @@ export type Database = {
           requested_role: Database["public"]["Enums"]["user_role"];
           reviewed_at?: string | null;
           reviewed_by?: string | null;
+          submitted_at?: string | null;
           user_id: string;
         };
         Update: {
@@ -1037,6 +1051,7 @@ export type Database = {
           requested_role?: Database["public"]["Enums"]["user_role"];
           reviewed_at?: string | null;
           reviewed_by?: string | null;
+          submitted_at?: string | null;
           user_id?: string;
         };
         Relationships: [];

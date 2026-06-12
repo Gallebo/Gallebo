@@ -6,8 +6,6 @@ import { useForm } from "react-hook-form";
 
 import {
   AuthSubmitButton,
-  authInputClassName,
-  authInputStyle,
   authLabelClassName,
 } from "@/components/auth/auth-form-styles";
 import { FormMessage } from "@/components/auth/form-message";
@@ -67,8 +65,7 @@ export function RegisterForm() {
           type="email"
           autoComplete="email"
           placeholder="you@example.com"
-          className={authInputClassName}
-          style={authInputStyle}
+          size="lg"
           {...form.register("email")}
         />
         {form.formState.errors.email ? (
@@ -87,8 +84,7 @@ export function RegisterForm() {
           minLength={8}
           autoComplete="new-password"
           placeholder="At least 8 characters"
-          className={authInputClassName}
-          style={authInputStyle}
+          size="lg"
           {...form.register("password")}
         />
         {form.formState.errors.password ? (
@@ -107,8 +103,7 @@ export function RegisterForm() {
           minLength={8}
           autoComplete="new-password"
           placeholder="Repeat your password"
-          className={authInputClassName}
-          style={authInputStyle}
+          size="lg"
           {...form.register("confirmPassword")}
         />
         {form.formState.errors.confirmPassword ? (

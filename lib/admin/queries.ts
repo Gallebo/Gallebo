@@ -100,9 +100,17 @@ function formatJoined(iso: string) {
 }
 
 function hoursAgo(iso: string) {
-  const h = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 3_600_000));
-  return `${h}h ago`;
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 }
+
+const PASSENGER_IDENTITY_DIDIT_STATUSES = ["approved", "verified", "passed"] as const;
 
 function mapFlightStatus(status: string, flightDate: string): {
   label: string;
@@ -462,7 +470,9 @@ export async function getKycQueue(): Promise<KycQueueItem[]> {
 
   const { data: requests } = await admin
     .from("verification_requests")
-    .select("id, user_id, requested_role, created_at, didit_status, auto_approved")
+    .select(
+      "id, user_id, requested_role, created_at, submitted_at, didit_status, auto_approved",
+    )
     .is("reviewed_at", null)
     .order("created_at", { ascending: false });
 
@@ -487,10 +497,34 @@ export async function getKycQueue(): Promise<KycQueueItem[]> {
   if (!queueRequests.length) return [];
 
   const userIds = queueRequests.map((r) => r.user_id);
-  const [{ data: profiles }, { data: documents }] = await Promise.all([
+  const pilotUserIds = queueRequests
+    .filter((r) => (r.requested_role ?? "pilot") === "pilot")
+    .map((r) => r.user_id);
+
+  const [
+    { data: profiles },
+    { data: documents },
+    { data: passengerIdentityRows },
+  ] = await Promise.all([
     admin.from("profiles").select("id, first_name, last_name").in("id", userIds),
     admin.from("documents").select("user_id, type").in("user_id", userIds),
+    pilotUserIds.length > 0
+      ? admin
+          .from("verification_requests")
+          .select("user_id, didit_status, created_at")
+          .in("user_id", pilotUserIds)
+          .eq("requested_role", "passenger")
+          .in("didit_status", [...PASSENGER_IDENTITY_DIDIT_STATUSES])
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] as { user_id: string; didit_status: string | null }[] }),
   ]);
+
+  const passengerDiditByUser = new Map<string, string>();
+  for (const row of passengerIdentityRows ?? []) {
+    if (!passengerDiditByUser.has(row.user_id) && row.didit_status) {
+      passengerDiditByUser.set(row.user_id, row.didit_status);
+    }
+  }
 
   const profileMap = new Map(
     (profiles ?? []).map((p) => [
@@ -511,7 +545,19 @@ export async function getKycQueue(): Promise<KycQueueItem[]> {
   return queueRequests.map((r) => {
     const requestedRole = r.requested_role ?? "pilot";
     const isPassenger = requestedRole === "passenger";
-    const diditApproved = isDiditApproved(r.didit_status);
+    const passengerIdentityDidit =
+      requestedRole === "pilot"
+        ? (passengerDiditByUser.get(r.user_id) ?? null)
+        : null;
+    const pilotUpgradeIdentityVerified =
+      requestedRole === "pilot" &&
+      passengerIdentityDidit !== null &&
+      isDiditApproved(passengerIdentityDidit);
+    const effectiveDiditStatus = pilotUpgradeIdentityVerified
+      ? passengerIdentityDidit
+      : r.didit_status;
+    const diditApproved = isDiditApproved(effectiveDiditStatus);
+    const submittedAt = r.submitted_at ?? r.created_at;
 
     return {
       id: r.id,
@@ -519,14 +565,44 @@ export async function getKycQueue(): Promise<KycQueueItem[]> {
       name: profileMap.get(r.user_id) ?? "Unknown",
       roleLabel: requestedRole.toUpperCase(),
       requestedRole,
-      submittedLabel: hoursAgo(r.created_at),
-      risk: r.didit_status === "review" ? "medium" : "low",
-      diditStatus: r.didit_status,
-      diditStatusLabel: formatDiditStatus(r.didit_status),
+      submittedLabel: hoursAgo(submittedAt),
+      risk: effectiveDiditStatus === "review" ? "medium" : "low",
+      diditStatus: effectiveDiditStatus,
+      diditStatusLabel: pilotUpgradeIdentityVerified
+        ? "Verified via Didit (identity)"
+        : formatDiditStatus(effectiveDiditStatus),
       autoApproved: Boolean(r.auto_approved) || diditApproved,
       documents: isPassenger ? [] : (docsByUser.get(r.user_id) ?? []),
     };
   });
+}
+
+export async function getKycPendingCount(): Promise<number> {
+  const admin = createAdminClient();
+
+  const { data: requests } = await admin
+    .from("verification_requests")
+    .select("user_id, requested_role, didit_status, auto_approved")
+    .is("reviewed_at", null)
+    .order("created_at", { ascending: false });
+
+  if (!requests?.length) return 0;
+
+  const latestOpenByUser = new Map<string, (typeof requests)[number]>();
+  for (const row of requests) {
+    if (!latestOpenByUser.has(row.user_id)) {
+      latestOpenByUser.set(row.user_id, row);
+    }
+  }
+
+  return [...latestOpenByUser.values()].filter(
+    (r) =>
+      !isPassengerIdentityOnlyQueueItem(
+        r.requested_role ?? "pilot",
+        r.didit_status,
+        r.auto_approved,
+      ),
+  ).length;
 }
 
 export type AdminBookingRow = {

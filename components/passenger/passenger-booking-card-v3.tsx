@@ -4,11 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
+import { BookingAccordionBody } from "@/components/bookings/BookingConversationsAccordion";
+import { BookingAccordionSummary } from "@/components/bookings/booking-accordion-summary";
 import { BookingChatSection } from "@/components/bookings/BookingChatSection";
 import { CancellationModal } from "@/components/bookings/cancellation-modal";
 import { startCheckoutAction } from "@/lib/bookings/actions";
 import { passengerRefundEligible } from "@/lib/bookings/pricing";
 import { airfieldCityName } from "@/lib/flights/route-meta";
+import { formatMaskedPilotName } from "@/lib/flights/utils";
 import type { PassengerBookingV3 } from "@/lib/passenger/queries";
 
 function formatFlightDateTime(iso: string, time: string): string {
@@ -83,28 +86,40 @@ function paymentFooter(booking: PassengerBookingV3): {
   return { text: seatLine, tone: "muted" };
 }
 
+type PassengerBookingAccordionProps = {
+  expanded: boolean;
+  onToggle: () => void;
+};
+
 export function PassengerBookingCardV3({
   booking,
   currentUserId,
   compact,
+  accordion,
 }: {
   booking: PassengerBookingV3;
   currentUserId: string;
   compact?: boolean;
+  accordion?: PassengerBookingAccordionProps;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const f = booking.flight;
   const badge = statusBadge(booking.status);
   const footer = paymentFooter(booking);
+  const revealPilotName = ["confirmed", "completed"].includes(booking.status);
   const pilotName = f.pilot
-    ? `${f.pilot.first_name ?? ""} ${f.pilot.last_name ?? ""}`.trim()
+    ? revealPilotName
+      ? `${f.pilot.first_name ?? ""} ${f.pilot.last_name ?? ""}`.trim()
+      : formatMaskedPilotName(f.pilot.first_name, f.pilot.last_name)
     : "Pilot";
   const depCity = f.departure ? airfieldCityName(f.departure.name) : "—";
   const arrCity = f.arrival ? airfieldCityName(f.arrival.name) : "—";
   const aircraftLabel = f.aircraft
     ? `${f.aircraft.model ?? "Aircraft"}${f.aircraft.registration ? `, ${f.aircraft.registration}` : ""}`
     : "Aircraft TBD";
+  const routeLabel = `${f.departure?.icao_code ?? "—"} → ${f.arrival?.icao_code ?? "—"}`;
+  const flightDate = formatFlightDateTime(f.flight_date, f.departure_time);
 
   const canCancel = ["pending", "accepted", "confirmed"].includes(booking.status);
   const canPay = booking.status === "accepted";
@@ -112,32 +127,39 @@ export function PassengerBookingCardV3({
     booking.status === "confirmed" &&
     passengerRefundEligible(f.flight_date);
   const showChat = !compact && ["accepted", "confirmed", "completed"].includes(booking.status);
+  const expanded = accordion ? accordion.expanded : true;
 
-  return (
-    <article
-      id={`booking-${booking.id}`}
-      className="scroll-mt-24 rounded-xl border p-5"
-      style={{ borderColor: "var(--line)", background: "var(--surface)" }}
+  const statusBadgeEl = (
+    <span
+      className="rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.08em]"
+      style={{ color: badge.color, borderColor: badge.border }}
     >
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p
-            className="text-[1.2rem] font-semibold tracking-[-0.02em]"
-            style={{ fontFamily: "var(--font-display)", color: "var(--ink)" }}
-          >
-            {f.departure?.icao_code ?? "—"} → {f.arrival?.icao_code ?? "—"}
-          </p>
-          <p className="mt-0.5 text-[13px]" style={{ color: "var(--ink-3)" }}>
-            {depCity} to {arrCity}
-          </p>
+      {badge.label}
+    </span>
+  );
+
+  const details = (
+    <>
+      {!accordion ? (
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p
+              className="text-[1.2rem] font-semibold tracking-[-0.02em]"
+              style={{ fontFamily: "var(--font-display)", color: "var(--ink)" }}
+            >
+              {routeLabel}
+            </p>
+            <p className="mt-0.5 text-[13px]" style={{ color: "var(--ink-3)" }}>
+              {depCity} to {arrCity}
+            </p>
+          </div>
+          {statusBadgeEl}
         </div>
-        <span
-          className="rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.08em]"
-          style={{ color: badge.color, borderColor: badge.border }}
-        >
-          {badge.label}
-        </span>
-      </div>
+      ) : (
+        <p className="mb-4 text-[13px]" style={{ color: "var(--ink-3)" }}>
+          {depCity} to {arrCity}
+        </p>
+      )}
 
       <div className="mb-4 grid gap-4 sm:grid-cols-3">
         <div>
@@ -148,7 +170,7 @@ export function PassengerBookingCardV3({
             Date & time
           </p>
           <p className="mt-1 text-[14px] font-medium" style={{ color: "var(--ink)" }}>
-            {formatFlightDateTime(f.flight_date, f.departure_time)}
+            {flightDate}
           </p>
         </div>
         <div>
@@ -190,7 +212,10 @@ export function PassengerBookingCardV3({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4" style={{ borderColor: "var(--line)" }}>
+      <div
+        className="flex flex-wrap items-center justify-between gap-3 border-t pt-4"
+        style={{ borderColor: "var(--line)" }}
+      >
         <p
           className="text-[13px] font-medium"
           style={{
@@ -205,15 +230,6 @@ export function PassengerBookingCardV3({
           {footer.text}
         </p>
         <div className="flex flex-wrap items-center gap-3">
-          {showChat ? (
-            <a
-              href={`#booking-${booking.id}-chat`}
-              className="text-[13px] font-medium no-underline"
-              style={{ color: "var(--primary-v2)" }}
-            >
-              Message pilot
-            </a>
-          ) : null}
           {canPay ? (
             <button
               type="button"
@@ -255,8 +271,12 @@ export function PassengerBookingCardV3({
         </div>
       </div>
 
-      {showChat ? (
-        <div id={`booking-${booking.id}-chat`} className="mt-4 border-t pt-4" style={{ borderColor: "var(--line)" }}>
+      {showChat && expanded ? (
+        <div
+          id={`booking-${booking.id}-chat`}
+          className="mt-4 border-t pt-4"
+          style={{ borderColor: "var(--line)" }}
+        >
           <BookingChatSection
             bookingId={booking.id}
             status={booking.status}
@@ -265,6 +285,34 @@ export function PassengerBookingCardV3({
           />
         </div>
       ) : null}
+    </>
+  );
+
+  return (
+    <article
+      id={`booking-${booking.id}`}
+      className="scroll-mt-24 rounded-xl border p-5"
+      style={{ borderColor: "var(--line)", background: "var(--surface)" }}
+    >
+      {accordion && !compact ? (
+        <>
+          <BookingAccordionSummary
+            expanded={accordion.expanded}
+            onToggle={accordion.onToggle}
+            routeLabel={routeLabel}
+            nameLabel={pilotName}
+            meta={flightDate}
+            badge={statusBadgeEl}
+          />
+          <BookingAccordionBody expanded={accordion.expanded}>
+            <div className="border-t pt-3" style={{ borderColor: "var(--line)" }}>
+              {details}
+            </div>
+          </BookingAccordionBody>
+        </>
+      ) : (
+        details
+      )}
     </article>
   );
 }

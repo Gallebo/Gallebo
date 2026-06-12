@@ -3,11 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
-import {
-  acceptBookingAction,
-  rejectBookingAction,
-} from "@/lib/bookings/actions";
+import { acceptBookingAction } from "@/lib/bookings/actions";
 import { PassengerReputationSnippet } from "@/components/pilot/passenger-reputation-snippet";
+import { PilotBookingRejectForm } from "@/components/pilot/pilot-booking-reject-form";
 import type { PilotBookingRequestRow } from "@/lib/pilot/queries";
 
 function passengerInitials(first: string | null, last: string | null): string {
@@ -74,31 +72,12 @@ export function PilotBookingRequestRow({
             {booking.relative}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full flex-col gap-3 lg:w-auto lg:min-w-[220px]">
+          <PilotBookingRejectForm bookingId={booking.id} className="lg:max-w-xs" />
           <button
             type="button"
             disabled={pending}
-            className="rounded-lg px-4 py-2.5 text-[13px] font-semibold transition-opacity disabled:opacity-50"
-            style={{
-              background: "color-mix(in srgb, var(--danger) 12%, transparent)",
-              color: "var(--danger)",
-              border: "none",
-              cursor: "pointer",
-            }}
-            onClick={() => {
-              startTransition(async () => {
-                const res = await rejectBookingAction(booking.id);
-                if (res.error) alert(res.error);
-                router.refresh();
-              });
-            }}
-          >
-            Decline
-          </button>
-          <button
-            type="button"
-            disabled={pending}
-            className="btn-v2-primary rounded-lg px-4 py-2.5 text-[13px] font-semibold disabled:opacity-50"
+            className="btn-v2-primary self-start rounded-lg px-4 py-2.5 text-[13px] font-semibold disabled:opacity-50"
             style={{ border: "none", cursor: "pointer" }}
             onClick={() => {
               startTransition(async () => {

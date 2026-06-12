@@ -129,6 +129,7 @@ export function ChatPanel({
             } else {
               setDraft("");
               setError(null);
+              await load();
             }
           });
         }}

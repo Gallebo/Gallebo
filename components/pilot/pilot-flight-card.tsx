@@ -22,8 +22,9 @@ export function PilotFlightCard({
       ? Math.min(100, (flight.booked_seats / flight.passenger_seats) * 100)
       : 0;
   const isOpen = flight.booked_seats < flight.passenger_seats;
+  const isCancellationLocked = Boolean(flight.cancellation_locked_at);
   const canCancelFlight =
-    flight.status === "published" && flight.confirmed_bookings === 0;
+    flight.status === "published" && !isCancellationLocked;
   const statusLabel = isOpen && flight.status === "published" ? "Open" : "Confirmed";
   const statusStyle =
     statusLabel === "Open"
@@ -80,7 +81,17 @@ export function PilotFlightCard({
         >
           {statusLabel}
         </span>
-        {canCancelFlight ? <CancelFlightButton flightId={flight.id} /> : null}
+        {isCancellationLocked ? (
+          <p className="text-[12px] font-medium" style={{ color: "var(--danger)" }}>
+            Cancellation blocked — support notified
+          </p>
+        ) : null}
+        {canCancelFlight ? (
+          <CancelFlightButton
+            flightId={flight.id}
+            hasPaidBookings={flight.confirmed_bookings > 0}
+          />
+        ) : null}
         {flight.status === "published" ? (
           <MarkFlightCompleteButton flightId={flight.id} />
         ) : null}
