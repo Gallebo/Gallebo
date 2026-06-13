@@ -88,7 +88,9 @@ export function ChatPanel({
       <h4 className="text-sm font-medium">Messages</h4>
       <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
         {messages.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No messages yet.</p>
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            No messages yet. Start the conversation.
+          </p>
         ) : (
           messages.map((m) =>
             m.is_system ? (
@@ -142,7 +144,7 @@ export function ChatPanel({
           disabled={pending}
         />
         <Button type="submit" disabled={pending || !draft.trim()}>
-          Send
+          {pending ? "Sending…" : "Send"}
         </Button>
       </form>
     </div>

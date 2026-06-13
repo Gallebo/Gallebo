@@ -143,7 +143,9 @@ export function PilotEditSections({
             <p className="text-sm text-destructive">{personalState.error}</p>
           ) : null}
           {personalState.success ? (
-            <p className="text-sm text-green-600">{personalState.success}</p>
+            <p className="text-sm" style={{ color: "var(--success)" }}>
+              {personalState.success}
+            </p>
           ) : null}
           <Button type="submit" disabled={isPending}>
             {isPending ? (

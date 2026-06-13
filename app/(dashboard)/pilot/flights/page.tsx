@@ -4,7 +4,9 @@ import { Suspense } from "react";
 import { PilotFlightCard } from "@/components/pilot/pilot-flight-card";
 import { PilotFlightTabs } from "@/components/pilot/pilot-flight-tabs";
 import { PilotPageHeader } from "@/components/pilot/pilot-page-header";
+import { buttonVariants } from "@/components/ui/button";
 import { requirePilot } from "@/lib/auth/rbac";
+import { cn } from "@/lib/utils";
 import { getPilotFlightsLog } from "@/lib/pilot/queries";
 
 export const metadata = { title: "Flight log — Gallebo" };
@@ -58,9 +60,22 @@ export default async function PilotFlightsPage({
           ))}
         </div>
       ) : (
-        <p className="text-[14px]" style={{ color: "var(--ink-3)" }}>
-          No {tab} flights.
-        </p>
+        <div
+          className="flex flex-col items-center gap-4 rounded-xl border border-dashed py-14 text-center"
+          style={{ borderColor: "var(--line)" }}
+        >
+          <p className="text-[14px]" style={{ color: "var(--ink-3)" }}>
+            No {tab} flights.
+          </p>
+          {tab === "upcoming" ? (
+            <Link
+              href="/pilot/flights/new"
+              className={cn(buttonVariants({ variant: "default" }), "inline-flex")}
+            >
+              Post your first flight
+            </Link>
+          ) : null}
+        </div>
       )}
     </div>
   );

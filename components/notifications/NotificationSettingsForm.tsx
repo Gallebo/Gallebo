@@ -14,7 +14,8 @@ export function NotificationSettingsForm({
   initial: NotificationSettings;
 }) {
   const [settings, setSettings] = useState(initial);
-  const [message, setMessage] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   return (
@@ -24,7 +25,8 @@ export function NotificationSettingsForm({
         e.preventDefault();
         startTransition(async () => {
           const res = await updateNotificationSettings(settings);
-          setMessage(res.success ?? res.error ?? null);
+          setSuccessMsg(res.success ?? null);
+          setErrorMsg(res.error ?? null);
         });
       }}
     >
@@ -58,8 +60,15 @@ export function NotificationSettingsForm({
           }
         />
       </label>
-      {message ? (
-        <p className="text-sm text-muted-foreground">{message}</p>
+      {successMsg ? (
+        <p className="text-sm" style={{ color: "var(--success)" }}>
+          {successMsg}
+        </p>
+      ) : null}
+      {errorMsg ? (
+        <p className="text-sm" style={{ color: "var(--danger)" }}>
+          {errorMsg}
+        </p>
       ) : null}
       <Button type="submit" disabled={pending}>
         {pending ? "Saving…" : "Save settings"}

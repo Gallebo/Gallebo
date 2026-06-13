@@ -87,7 +87,18 @@ export default async function PilotAircraftListPage() {
           })}
         </ul>
       ) : (
-        <p className="text-sm text-muted-foreground">No aircraft yet.</p>
+        <div
+          className="flex flex-col items-center gap-4 rounded-xl border border-dashed py-14 text-center"
+          style={{ borderColor: "var(--line)" }}
+        >
+          <p className="text-sm text-muted-foreground">No aircraft registered yet.</p>
+          <Link
+            href="/pilot/aircraft/new"
+            className={cn(buttonVariants({ variant: "default" }), "inline-flex")}
+          >
+            Register your first aircraft
+          </Link>
+        </div>
       )}
     </div>
   );
