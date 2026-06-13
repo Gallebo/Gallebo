@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 import { getProfile, getSessionUser } from "@/lib/auth/rbac";
 import { BUCKET_BY_TYPE } from "@/lib/documents/constants";
@@ -33,6 +34,9 @@ export async function GET(
   }
 
   const { documentId } = await context.params;
+  if (!z.string().uuid().safeParse(documentId).success) {
+    return NextResponse.json({ error: "Invalid document ID" }, { status: 400 });
+  }
   const admin = createAdminClient();
 
   const { data: document, error: documentError } = await admin

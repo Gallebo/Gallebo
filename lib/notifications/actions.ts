@@ -33,7 +33,7 @@ export async function getNotificationsAction(): Promise<{
       .order("created_at", { ascending: false })
       .limit(30);
 
-    if (error) return { error: error.message };
+    if (error) return { error: "Failed to load notifications" };
 
     const unreadCount = (data ?? []).filter((n) => !n.read_at).length;
     return { notifications: data ?? [], unreadCount };
@@ -58,7 +58,7 @@ export async function markReadAction(
       .eq("id", notificationId)
       .is("read_at", null);
 
-    if (error) return { error: error.message };
+    if (error) return { error: "Failed to mark notification as read" };
     revalidatePath("/", "layout");
     return {};
   } catch (e) {
@@ -80,7 +80,7 @@ export async function markAllReadAction(): Promise<{ error?: string }> {
       .eq("user_id", user.id)
       .is("read_at", null);
 
-    if (error) return { error: error.message };
+    if (error) return { error: "Failed to mark notifications as read" };
     revalidatePath("/", "layout");
     return {};
   } catch (e) {

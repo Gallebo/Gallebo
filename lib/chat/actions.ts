@@ -71,7 +71,7 @@ export async function getMessagesAction(
       .eq("booking_id", bookingId)
       .order("created_at", { ascending: true });
 
-    if (error) return { error: error.message };
+    if (error) return { error: "Failed to load messages" };
     return { messages: data ?? [], chatLocked };
   } catch (e) {
     return {
@@ -108,7 +108,7 @@ export async function sendMessageAction(
       is_system: false,
     });
 
-    if (error) return { error: error.message };
+    if (error) return { error: "Failed to send message" };
     return {};
   } catch (e) {
     return {

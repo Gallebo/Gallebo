@@ -35,6 +35,12 @@ const pilotRejectionReasonSchema = z
   .min(10, "Rejection reason must be at least 10 characters")
   .max(500, "Rejection reason must be at most 500 characters");
 
+const uuidSchema = z.string().uuid();
+
+function isValidUuid(id: string): boolean {
+  return uuidSchema.safeParse(id).success;
+}
+
 async function notify(
   admin: ReturnType<typeof createAdminClient>,
   userId: string,
@@ -63,6 +69,7 @@ export async function acceptBookingAction(
   bookingId: string,
 ): Promise<BookingActionState> {
   try {
+    if (!isValidUuid(bookingId)) return { error: "Invalid ID" };
     const { user } = await requirePilot();
     const supabase = await createClient();
     const admin = createAdminClient();
@@ -150,6 +157,7 @@ export async function rejectBookingAction(
   reason: string,
 ): Promise<BookingActionState> {
   try {
+    if (!isValidUuid(bookingId)) return { error: "Invalid ID" };
     const parsedReason = pilotRejectionReasonSchema.safeParse(reason);
     if (!parsedReason.success) {
       return {
@@ -226,6 +234,7 @@ export async function startCheckoutAction(
   bookingId: string,
 ): Promise<BookingActionState> {
   try {
+    if (!isValidUuid(bookingId)) return { error: "Invalid ID" };
     const user = await requireUser();
     const profile = await getProfile();
     if (profile?.role !== "passenger") {
@@ -321,6 +330,7 @@ export async function cancelBookingAction(
   bookingId: string,
 ): Promise<BookingActionState> {
   try {
+    if (!isValidUuid(bookingId)) return { error: "Invalid ID" };
     const user = await requireUser();
     const profile = await getProfile();
     const supabase = await createClient();
@@ -457,6 +467,7 @@ export async function markFlightCompletedAction(
   flightId: string,
 ): Promise<BookingActionState> {
   try {
+    if (!isValidUuid(flightId)) return { error: "Invalid ID" };
     const { user } = await requirePilot();
     const supabase = await createClient();
     const admin = createAdminClient();
@@ -560,6 +571,7 @@ export async function markFlightCompletedAction(
 }
 
 export async function getFlightWeightCheck(flightId: string) {
+  if (!isValidUuid(flightId)) return { error: "Invalid ID" };
   const { user } = await requirePilot();
   const supabase = await createClient();
 

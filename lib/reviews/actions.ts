@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 import { requirePilot, requireVerifiedPassenger } from "@/lib/auth/rbac";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -9,6 +10,12 @@ export type ReviewActionState = {
   error?: string;
   success?: string;
 };
+
+const uuidSchema = z.string().uuid();
+
+function isValidUuid(id: string): boolean {
+  return uuidSchema.safeParse(id).success;
+}
 
 function parseRating(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -49,6 +56,7 @@ export async function submitPilotReview(
   },
 ): Promise<ReviewActionState> {
   try {
+    if (!isValidUuid(bookingId)) return { error: "Invalid ID" };
     const { user } = await requireVerifiedPassenger();
     const admin = createAdminClient();
 
@@ -172,6 +180,7 @@ export async function submitPassengerReview(
   },
 ): Promise<ReviewActionState> {
   try {
+    if (!isValidUuid(bookingId)) return { error: "Invalid ID" };
     const { user } = await requirePilot();
     const admin = createAdminClient();
 

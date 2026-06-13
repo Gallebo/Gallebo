@@ -46,23 +46,11 @@ export async function POST() {
 
     const updatedCount = data?.length ?? 0;
 
-    console.log("[didit/session] verification_requests update", {
-      userId: user.id,
-      sessionId: session.sessionId,
-      data,
-      error,
-      count: updatedCount,
-    });
-
     if (error) {
-      console.error("[didit/session] failed to persist didit_session_id", {
-        userId: user.id,
-        error,
-      });
+      console.error("[didit/session] failed to persist didit_session_id");
     } else if (updatedCount === 0) {
       console.warn(
         "[didit/session] no open passenger verification_request matched update",
-        { userId: user.id, sessionId: session.sessionId },
       );
     }
 

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 import { createAlertSchema } from "@/lib/alerts/schemas";
 import { requireVerifiedPassenger } from "@/lib/auth/rbac";
@@ -10,6 +11,12 @@ export type AlertActionState = {
   error?: string;
   success?: string;
 };
+
+const uuidSchema = z.string().uuid();
+
+function isValidUuid(id: string): boolean {
+  return uuidSchema.safeParse(id).success;
+}
 
 export async function createAlertAction(
   _prev: AlertActionState,
@@ -67,6 +74,7 @@ export async function createAlertAction(
 
 export async function extendAlertAction(alertId: string): Promise<AlertActionState> {
   try {
+    if (!isValidUuid(alertId)) return { error: "Invalid ID" };
     await requireVerifiedPassenger();
     const supabase = await createClient();
 
@@ -87,6 +95,7 @@ export async function extendAlertAction(alertId: string): Promise<AlertActionSta
 
 export async function deleteAlertAction(alertId: string): Promise<AlertActionState> {
   try {
+    if (!isValidUuid(alertId)) return { error: "Invalid ID" };
     await requireVerifiedPassenger();
     const supabase = await createClient();
 

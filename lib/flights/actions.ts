@@ -519,7 +519,7 @@ export async function publishFlightAction(
       );
       return { error: flightError?.message ?? "Failed to publish flight" };
     }
-    console.log("FLIGHTS INSERT OK:", flight.id);
+    console.log("[flights] flight published");
 
     const movedPaths: string[] = [];
 
@@ -575,12 +575,12 @@ export async function publishFlightAction(
           );
           return rollback(uploadError.message);
         }
-        console.log("STORAGE UPLOAD OK (fallback):", destPath);
+        console.log("[flights] storage upload ok");
         await adminSupabase.storage
           .from(FLIGHT_PHOTOS_BUCKET)
           .remove([draftPath]);
       } else {
-        console.log("STORAGE MOVE OK:", draftPath, "->", destPath);
+        console.log("[flights] storage move ok");
       }
 
       movedPaths.push(destPath);
@@ -599,7 +599,7 @@ export async function publishFlightAction(
         );
         return rollback(photoErr.message);
       }
-      console.log("FLIGHT_PHOTOS INSERT OK:", destPath, "position:", position);
+      console.log("[flights] photo inserted");
       position += 1;
     }
 
@@ -689,7 +689,7 @@ export async function publishFlightAction(
     revalidatePath("/pilot/flights");
     revalidatePath(`/pilots/${user.id}`);
 
-    console.log("PUBLISH FLIGHT COMPLETE:", flight.id);
+    console.log("[flights] publish complete");
     return { success: "published", flightId: flight.id };
   } catch (e) {
     rethrowIfNextRedirect(e);

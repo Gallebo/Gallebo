@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 import { startCheckoutAction } from "@/lib/bookings/actions";
 import { createClient } from "@/lib/supabase/server";
+
+const bodySchema = z.object({
+  bookingId: z.string().uuid(),
+});
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -13,17 +18,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let bookingId: string;
-  try {
-    const body = (await request.json()) as { bookingId?: string };
-    bookingId = body.bookingId ?? "";
-  } catch {
-    return NextResponse.json({ error: "Invalid body" }, { status: 400 });
+  const parsed = bodySchema.safeParse(await request.json().catch(() => ({})));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid bookingId" }, { status: 400 });
   }
 
-  if (!bookingId) {
-    return NextResponse.json({ error: "bookingId required" }, { status: 400 });
-  }
+  const { bookingId } = parsed.data;
 
   const result = await startCheckoutAction(bookingId);
 

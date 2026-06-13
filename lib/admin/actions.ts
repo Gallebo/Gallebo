@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 import { approveAirfieldSchema } from "@/lib/airfield/schemas";
 import { requireAdmin } from "@/lib/auth/rbac";
@@ -59,6 +60,13 @@ export async function rejectVerificationAction(
   requestId: string,
   reason: string
 ): Promise<AdminActionState> {
+  const reasonSchema = z.string().min(10).max(500);
+  const parsedReason = reasonSchema.safeParse(reason.trim());
+  if (!parsedReason.success) {
+    return { error: "Rejection reason must be between 10 and 500 characters." };
+  }
+  const safeReason = parsedReason.data;
+
   const { user: adminUser } = await requireAdmin();
   const admin = createAdminClient();
 
@@ -75,7 +83,7 @@ export async function rejectVerificationAction(
   const { error: vrError } = await admin
     .from("verification_requests")
     .update({
-      rejection_reason: reason,
+      rejection_reason: safeReason,
       reviewed_by: adminUser.id,
       reviewed_at: new Date().toISOString(),
     })
@@ -91,7 +99,7 @@ export async function rejectVerificationAction(
   await admin.from("notification_queue").insert({
     user_id: request.user_id,
     type: "verification_rejected",
-    payload: { requestId, reason },
+    payload: { requestId, reason: safeReason },
   });
 
   revalidatePath("/admin");
