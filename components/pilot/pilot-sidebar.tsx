@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, Plane } from "lucide-react";
+import { Menu, Plane, User } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -104,6 +104,11 @@ const NAV = [
         <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
       </svg>
     ),
+  },
+  {
+    href: "/pilot/edit",
+    label: "Profile",
+    icon: <User size={16} strokeWidth={1.7} aria-hidden="true" />,
   },
 ];
 
