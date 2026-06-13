@@ -1,12 +1,12 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Profile } from "@/lib/types/profile";
+import type { ProfileSummary } from "@/lib/types/profile";
 
 export function ProfileCard({
   profile,
   email,
 }: {
-  profile: Profile;
+  profile: ProfileSummary;
   email: string;
 }) {
   const name =

@@ -47,6 +47,12 @@ export default async function PilotOnboardingPage() {
   const diditFromVr = isDiditApproved(openVr?.didit_status);
   const step = mapPilotOnboardingStep(storedStep, draft, diditFromVr);
 
+  const { data: profileExtras } = await supabase
+    .from("profiles")
+    .select("date_of_birth, weight_encrypted")
+    .eq("id", user.id)
+    .maybeSingle();
+
   return (
     <PilotOnboardingWizard
       key={`${pilotProfile?.updated_at ?? "new"}-${step}`}
@@ -56,10 +62,10 @@ export default async function PilotOnboardingPage() {
       profileDefaults={{
         firstName: profile?.first_name ?? null,
         lastName: profile?.last_name ?? null,
-        dateOfBirth: profile?.date_of_birth ?? null,
+        dateOfBirth: profileExtras?.date_of_birth ?? null,
         phone: null,
-        weightKg: profile?.weight_encrypted
-          ? weightFromDbValue(profile.weight_encrypted)
+        weightKg: profileExtras?.weight_encrypted
+          ? weightFromDbValue(profileExtras.weight_encrypted)
           : null,
       }}
     />

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { getPublicEnv, isMapTilerConfigured } from "@/lib/env";
@@ -278,7 +279,9 @@ export async function searchPublishedFlights(
   return items;
 }
 
-export async function getFlightById(id: string): Promise<FlightListItem | null> {
+export const getFlightById = cache(async function getFlightById(
+  id: string,
+): Promise<FlightListItem | null> {
   const supabase = await createClient();
   const today = new Date().toISOString().slice(0, 10);
   const {
@@ -343,7 +346,7 @@ export async function getFlightById(id: string): Promise<FlightListItem | null> 
     pilot_avg_rating: avg,
     pilot_review_count: ratings.length,
   });
-}
+});
 
 export async function getFlightsForAirfield(
   airfieldId: string,

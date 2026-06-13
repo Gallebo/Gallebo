@@ -4,8 +4,6 @@ import { MobileNav } from "@/components/layout/mobile-nav";
 import { UserMenu } from "@/components/layout/user-menu";
 import { GalleboWordmark } from "@/components/marketing/seagull-wordmark";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { becomePilotHref } from "@/lib/onboarding/guards";
-import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
 function initialsFrom(
@@ -19,30 +17,25 @@ function initialsFrom(
   return email.slice(0, 2).toUpperCase();
 }
 
-export async function SiteHeader({ className }: { className?: string }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  let profile: {
+type SiteHeaderProps = {
+  className?: string;
+  user: { email: string } | null;
+  profile: {
     first_name: string | null;
     last_name: string | null;
     role: string | null;
     status: string;
-  } | null = null;
+  } | null;
+  pilotLink: string;
+};
 
-  if (user) {
-    const { data } = await supabase
-      .from("profiles")
-      .select("first_name, last_name, role, status")
-      .eq("id", user.id)
-      .single();
-    profile = data;
-  }
-
+export function SiteHeader({
+  className,
+  user,
+  profile,
+  pilotLink,
+}: SiteHeaderProps) {
   const isAdmin = profile?.role === "admin";
-  const pilotLink = becomePilotHref(Boolean(user), profile);
 
   return (
     <header

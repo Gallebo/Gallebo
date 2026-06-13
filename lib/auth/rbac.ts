@@ -12,14 +12,16 @@ export async function getSessionUser() {
   return user;
 }
 
-export async function getProfile() {
+import type { ProfileSummary } from "@/lib/types/profile";
+
+export async function getProfile(): Promise<ProfileSummary | null> {
   const user = await getSessionUser();
   if (!user) return null;
 
   const supabase = await createClient();
   const { data } = await supabase
     .from("profiles")
-    .select("*")
+    .select("id, role, status, first_name, last_name")
     .eq("id", user.id)
     .single();
 

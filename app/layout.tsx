@@ -82,11 +82,16 @@ export default async function RootLayout({
     data: { user },
   } = await supabase.auth.getUser();
 
-  let profile: { role: string | null; status: string } | null = null;
+  let profile: {
+    role: string | null;
+    status: string;
+    first_name: string | null;
+    last_name: string | null;
+  } | null = null;
   if (user) {
     const { data } = await supabase
       .from("profiles")
-      .select("role, status")
+      .select("role, status, first_name, last_name")
       .eq("id", user.id)
       .single();
     profile = data;
@@ -106,7 +111,11 @@ export default async function RootLayout({
       <body className="flex min-h-dvh flex-col font-sans bg-[var(--bg)] text-[var(--ink)] transition-colors duration-300">
         <ThemeProvider>
           <PostHogProvider>
-            <SiteHeader />
+            <SiteHeader
+              user={user ? { email: user.email ?? "" } : null}
+              profile={profile}
+              pilotLink={pilotLink}
+            />
             <main className="flex min-h-0 flex-1 flex-col">{children}</main>
             <SiteFooterGate becomePilotHref={pilotLink} />
           </PostHogProvider>

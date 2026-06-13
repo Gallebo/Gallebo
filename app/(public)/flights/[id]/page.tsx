@@ -80,12 +80,19 @@ export default async function FlightDetailPage({
   const authUser = await getSessionUser();
   const profile = await getProfile();
   const seatsLeft = availableSeats(flight);
-  const weightWarning =
-    profile?.weight_encrypted && profile.role === "passenger"
-      ? getPassengerWeightWarning(profile.weight_encrypted, seatsLeft)
-      : null;
-
   const supabase = await createClient();
+  let weightEncrypted: string | null = null;
+  if (authUser && profile?.role === "passenger") {
+    const { data: w } = await supabase
+      .from("profiles")
+      .select("weight_encrypted")
+      .eq("id", authUser.id)
+      .single();
+    weightEncrypted = w?.weight_encrypted ?? null;
+  }
+  const weightWarning = weightEncrypted
+    ? getPassengerWeightWarning(weightEncrypted, seatsLeft)
+    : null;
   let aircraftLabel = "Rented aircraft";
   if (flight.aircraft_id) {
     const { data: ac } = await supabase

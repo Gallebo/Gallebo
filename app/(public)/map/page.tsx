@@ -1,4 +1,4 @@
-import { AirfieldsMap } from "@/components/map/airfields-map";
+import { AirfieldsMapLazy } from "@/components/map/airfields-map-lazy";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = {
@@ -28,7 +28,7 @@ export default async function MapPage() {
           destinations across Europe.
         </p>
       </div>
-      <AirfieldsMap airfields={airfields ?? []} />
+      <AirfieldsMapLazy airfields={airfields ?? []} />
     </div>
   );
 }

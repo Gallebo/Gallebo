@@ -1,4 +1,4 @@
-import { AirfieldsListing } from "@/components/airfield/public/airfields-listing";
+import { AirfieldsListingLazy } from "@/components/airfield/public/airfields-listing-lazy";
 import { getAllAirfields } from "@/lib/airfields/queries";
 
 export const metadata = {
@@ -25,7 +25,7 @@ export default async function AirfieldsPage() {
           flights and details.
         </p>
       </div>
-      <AirfieldsListing airfields={airfields} />
+      <AirfieldsListingLazy airfields={airfields} />
     </div>
   );
 }

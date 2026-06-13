@@ -12,6 +12,11 @@ export default async function PassengerPilotUpgradePage() {
   const { user } = await requireVerifiedPassengerForUpgrade();
   const profile = await getProfile();
   const supabase = await createClient();
+  const { data: profileExtras } = await supabase
+    .from("profiles")
+    .select("date_of_birth, phone_encrypted, weight_encrypted")
+    .eq("id", user.id)
+    .maybeSingle();
   const { data: pilotProfile } = await supabase
     .from("pilot_profiles")
     .select("onboarding_step, onboarding_draft, updated_at")
@@ -26,12 +31,12 @@ export default async function PassengerPilotUpgradePage() {
       profileDefaults={{
         firstName: profile?.first_name ?? null,
         lastName: profile?.last_name ?? null,
-        dateOfBirth: profile?.date_of_birth ?? null,
-        phone: profile?.phone_encrypted
-          ? phoneFromDbValue(profile.phone_encrypted)
+        dateOfBirth: profileExtras?.date_of_birth ?? null,
+        phone: profileExtras?.phone_encrypted
+          ? phoneFromDbValue(profileExtras.phone_encrypted)
           : null,
-        weightKg: profile?.weight_encrypted
-          ? weightFromDbValue(profile.weight_encrypted)
+        weightKg: profileExtras?.weight_encrypted
+          ? weightFromDbValue(profileExtras.weight_encrypted)
           : null,
       }}
     />

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { FlightsRoutesMap } from "@/components/map/flights-routes-map";
+import { FlightsRoutesMapLazy } from "@/components/map/flights-routes-map-lazy";
 import { searchPublishedFlights } from "@/lib/flights/search";
 import type { FlightSearchParams } from "@/lib/flights/types";
 
@@ -46,7 +46,7 @@ export default async function FlightsMapPage({
           List view
         </Link>
       </div>
-      <FlightsRoutesMap flights={flights} />
+      <FlightsRoutesMapLazy flights={flights} />
     </div>
   );
 }

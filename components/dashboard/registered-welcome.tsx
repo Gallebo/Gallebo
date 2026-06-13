@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Building2, Check, Plane, Shield, Users } from "lucide-react";
 
-import type { Profile } from "@/lib/types/profile";
+import type { ProfileSummary } from "@/lib/types/profile";
 
 const ROLES = [
   {
@@ -30,7 +30,7 @@ const STEPS = [
   { label: "Verify identity", state: "upcoming" as const },
 ];
 
-function welcomeHeadline(profile: Profile): string {
+function welcomeHeadline(profile: ProfileSummary): string {
   const first = profile.first_name?.trim();
   if (first) return `Welcome back, ${first}`;
   return "Welcome aboard";
@@ -40,7 +40,7 @@ export function RegisteredWelcome({
   profile,
   email,
 }: {
-  profile: Profile;
+  profile: ProfileSummary;
   email: string;
 }) {
   return (

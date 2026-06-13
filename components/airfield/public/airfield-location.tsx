@@ -1,4 +1,4 @@
-import { AirfieldMiniMap } from "@/components/map/airfield-mini-map";
+import { AirfieldMiniMapLazy } from "@/components/map/airfield-mini-map-lazy";
 
 interface AirfieldLocationProps {
   airfieldName: string;
@@ -53,7 +53,7 @@ export function AirfieldLocation({
           className="overflow-hidden rounded-2xl"
           style={{ border: "1px solid var(--line)" }}
         >
-          <AirfieldMiniMap
+          <AirfieldMiniMapLazy
             latitude={latitude}
             longitude={longitude}
             name={airfieldName}
