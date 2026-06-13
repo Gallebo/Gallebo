@@ -3,13 +3,15 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useActionState, useEffect, useTransition } from "react";
 import { useForm } from "react-hook-form";
+import { Loader2 } from "lucide-react";
 
 import {
   AuthSubmitButton,
   authLabelClassName,
 } from "@/components/auth/auth-form-styles";
 import { FormMessage } from "@/components/auth/form-message";
-import { trackEvent } from "@/lib/analytics/track";
+import { PasswordInput } from "@/components/auth/password-input";
+import { PasswordStrength } from "@/components/auth/password-strength";
 // TODO: Enable when OAuth Client IDs are configured
 // import { SocialAuthButtons } from "@/components/auth/social-auth-buttons";
 import {
@@ -32,12 +34,14 @@ export function RegisterForm() {
     defaultValues: { email: "", password: "", confirmPassword: "" },
   });
 
+  const passwordValue = form.watch("password");
+
   useEffect(() => {
     if (state.error) {
       form.setError("root", { message: state.error });
     }
     if (state.success) {
-      trackEvent("registration");
+      // trackEvent("registration");
     }
   }, [state.error, state.success, form]);
 
@@ -66,6 +70,7 @@ export function RegisterForm() {
           autoComplete="email"
           placeholder="you@example.com"
           size="lg"
+          disabled={isPending}
           {...form.register("email")}
         />
         {form.formState.errors.email ? (
@@ -78,15 +83,16 @@ export function RegisterForm() {
         <label htmlFor="password" className={authLabelClassName} style={{ color: "var(--ink)" }}>
           Password
         </label>
-        <Input
+        <PasswordInput
           id="password"
-          type="password"
-          minLength={8}
           autoComplete="new-password"
           placeholder="At least 8 characters"
           size="lg"
+          disabled={isPending}
+          aria-invalid={Boolean(form.formState.errors.password)}
           {...form.register("password")}
         />
+        <PasswordStrength password={passwordValue ?? ""} />
         {form.formState.errors.password ? (
           <p className="text-sm text-destructive">
             {form.formState.errors.password.message}
@@ -97,13 +103,13 @@ export function RegisterForm() {
         <label htmlFor="confirmPassword" className={authLabelClassName} style={{ color: "var(--ink)" }}>
           Confirm password
         </label>
-        <Input
+        <PasswordInput
           id="confirmPassword"
-          type="password"
-          minLength={8}
           autoComplete="new-password"
           placeholder="Repeat your password"
           size="lg"
+          disabled={isPending}
+          aria-invalid={Boolean(form.formState.errors.confirmPassword)}
           {...form.register("confirmPassword")}
         />
         {form.formState.errors.confirmPassword ? (
@@ -114,7 +120,12 @@ export function RegisterForm() {
       </div>
       <FormMessage error={form.formState.errors.root?.message} success={state.success} />
       <AuthSubmitButton disabled={isPending}>
-        {isPending ? "Creating account…" : (
+        {isPending ? (
+          <>
+            <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+            Creating account…
+          </>
+        ) : (
           <>
             Create account
             <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

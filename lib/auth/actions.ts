@@ -23,6 +23,12 @@ async function getClientIp(): Promise<string> {
   return h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
 }
 
+function mapAuthError(message: string): string {
+  if (message.includes("Invalid login credentials")) return "Wrong email or password";
+  if (message.includes("Email not confirmed")) return "Please confirm your email first";
+  return message;
+}
+
 export async function loginAction(
   _prev: AuthActionState,
   formData: FormData
@@ -44,7 +50,7 @@ export async function loginAction(
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) {
-    return { error: error.message };
+    return { error: mapAuthError(error.message) };
   }
 
   const next = formData.get("next");

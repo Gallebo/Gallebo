@@ -1,12 +1,14 @@
 "use client";
 
 import { useActionState, useEffect, useTransition, useState } from "react";
+import { Loader2 } from "lucide-react";
 
 import {
   AuthSubmitButton,
   authLabelClassName,
 } from "@/components/auth/auth-form-styles";
 import { FormMessage } from "@/components/auth/form-message";
+import { PasswordInput } from "@/components/auth/password-input";
 // TODO: Enable when OAuth Client IDs are configured
 // import { SocialAuthButtons } from "@/components/auth/social-auth-buttons";
 import {
@@ -85,6 +87,7 @@ export function LoginForm({ next }: { next?: string }) {
             autoComplete="email"
             placeholder="you@example.com"
             aria-invalid={Boolean(errors.email)}
+            disabled={isPending}
             value={email}
             onChange={(event) => {
               setEmail(event.target.value);
@@ -105,14 +108,13 @@ export function LoginForm({ next }: { next?: string }) {
           >
             Password
           </label>
-          <Input
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
             size="lg"
             autoComplete="current-password"
-            placeholder="At least 8 characters"
             aria-invalid={Boolean(errors.password)}
+            disabled={isPending}
             value={password}
             onChange={(event) => {
               setPassword(event.target.value);
@@ -128,7 +130,10 @@ export function LoginForm({ next }: { next?: string }) {
         <FormMessage error={errors.root} success={state.success} />
         <AuthSubmitButton disabled={isPending}>
           {isPending ? (
-            "Signing in…"
+            <>
+              <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+              Signing in…
+            </>
           ) : (
             <>
               Log in
