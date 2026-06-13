@@ -13,6 +13,8 @@ import { publicStorageUrl } from "@/lib/storage/public-url";
 import { createClient } from "@/lib/supabase/server";
 import { PilotReviewCard } from "@/components/reviews/PilotReviewCard";
 
+export const revalidate = 300;
+
 const PROFILE_BUCKET = "profile-photos";
 const AIRCRAFT_BUCKET = "aircraft-photos";
 

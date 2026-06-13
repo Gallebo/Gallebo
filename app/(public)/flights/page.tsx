@@ -11,6 +11,7 @@ import {
 import { FlightsResultsToolbar } from "@/components/flights/flights-results-toolbar";
 import { FlightsSearchHero } from "@/components/flights/flights-search-hero";
 import { getProfile, getSessionUser } from "@/lib/auth/rbac";
+import { getAllAirfields } from "@/lib/airfields/queries";
 import { getConfirmedBookingFlightIds } from "@/lib/flights/pilot-privacy";
 import { searchPublishedFlights } from "@/lib/flights/search";
 import type { FlightSearchParams, FlightType } from "@/lib/flights/types";
@@ -114,11 +115,7 @@ export default async function FlightsSearchPage({
     );
   }
 
-  const { data: airfields } = await supabase
-    .from("airfields")
-    .select("id, name, icao_code")
-    .eq("status", "active")
-    .order("name");
+  const airfields = await getAllAirfields();
 
   const typeCounts = countByType(allFlights);
   const metaLine = buildMetaLine({

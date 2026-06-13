@@ -529,23 +529,25 @@ export async function markFlightCompletedAction(
       .eq("flight_id", flightId)
       .eq("status", "confirmed");
 
-    for (const b of bookings ?? []) {
-      await admin
-        .from("flight_booking_requests")
-        .update({
-          status: "completed",
-          payout_after: payoutAfter,
-          review_deadline_at: reviewDeadlineAt,
-        })
-        .eq("id", b.id);
+    await admin
+      .from("flight_booking_requests")
+      .update({
+        status: "completed",
+        payout_after: payoutAfter,
+        review_deadline_at: reviewDeadlineAt,
+      })
+      .eq("flight_id", flightId)
+      .eq("status", "confirmed");
 
-      await insertSystemMessage(b.id, "Let je završen.");
-
-      await notify(admin, b.passenger_user_id, "flight_completed", {
-        flightId,
-        bookingId: b.id,
-      });
-    }
+    await Promise.all(
+      (bookings ?? []).flatMap((b) => [
+        insertSystemMessage(b.id, "Let je završen."),
+        notify(admin, b.passenger_user_id, "flight_completed", {
+          flightId,
+          bookingId: b.id,
+        }),
+      ]),
+    );
 
     // Spec faza 5: "Let oznacen kao zavrsen — oboje primaju potvrdu"
     await notify(admin, user.id, "flight_completed", {

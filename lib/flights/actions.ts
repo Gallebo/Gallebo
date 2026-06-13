@@ -99,15 +99,17 @@ async function notifyAdminsPriceDeviation(
     .select("id")
     .eq("role", "admin");
 
-  for (const a of admins ?? []) {
-    const { error } = await admin.from("notification_queue").insert({
-      user_id: a.id,
-      type: "flight_price_deviation",
-      payload: { flightId, pilotUserId: pilotId, ...payload },
-    });
-    if (error) {
-      console.error("[notifyAdminsPriceDeviation]", error.message);
-    }
+  if (!admins?.length) return;
+
+  const rows = admins.map((a) => ({
+    user_id: a.id,
+    type: "flight_price_deviation",
+    payload: { flightId, pilotUserId: pilotId, ...payload },
+  }));
+
+  const { error } = await admin.from("notification_queue").insert(rows);
+  if (error) {
+    console.error("[notifyAdminsPriceDeviation]", error.message);
   }
 }
 
@@ -533,75 +535,85 @@ export async function publishFlightAction(
       return { error: errMsg };
     };
 
-    let position = 0;
-    for (const draftPath of photoPaths) {
-      const filename = draftPath.split("/").pop() ?? `${randomUUID()}.jpg`;
-      const destPath = `${flight.id}/${filename}`;
+    type MoveResult = { destPath: string; position: number };
 
-      const { error: moveError } = await adminSupabase.storage
-        .from(FLIGHT_PHOTOS_BUCKET)
-        .move(draftPath, destPath);
+    let moveResults: MoveResult[];
+    try {
+      moveResults = await Promise.all(
+        photoPaths.map(async (draftPath, position): Promise<MoveResult> => {
+          const filename = draftPath.split("/").pop() ?? `${randomUUID()}.jpg`;
+          const destPath = `${flight.id}/${filename}`;
 
-      if (moveError) {
-        console.error(
-          "STORAGE MOVE ERROR:",
-          moveError.message,
-          "path:",
-          draftPath,
-          "->",
-          destPath,
-        );
-        const { data: blob } = await adminSupabase.storage
-          .from(FLIGHT_PHOTOS_BUCKET)
-          .download(draftPath);
-        if (!blob) {
-          console.error(
-            "STORAGE DOWNLOAD ERROR (fallback): no blob for path:",
-            draftPath,
-          );
-          return rollback(moveError.message);
-        }
-        const buf = Buffer.from(await blob.arrayBuffer());
-        const contentType = blob.type || "image/jpeg";
-        const { error: uploadError } = await adminSupabase.storage
-          .from(FLIGHT_PHOTOS_BUCKET)
-          .upload(destPath, buf, { upsert: true, contentType });
-        if (uploadError) {
-          console.error(
-            "STORAGE UPLOAD ERROR:",
-            uploadError.message,
-            "path:",
-            destPath,
-          );
-          return rollback(uploadError.message);
-        }
-        console.log("[flights] storage upload ok");
-        await adminSupabase.storage
-          .from(FLIGHT_PHOTOS_BUCKET)
-          .remove([draftPath]);
-      } else {
-        console.log("[flights] storage move ok");
-      }
+          const { error: moveError } = await adminSupabase.storage
+            .from(FLIGHT_PHOTOS_BUCKET)
+            .move(draftPath, destPath);
 
-      movedPaths.push(destPath);
+          if (moveError) {
+            console.error(
+              "STORAGE MOVE ERROR:",
+              moveError.message,
+              "path:",
+              draftPath,
+              "->",
+              destPath,
+            );
+            const { data: blob } = await adminSupabase.storage
+              .from(FLIGHT_PHOTOS_BUCKET)
+              .download(draftPath);
+            if (!blob) {
+              console.error(
+                "STORAGE DOWNLOAD ERROR (fallback): no blob for path:",
+                draftPath,
+              );
+              throw new Error(moveError.message);
+            }
+            const buf = Buffer.from(await blob.arrayBuffer());
+            const contentType = blob.type || "image/jpeg";
+            const { error: uploadError } = await adminSupabase.storage
+              .from(FLIGHT_PHOTOS_BUCKET)
+              .upload(destPath, buf, { upsert: true, contentType });
+            if (uploadError) {
+              console.error(
+                "STORAGE UPLOAD ERROR:",
+                uploadError.message,
+                "path:",
+                destPath,
+              );
+              throw new Error(uploadError.message);
+            }
+            console.log("[flights] storage upload ok");
+            await adminSupabase.storage
+              .from(FLIGHT_PHOTOS_BUCKET)
+              .remove([draftPath]);
+          } else {
+            console.log("[flights] storage move ok");
+          }
 
-      const { error: photoErr } = await supabase.from("flight_photos").insert({
+          movedPaths.push(destPath);
+          return { destPath, position };
+        }),
+      );
+    } catch (err) {
+      return rollback(err instanceof Error ? err.message : "Photo upload failed");
+    }
+
+    const { error: photoErr } = await supabase.from("flight_photos").insert(
+      moveResults.map(({ destPath, position }) => ({
         flight_id: flight.id,
         storage_path: destPath,
         position,
-      });
+      })),
+    );
 
-      if (photoErr) {
-        console.error(
-          "FLIGHT_PHOTOS INSERT ERROR:",
-          photoErr.message,
-          photoErr.code,
-        );
-        return rollback(photoErr.message);
-      }
-      console.log("[flights] photo inserted");
-      position += 1;
+    if (photoErr) {
+      console.error(
+        "FLIGHT_PHOTOS INSERT ERROR:",
+        photoErr.message,
+        photoErr.code,
+      );
+      return rollback(photoErr.message);
     }
+    console.log("[flights] photos inserted");
 
     const { error: draftDeleteErr } = await supabase
       .from("flight_publish_drafts")
@@ -735,46 +747,70 @@ export async function cancelFlightAction(
       .in("status", ["pending", "accepted", "confirmed"]);
 
     const refundByBookingId = new Map<string, string>();
+    const refundableBookings = (activeBookings ?? []).filter(
+      (b) => b.status === "confirmed" && b.payment_intent_id,
+    );
 
-    for (const b of activeBookings ?? []) {
-      if (b.status === "confirmed" && b.payment_intent_id) {
-        const refundResult = await createBookingRefund(
-          b.payment_intent_id,
-          `flight_cancel:${b.id}`,
-        );
-        if ("error" in refundResult) {
-          await admin
-            .from("flights")
-            .update({
-              cancellation_locked_at: new Date().toISOString(),
-              cancellation_lock_reason: "refund_failed",
-            })
-            .eq("id", flightId);
+    const refundResults = await Promise.allSettled(
+      refundableBookings.map((b) =>
+        createBookingRefund(b.payment_intent_id!, `flight_cancel:${b.id}`).then(
+          (result) => ({ bookingId: b.id, result }),
+        ),
+      ),
+    );
 
+    for (let i = 0; i < refundResults.length; i++) {
+      const r = refundResults[i];
+      if (!r) continue;
+      const failed =
+        r.status === "rejected" ||
+        (r.status === "fulfilled" && "error" in r.value.result);
+      if (failed) {
+        const failedBookingId = refundableBookings[i]?.id;
+        let errorMessage = "Refund failed";
+        if (r.status === "rejected") {
+          errorMessage =
+            r.reason instanceof Error ? r.reason.message : "Refund failed";
+        } else if ("error" in r.value.result) {
+          errorMessage = r.value.result.error;
+        }
+
+        await admin
+          .from("flights")
+          .update({
+            cancellation_locked_at: new Date().toISOString(),
+            cancellation_lock_reason: "refund_failed",
+          })
+          .eq("id", flightId);
+
+        if (failedBookingId) {
           await notifyAdminFlightCancelRefundFailed(admin, user.id, {
             flightId,
-            bookingId: b.id,
-            error: refundResult.error,
+            bookingId: failedBookingId,
+            error: errorMessage,
           });
-
-          revalidatePath("/pilot/flights");
-          revalidatePath(`/flights/${flightId}`);
-
-          return {
-            error:
-              "Refund failed. Flight locked — our team has been notified.",
-          };
         }
-        refundByBookingId.set(b.id, refundResult.refundId);
+
+        revalidatePath("/pilot/flights");
+        revalidatePath(`/flights/${flightId}`);
+
+        return {
+          error:
+            "Refund failed. Flight locked — our team has been notified.",
+        };
+      }
+    }
+
+    for (const r of refundResults) {
+      if (r.status === "fulfilled" && "refundId" in r.value.result) {
+        refundByBookingId.set(r.value.bookingId, r.value.result.refundId);
       }
     }
 
     const now = new Date().toISOString();
+    const bookingIds = (activeBookings ?? []).map((b) => b.id);
 
-    for (const b of activeBookings ?? []) {
-      const refundId = refundByBookingId.get(b.id);
-      const isPaidConfirmed = b.status === "confirmed";
-
+    if (bookingIds.length > 0) {
       await admin
         .from("flight_booking_requests")
         .update({
@@ -782,17 +818,43 @@ export async function cancelFlightAction(
           cancelled_at: now,
           cancelled_by: user.id,
           payout_status: "not_applicable",
-          ...(refundId ? { refund_id: refundId, refunded_at: now } : {}),
         })
-        .eq("id", b.id);
+        .in("id", bookingIds);
 
-      await insertSystemMessage(b.id, "Let je otkazan.");
+      const refundedBookings = (activeBookings ?? []).filter((b) =>
+        refundByBookingId.has(b.id),
+      );
+      if (refundedBookings.length > 0) {
+        await Promise.all(
+          refundedBookings.map((b) =>
+            admin
+              .from("flight_booking_requests")
+              .update({
+                refund_id: refundByBookingId.get(b.id),
+                refunded_at: now,
+              })
+              .eq("id", b.id),
+          ),
+        );
+      }
 
-      await notifyPassengerBookingEvent(admin, b.passenger_user_id, "booking_cancelled_by_pilot", {
-        flightId,
-        bookingId: b.id,
-        refundFull: isPaidConfirmed,
-      });
+      await Promise.all(
+        (activeBookings ?? []).map((b) =>
+          Promise.all([
+            insertSystemMessage(b.id, "Let je otkazan."),
+            notifyPassengerBookingEvent(
+              admin,
+              b.passenger_user_id,
+              "booking_cancelled_by_pilot",
+              {
+                flightId,
+                bookingId: b.id,
+                refundFull: b.status === "confirmed",
+              },
+            ),
+          ]),
+        ),
+      );
     }
 
     const { error } = await admin

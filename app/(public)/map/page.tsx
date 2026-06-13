@@ -1,5 +1,5 @@
 import { AirfieldsMapLazy } from "@/components/map/airfields-map-lazy";
-import { createClient } from "@/lib/supabase/server";
+import { getAllAirfields } from "@/lib/airfields/queries";
 
 export const metadata = {
   title: "Airfields map — Gallebo",
@@ -7,15 +7,7 @@ export const metadata = {
 };
 
 export default async function MapPage() {
-  const supabase = await createClient();
-
-  const { data: airfields } = await supabase
-    .from("airfields")
-    .select(
-      "id, name, icao_code, latitude, longitude, has_fuel, has_hangar, has_rental"
-    )
-    .eq("status", "active")
-    .order("name");
+  const airfields = await getAllAirfields();
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -28,7 +20,7 @@ export default async function MapPage() {
           destinations across Europe.
         </p>
       </div>
-      <AirfieldsMapLazy airfields={airfields ?? []} />
+      <AirfieldsMapLazy airfields={airfields} />
     </div>
   );
 }

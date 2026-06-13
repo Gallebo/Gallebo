@@ -27,6 +27,8 @@ import {
 import { publicStorageUrl } from "@/lib/storage/public-url";
 import { createClient } from "@/lib/supabase/server";
 
+export const revalidate = 60;
+
 export async function generateMetadata({
   params,
 }: {

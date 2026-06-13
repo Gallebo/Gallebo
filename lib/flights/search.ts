@@ -64,6 +64,7 @@ async function resolveAirfieldIdsFromLocation(
     try {
       const res = await fetch(
         `https://api.maptiler.com/geocoding/${encodeURIComponent(q)}.json?key=${key}&limit=5`,
+        { next: { revalidate: 3600 } },
       );
       if (res.ok) {
         const json = (await res.json()) as {
