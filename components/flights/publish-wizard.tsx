@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
@@ -834,9 +835,11 @@ export function PublishFlightWizard({
                       style={{ borderColor: "var(--line)" }}
                     >
                       {url ? (
-                        <img
+                        <Image
                           src={url}
                           alt=""
+                          width={64}
+                          height={64}
                           className="h-16 w-16 shrink-0 rounded object-cover"
                         />
                       ) : (

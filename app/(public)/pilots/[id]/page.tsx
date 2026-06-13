@@ -78,7 +78,8 @@ export default async function PublicPilotProfilePage({
       "id, rating, comment, created_at, communication_rating, accuracy_rating, experience_rating",
     )
     .eq("pilot_user_id", pub.id)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(10);
 
   const ratings =
     reviews

@@ -7,6 +7,8 @@ export const metadata = {
     "Browse all airfields available on Gallebo across Croatia, Italy and Slovenia.",
 };
 
+export const revalidate = 3600;
+
 export default async function AirfieldsPage() {
   const airfields = await getAllAirfields();
 

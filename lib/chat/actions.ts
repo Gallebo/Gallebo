@@ -27,7 +27,9 @@ async function assertBookingParticipant(bookingId: string) {
 
   const { data: booking } = await supabase
     .from("flight_booking_requests")
-    .select("id, status, passenger_user_id, flight_id")
+    .select(
+      "id, status, passenger_user_id, flight_id, flights!inner(pilot_user_id)",
+    )
     .eq("id", bookingId)
     .maybeSingle();
 
@@ -35,20 +37,16 @@ async function assertBookingParticipant(bookingId: string) {
     throw new Error("Booking not found");
   }
 
-  const { data: flight } = await supabase
-    .from("flights")
-    .select("pilot_user_id")
-    .eq("id", booking.flight_id)
-    .maybeSingle();
-
+  const pilotUserId =
+    (booking.flights as { pilot_user_id: string } | null)?.pilot_user_id ?? null;
   const isPassenger = booking.passenger_user_id === user.id;
-  const isPilot = flight?.pilot_user_id === user.id;
+  const isPilot = pilotUserId === user.id;
 
   if (!isPassenger && !isPilot) {
     throw new Error("Not authorized");
   }
 
-  return { user, booking, isPassenger, isPilot };
+  return { user, booking, pilotUserId, isPassenger, isPilot };
 }
 
 export async function getMessagesAction(
@@ -121,30 +119,16 @@ export async function getContactDetailsAction(
   bookingId: string,
 ): Promise<{ contacts?: ContactDetails; error?: string }> {
   try {
-    const { booking } = await assertBookingParticipant(bookingId);
+    const { booking, pilotUserId } = await assertBookingParticipant(bookingId);
 
     if (!["confirmed", "completed"].includes(booking.status)) {
       return { error: "Contact details are available after payment is confirmed" };
     }
 
+    if (!pilotUserId) return { error: "Flight not found" };
+
     const admin = createAdminClient();
-    const { data: full } = await admin
-      .from("flight_booking_requests")
-      .select("passenger_user_id, flight_id")
-      .eq("id", bookingId)
-      .single();
-
-    if (!full) return { error: "Booking not found" };
-
-    const { data: flightRow } = await admin
-      .from("flights")
-      .select("pilot_user_id")
-      .eq("id", full.flight_id)
-      .single();
-
-    if (!flightRow) return { error: "Flight not found" };
-
-    const userIds = [full.passenger_user_id, flightRow.pilot_user_id];
+    const userIds = [booking.passenger_user_id, pilotUserId];
 
     const { data: profiles } = await admin
       .from("profiles")
@@ -166,8 +150,8 @@ export async function getContactDetailsAction(
 
     return {
       contacts: {
-        pilot: format(flightRow.pilot_user_id),
-        passenger: format(full.passenger_user_id),
+        pilot: format(pilotUserId),
+        passenger: format(booking.passenger_user_id),
       },
     };
   } catch (e) {

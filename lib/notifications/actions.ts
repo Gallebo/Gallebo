@@ -25,18 +25,24 @@ export async function getNotificationsAction(): Promise<{
     await requireUser();
     const supabase = await createClient();
 
-    const { data, error } = await supabase
-      .from("in_app_notifications")
-      .select(
-        "id, type, title, body, booking_id, flight_id, read_at, created_at",
-      )
-      .order("created_at", { ascending: false })
-      .limit(30);
+    const [listResult, countResult] = await Promise.all([
+      supabase
+        .from("in_app_notifications")
+        .select(
+          "id, type, title, body, booking_id, flight_id, read_at, created_at",
+        )
+        .order("created_at", { ascending: false })
+        .limit(30),
+      supabase
+        .from("in_app_notifications")
+        .select("id", { count: "exact", head: true })
+        .is("read_at", null),
+    ]);
 
-    if (error) return { error: "Failed to load notifications" };
+    if (listResult.error) return { error: "Failed to load notifications" };
 
-    const unreadCount = (data ?? []).filter((n) => !n.read_at).length;
-    return { notifications: data ?? [], unreadCount };
+    const unreadCount = countResult.count ?? 0;
+    return { notifications: listResult.data ?? [], unreadCount };
   } catch (e) {
     return {
       error: e instanceof Error ? e.message : "Failed to load notifications",

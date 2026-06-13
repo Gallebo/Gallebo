@@ -155,21 +155,12 @@ export async function getPilotSidebarContext(
   const licenseLabel =
     licenseType === "lapl_license" ? "LAPL" : "PPL(A)";
 
-  const { data: flights } = await supabase
-    .from("flights")
-    .select("id")
-    .eq("pilot_user_id", userId);
-
-  const flightIds = (flights ?? []).map((f) => f.id);
-  let pendingRequests = 0;
-  if (flightIds.length > 0) {
-    const { count } = await supabase
-      .from("flight_booking_requests")
-      .select("id", { count: "exact", head: true })
-      .in("flight_id", flightIds)
-      .eq("status", "pending");
-    pendingRequests = count ?? 0;
-  }
+  const { count } = await supabase
+    .from("flight_booking_requests")
+    .select("id, flights!inner(pilot_user_id)", { count: "exact", head: true })
+    .eq("status", "pending")
+    .eq("flights.pilot_user_id", userId);
+  const pendingRequests = count ?? 0;
 
   return {
     firstName: profile?.first_name ?? "Pilot",

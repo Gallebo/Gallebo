@@ -52,8 +52,10 @@ export function NotificationBell({
           table: "in_app_notifications",
           filter: `user_id=eq.${userId}`,
         },
-        () => {
-          void refresh();
+        (payload) => {
+          const incoming = payload.new as InAppNotificationRow;
+          setNotifications((prev) => [incoming, ...prev].slice(0, 30));
+          setUnreadCount((c) => c + 1);
         },
       )
       .on(
