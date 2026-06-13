@@ -1,7 +1,7 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import { NextResponse } from "next/server";
 
-import { requirePilot } from "@/lib/auth/rbac";
+import { requirePilotApi } from "@/lib/auth/rbac";
 import { TransactionReportPdfDocument } from "@/lib/pilot/transaction-report-pdf";
 import { resolveTransactionPeriod } from "@/lib/pilot/transaction-period";
 import { getPilotTransactionReport } from "@/lib/pilot/transactions";
@@ -11,7 +11,9 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
-    const { user } = await requirePilot();
+    const auth = await requirePilotApi();
+    if (!auth.ok) return auth.response;
+    const { user } = auth;
     const url = new URL(request.url);
     const period = resolveTransactionPeriod({
       year: url.searchParams.get("year"),

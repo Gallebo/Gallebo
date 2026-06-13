@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requirePilot } from "@/lib/auth/rbac";
+import { requirePilotApi } from "@/lib/auth/rbac";
 import { getAppUrl } from "@/lib/env";
 import { getStripe } from "@/lib/stripe/client";
 import { isStripeConfigured } from "@/lib/stripe/config";
@@ -8,7 +8,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST() {
   try {
-    const { user } = await requirePilot();
+    const auth = await requirePilotApi();
+    if (!auth.ok) return auth.response;
+    const { user } = auth;
     const admin = createAdminClient();
 
     const { data: pilot } = await admin

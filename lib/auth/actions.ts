@@ -53,8 +53,9 @@ export async function loginAction(
     return { error: mapAuthError(error.message) };
   }
 
+  const SAFE_REDIRECT_RE = /^\/[a-zA-Z0-9/_.-]*$/;
   const next = formData.get("next");
-  if (typeof next === "string" && next.startsWith("/")) {
+  if (typeof next === "string" && SAFE_REDIRECT_RE.test(next)) {
     redirect(next);
   }
 

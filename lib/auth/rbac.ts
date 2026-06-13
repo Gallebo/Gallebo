@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import type { UserRole, UserStatus } from "@/lib/types/profile";
@@ -79,6 +80,52 @@ export async function requirePilot() {
     redirect("/dashboard");
   }
   return { user, profile };
+}
+
+type SessionUser = NonNullable<Awaited<ReturnType<typeof getSessionUser>>>;
+type ProfileRow = NonNullable<Awaited<ReturnType<typeof getProfile>>>;
+
+type ApiAuthSuccess = { ok: true; user: SessionUser; profile: ProfileRow };
+type ApiAuthFailure = { ok: false; response: NextResponse };
+
+export async function requirePilotApi(): Promise<
+  ApiAuthSuccess | ApiAuthFailure
+> {
+  const user = await getSessionUser();
+  if (!user) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    };
+  }
+  const profile = await getProfile();
+  if (profile?.role !== "pilot" || profile?.status !== "verified") {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
+  }
+  return { ok: true, user, profile };
+}
+
+export async function requireAdminApi(): Promise<
+  ApiAuthSuccess | ApiAuthFailure
+> {
+  const user = await getSessionUser();
+  if (!user) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    };
+  }
+  const profile = await getProfile();
+  if (profile?.role !== "admin") {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
+  }
+  return { ok: true, user, profile };
 }
 
 export async function requireVerifiedPassenger() {
