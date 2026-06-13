@@ -14,6 +14,13 @@ import { Button } from "@/components/ui/button";
 import { FormError, FormField, FormLabel } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 
+const requiredMark = (
+  <span aria-hidden="true" style={{ color: "var(--danger)" }}>
+    {" "}
+    *
+  </span>
+);
+
 const airfieldFormSchema = airfieldRequestSchema.extend({
   file: z
     .custom<File | undefined>((v) => v === undefined || v instanceof File)
@@ -86,12 +93,18 @@ export function AirfieldOnboardingForm() {
           })}
         >
           <FormField>
-            <FormLabel htmlFor="airfieldName">Airfield name</FormLabel>
+            <FormLabel htmlFor="airfieldName">
+              Airfield name
+              {requiredMark}
+            </FormLabel>
             <Input id="airfieldName" placeholder="e.g. Split Airport" {...form.register("airfieldName")} />
             <FormError>{form.formState.errors.airfieldName?.message}</FormError>
           </FormField>
           <FormField>
-            <FormLabel htmlFor="icaoCode">ICAO code</FormLabel>
+            <FormLabel htmlFor="icaoCode">
+              ICAO code
+              {requiredMark}
+            </FormLabel>
             <Input
               id="icaoCode"
               placeholder="LDSP"
@@ -102,22 +115,34 @@ export function AirfieldOnboardingForm() {
             <FormError>{form.formState.errors.icaoCode?.message}</FormError>
           </FormField>
           <FormField>
-            <FormLabel htmlFor="location">Location</FormLabel>
+            <FormLabel htmlFor="location">
+              Location
+              {requiredMark}
+            </FormLabel>
             <Input id="location" placeholder="City, country" {...form.register("location")} />
             <FormError>{form.formState.errors.location?.message}</FormError>
           </FormField>
           <FormField>
-            <FormLabel htmlFor="contactEmail">Contact email</FormLabel>
+            <FormLabel htmlFor="contactEmail">
+              Contact email
+              {requiredMark}
+            </FormLabel>
             <Input id="contactEmail" type="email" placeholder="ops@airfield.example" {...form.register("contactEmail")} />
             <FormError>{form.formState.errors.contactEmail?.message}</FormError>
           </FormField>
           <FormField>
-            <FormLabel htmlFor="contactPhone">Contact phone</FormLabel>
+            <FormLabel htmlFor="contactPhone">
+              Contact phone
+              {requiredMark}
+            </FormLabel>
             <Input id="contactPhone" type="tel" placeholder="+385 …" {...form.register("contactPhone")} />
             <FormError>{form.formState.errors.contactPhone?.message}</FormError>
           </FormField>
           <FormField>
-            <FormLabel htmlFor="file">Operating licence</FormLabel>
+            <FormLabel htmlFor="file">
+              Operating licence
+              {requiredMark}
+            </FormLabel>
             <OptionalFileInput
               id="file"
               accept="image/jpeg,image/png,application/pdf"

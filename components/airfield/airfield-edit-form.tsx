@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { Loader2 } from "lucide-react";
 
 import { updateAirfieldProfileAction } from "@/lib/airfield/actions";
 import type { Airfield } from "@/lib/airfield/types";
@@ -164,7 +165,14 @@ export function AirfieldEditForm({ airfield }: { airfield: Airfield }) {
       </div>
 
       <Button type="submit" disabled={pending}>
-        Save changes
+        {pending ? (
+          <>
+            <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+            Saving…
+          </>
+        ) : (
+          "Save changes"
+        )}
       </Button>
     </form>
   );

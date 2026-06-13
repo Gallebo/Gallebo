@@ -36,6 +36,8 @@ export function AdminUserActions({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [assignRole, setAssignRole] = useState<"passenger" | "pilot">("passenger");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteText, setDeleteText] = useState("");
 
   if (isAdmin) {
     return (
@@ -169,29 +171,64 @@ export function AdminUserActions({
 
       <section className="space-y-3 border-t pt-6">
         <h3 className="text-sm font-semibold text-destructive">Danger zone</h3>
-        <Button
-          variant="destructive"
-          disabled={pending}
-          onClick={() => {
-            const confirmed = window.prompt(
-              'Type DELETE to permanently remove this account:',
-            );
-            if (confirmed !== "DELETE") return;
-            startTransition(async () => {
+        {showDeleteConfirm ? (
+          <div className="space-y-3 rounded-md border border-destructive/30 p-4">
+            <p className="text-sm text-muted-foreground">
+              Type <strong>DELETE</strong> to permanently remove this account.
+            </p>
+            <Input
+              value={deleteText}
+              onChange={(e) => setDeleteText(e.target.value)}
+              placeholder="DELETE"
+              disabled={pending}
+              aria-label="Type DELETE to confirm"
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="destructive"
+                disabled={pending || deleteText !== "DELETE"}
+                onClick={() => {
+                  startTransition(async () => {
+                    setError(null);
+                    setSuccess(null);
+                    const res = await adminDeleteUserAction(userId);
+                    if (res.error) {
+                      setError(res.error);
+                      return;
+                    }
+                    router.push("/admin/users");
+                    router.refresh();
+                  });
+                }}
+              >
+                Confirm delete
+              </Button>
+              <Button
+                variant="outline"
+                disabled={pending}
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeleteText("");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button
+            variant="destructive"
+            disabled={pending}
+            onClick={() => {
               setError(null);
               setSuccess(null);
-              const res = await adminDeleteUserAction(userId);
-              if (res.error) {
-                setError(res.error);
-                return;
-              }
-              router.push("/admin/users");
-              router.refresh();
-            });
-          }}
-        >
-          Delete account
-        </Button>
+              setShowDeleteConfirm(true);
+              setDeleteText("");
+            }}
+          >
+            Delete account
+          </Button>
+        )}
       </section>
     </div>
   );

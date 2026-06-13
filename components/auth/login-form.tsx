@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useTransition, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useActionState, useEffect, useTransition } from "react";
+import { useForm } from "react-hook-form";
 import { Loader2 } from "lucide-react";
 
 import {
@@ -15,16 +17,10 @@ import {
   loginAction,
   type AuthActionState,
 } from "@/lib/auth/actions";
-import { loginSchema } from "@/lib/auth/schemas";
+import { loginSchema, type LoginFormValues } from "@/lib/auth/schemas";
 import { Input } from "@/components/ui/input";
 
 const initialState: AuthActionState = {};
-
-type FieldErrors = {
-  email?: string;
-  password?: string;
-  root?: string;
-};
 
 export function LoginForm({ next }: { next?: string }) {
   const [state, formAction, isPending] = useActionState(
@@ -32,127 +28,108 @@ export function LoginForm({ next }: { next?: string }) {
     initialState,
   );
   const [, startTransition] = useTransition();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [errors, setErrors] = useState<FieldErrors>({});
+  const form = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    mode: "onTouched",
+    defaultValues: { email: "", password: "" },
+  });
 
   useEffect(() => {
     if (state.error) {
-      setErrors((prev) => ({ ...prev, root: state.error }));
+      form.setError("root", { message: state.error });
     }
-  }, [state.error]);
+  }, [state.error, form]);
 
   return (
     <form
       method="post"
       className="space-y-5"
-      onSubmit={(event) => {
-          event.preventDefault();
-          const parsed = loginSchema.safeParse({ email, password });
-          if (!parsed.success) {
-            const nextErrors: FieldErrors = {};
-            for (const issue of parsed.error.issues) {
-              const field = issue.path[0];
-              if (field === "email" || field === "password") {
-                nextErrors[field] = issue.message;
-              }
-            }
-            setErrors(nextErrors);
-            return;
-          }
-
-          setErrors({});
-          const fd = new FormData();
-          fd.append("email", parsed.data.email);
-          fd.append("password", parsed.data.password);
-          if (next) fd.append("next", next);
-          startTransition(() => {
-            formAction(fd);
-          });
-        }}
-      >
-        <div className="space-y-2">
-          <label
-            htmlFor="email"
-            className={authLabelClassName}
-            style={{ color: "var(--ink)" }}
-          >
-            Email
-          </label>
-          <Input
-            id="email"
-            name="email"
-            type="email"
-            size="lg"
-            autoComplete="email"
-            placeholder="you@example.com"
-            aria-invalid={Boolean(errors.email)}
-            disabled={isPending}
-            value={email}
-            onChange={(event) => {
-              setEmail(event.target.value);
-              if (errors.email) {
-                setErrors((prev) => ({ ...prev, email: undefined }));
-              }
-            }}
-          />
-          {errors.email ? (
-            <p className="text-sm text-destructive">{errors.email}</p>
-          ) : null}
-        </div>
-        <div className="space-y-2">
-          <label
-            htmlFor="password"
-            className={authLabelClassName}
-            style={{ color: "var(--ink)" }}
-          >
-            Password
-          </label>
-          <PasswordInput
-            id="password"
-            name="password"
-            size="lg"
-            autoComplete="current-password"
-            aria-invalid={Boolean(errors.password)}
-            disabled={isPending}
-            value={password}
-            onChange={(event) => {
-              setPassword(event.target.value);
-              if (errors.password) {
-                setErrors((prev) => ({ ...prev, password: undefined }));
-              }
-            }}
-          />
-          {errors.password ? (
-            <p className="text-sm text-destructive">{errors.password}</p>
-          ) : null}
-        </div>
-        <FormMessage error={errors.root} success={state.success} />
-        <AuthSubmitButton disabled={isPending}>
-          {isPending ? (
-            <>
-              <Loader2 size={16} className="animate-spin" aria-hidden="true" />
-              Signing in…
-            </>
-          ) : (
-            <>
-              Log in
-              <svg
-                width={16}
-                height={16}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M5 12h14M13 6l6 6-6 6" />
-              </svg>
-            </>
-          )}
-        </AuthSubmitButton>
-      </form>
+      onSubmit={form.handleSubmit((data) => {
+        form.clearErrors("root");
+        const fd = new FormData();
+        fd.append("email", data.email);
+        fd.append("password", data.password);
+        if (next) fd.append("next", next);
+        startTransition(() => {
+          formAction(fd);
+        });
+      })}
+    >
+      <div className="space-y-2">
+        <label
+          htmlFor="email"
+          className={authLabelClassName}
+          style={{ color: "var(--ink)" }}
+        >
+          Email
+        </label>
+        <Input
+          id="email"
+          type="email"
+          size="lg"
+          autoComplete="email"
+          placeholder="you@example.com"
+          aria-invalid={Boolean(form.formState.errors.email)}
+          disabled={isPending}
+          {...form.register("email")}
+        />
+        {form.formState.errors.email ? (
+          <p className="text-sm text-destructive">
+            {form.formState.errors.email.message}
+          </p>
+        ) : null}
+      </div>
+      <div className="space-y-2">
+        <label
+          htmlFor="password"
+          className={authLabelClassName}
+          style={{ color: "var(--ink)" }}
+        >
+          Password
+        </label>
+        <PasswordInput
+          id="password"
+          size="lg"
+          autoComplete="current-password"
+          aria-invalid={Boolean(form.formState.errors.password)}
+          disabled={isPending}
+          {...form.register("password")}
+        />
+        {form.formState.errors.password ? (
+          <p className="text-sm text-destructive">
+            {form.formState.errors.password.message}
+          </p>
+        ) : null}
+      </div>
+      <FormMessage
+        error={form.formState.errors.root?.message}
+        success={state.success}
+      />
+      <AuthSubmitButton disabled={isPending}>
+        {isPending ? (
+          <>
+            <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+            Signing in…
+          </>
+        ) : (
+          <>
+            Log in
+            <svg
+              width={16}
+              height={16}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </>
+        )}
+      </AuthSubmitButton>
+    </form>
   );
 }

@@ -31,6 +31,7 @@ export function RegisterForm() {
   const [, startTransition] = useTransition();
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
+    mode: "onTouched",
     defaultValues: { email: "", password: "", confirmPassword: "" },
   });
 

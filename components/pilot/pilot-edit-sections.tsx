@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useActionState, useMemo } from "react";
+import { Loader2 } from "lucide-react";
 
 import { SubmitButton } from "@/components/auth/submit-button";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,10 @@ export function PilotEditSections({
   profile: ProfileDefaults;
   avatarUrl: string | null;
 }) {
-  const [personalState, personalAction] = useActionState(updatePilotPersonalDataAction, {});
+  const [personalState, personalAction, isPending] = useActionState(
+    updatePilotPersonalDataAction,
+    {},
+  );
   const [avatarState, avatarAction] = useActionState(uploadPilotAvatarAction, {});
 
   const avatarFallback = useMemo(
@@ -141,7 +145,16 @@ export function PilotEditSections({
           {personalState.success ? (
             <p className="text-sm text-green-600">{personalState.success}</p>
           ) : null}
-          <Button type="submit">Save changes</Button>
+          <Button type="submit" disabled={isPending}>
+            {isPending ? (
+              <>
+                <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+                Saving…
+              </>
+            ) : (
+              "Save changes"
+            )}
+          </Button>
         </form>
       </section>
     </div>

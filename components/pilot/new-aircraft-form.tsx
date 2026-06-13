@@ -9,6 +9,13 @@ import { FormError, FormField, FormHint, FormLabel } from "@/components/ui/form-
 import { Input } from "@/components/ui/input";
 import { addAircraftAction } from "@/lib/aircraft/actions";
 
+const requiredMark = (
+  <span aria-hidden="true" style={{ color: "var(--danger)" }}>
+    {" "}
+    *
+  </span>
+);
+
 export function NewAircraftForm() {
   const router = useRouter();
   const [state, formAction] = useActionState(addAircraftAction, {});
@@ -22,7 +29,10 @@ export function NewAircraftForm() {
   return (
     <form action={formAction} className="max-w-lg space-y-5">
       <FormField>
-        <FormLabel htmlFor="model">Model</FormLabel>
+        <FormLabel htmlFor="model">
+          Model
+          {requiredMark}
+        </FormLabel>
         <Input
           id="model"
           name="model"
@@ -32,7 +42,10 @@ export function NewAircraftForm() {
         />
       </FormField>
       <FormField>
-        <FormLabel htmlFor="registration">Registration</FormLabel>
+        <FormLabel htmlFor="registration">
+          Registration
+          {requiredMark}
+        </FormLabel>
         <Input
           id="registration"
           name="registration"
@@ -44,7 +57,10 @@ export function NewAircraftForm() {
         />
       </FormField>
       <FormField>
-        <FormLabel htmlFor="seats">Seats (incl. pilot, max 6)</FormLabel>
+        <FormLabel htmlFor="seats">
+          Seats (incl. pilot, max 6)
+          {requiredMark}
+        </FormLabel>
         <Input
           id="seats"
           name="seats"
@@ -57,7 +73,10 @@ export function NewAircraftForm() {
       </FormField>
 
       <FormField>
-        <FormLabel htmlFor="photos">Photos</FormLabel>
+        <FormLabel htmlFor="photos">
+          Photos
+          {requiredMark}
+        </FormLabel>
         <FormHint>JPEG or PNG, minimum 1, max 5MB each.</FormHint>
         <FileInput
           id="photos"

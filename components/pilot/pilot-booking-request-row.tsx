@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { acceptBookingAction } from "@/lib/bookings/actions";
 import { PassengerReputationSnippet } from "@/components/pilot/passenger-reputation-snippet";
@@ -26,6 +26,7 @@ export function PilotBookingRequestRow({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [acceptError, setAcceptError] = useState<string | null>(null);
   const name = `${booking.passenger_first_name ?? ""} ${booking.passenger_last_name ?? ""}`.trim() || "Passenger";
 
   return (
@@ -80,15 +81,24 @@ export function PilotBookingRequestRow({
             className="btn-v2-primary self-start rounded-lg px-4 py-2.5 text-[13px] font-semibold disabled:opacity-50"
             style={{ border: "none", cursor: "pointer" }}
             onClick={() => {
+              setAcceptError(null);
               startTransition(async () => {
                 const res = await acceptBookingAction(booking.id);
-                if (res.error) alert(res.error);
+                if (res.error) {
+                  setAcceptError(res.error);
+                  return;
+                }
                 router.refresh();
               });
             }}
           >
-            Accept
+            {pending ? "Accepting…" : "Accept"}
           </button>
+          {acceptError ? (
+            <p className="text-sm text-destructive" role="alert">
+              {acceptError}
+            </p>
+          ) : null}
         </div>
       </div>
     </article>

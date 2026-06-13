@@ -1,5 +1,21 @@
-import { FormField, FormLabel } from "@/components/ui/form-field";
+"use client";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+
+import { FormError, FormField, FormLabel } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { personalInfoSchema } from "@/lib/auth/schemas";
+
+type PersonalInfoFormValues = z.input<typeof personalInfoSchema>;
+
+const requiredMark = (
+  <span aria-hidden="true" style={{ color: "var(--danger)" }}>
+    {" "}
+    *
+  </span>
+);
 
 export function PersonalInfoFields({
   defaultValues,
@@ -15,64 +31,91 @@ export function PersonalInfoFields({
   const w =
     defaultValues?.weightKg != null && defaultValues.weightKg !== ""
       ? String(defaultValues.weightKg)
-      : undefined;
+      : "";
+
+  const form = useForm<PersonalInfoFormValues>({
+    resolver: zodResolver(personalInfoSchema),
+    mode: "onTouched",
+    defaultValues: {
+      firstName: defaultValues?.firstName ?? "",
+      lastName: defaultValues?.lastName ?? "",
+      dateOfBirth: defaultValues?.dateOfBirth ?? "",
+      phone: defaultValues?.phone ?? "",
+      weightKg: w !== "" ? w : "",
+    },
+  });
 
   return (
     <>
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField>
-          <FormLabel htmlFor="firstName">First name</FormLabel>
+          <FormLabel htmlFor="firstName">
+            First name
+            {requiredMark}
+          </FormLabel>
           <Input
             id="firstName"
-            name="firstName"
-            required
             autoComplete="given-name"
-            defaultValue={defaultValues?.firstName ?? undefined}
+            aria-invalid={Boolean(form.formState.errors.firstName)}
+            {...form.register("firstName")}
           />
+          <FormError>{form.formState.errors.firstName?.message}</FormError>
         </FormField>
         <FormField>
-          <FormLabel htmlFor="lastName">Last name</FormLabel>
+          <FormLabel htmlFor="lastName">
+            Last name
+            {requiredMark}
+          </FormLabel>
           <Input
             id="lastName"
-            name="lastName"
-            required
             autoComplete="family-name"
-            defaultValue={defaultValues?.lastName ?? undefined}
+            aria-invalid={Boolean(form.formState.errors.lastName)}
+            {...form.register("lastName")}
           />
+          <FormError>{form.formState.errors.lastName?.message}</FormError>
         </FormField>
       </div>
       <FormField>
-        <FormLabel htmlFor="dateOfBirth">Date of birth</FormLabel>
+        <FormLabel htmlFor="dateOfBirth">
+          Date of birth
+          {requiredMark}
+        </FormLabel>
         <Input
           id="dateOfBirth"
-          name="dateOfBirth"
           type="date"
-          required
-          defaultValue={defaultValues?.dateOfBirth ?? undefined}
+          aria-invalid={Boolean(form.formState.errors.dateOfBirth)}
+          {...form.register("dateOfBirth")}
         />
+        <FormError>{form.formState.errors.dateOfBirth?.message}</FormError>
       </FormField>
       <FormField>
-        <FormLabel htmlFor="phone">Phone</FormLabel>
+        <FormLabel htmlFor="phone">
+          Phone
+          {requiredMark}
+        </FormLabel>
         <Input
           id="phone"
-          name="phone"
           type="tel"
-          required
           autoComplete="tel"
-          defaultValue={defaultValues?.phone ?? undefined}
+          aria-invalid={Boolean(form.formState.errors.phone)}
+          {...form.register("phone")}
         />
+        <FormError>{form.formState.errors.phone?.message}</FormError>
       </FormField>
       <FormField>
-        <FormLabel htmlFor="weightKg">Weight (kg)</FormLabel>
+        <FormLabel htmlFor="weightKg">
+          Weight (kg)
+          {requiredMark}
+        </FormLabel>
         <Input
           id="weightKg"
-          name="weightKg"
           type="number"
           min={30}
           max={300}
-          required
-          defaultValue={w}
+          aria-invalid={Boolean(form.formState.errors.weightKg)}
+          {...form.register("weightKg")}
         />
+        <FormError>{form.formState.errors.weightKg?.message}</FormError>
       </FormField>
     </>
   );

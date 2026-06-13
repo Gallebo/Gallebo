@@ -46,6 +46,13 @@ type AircraftRow = {
   seats: number;
 };
 
+const requiredMark = (
+  <span aria-hidden="true" style={{ color: "var(--danger)" }}>
+    {" "}
+    *
+  </span>
+);
+
 function draftPhotoPublicUrl(path: string): string | null {
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!base) return null;
@@ -653,7 +660,10 @@ export function PublishFlightWizard({
         <StepCard step={4} title="Date & time">
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField>
-              <FormLabel htmlFor="publish-flight-date">Date</FormLabel>
+              <FormLabel htmlFor="publish-flight-date">
+                Date
+                {requiredMark}
+              </FormLabel>
               <Input
                 id="publish-flight-date"
                 type="date"
@@ -678,7 +688,10 @@ export function PublishFlightWizard({
               </p>
             ) : null}
             <FormField>
-              <FormLabel htmlFor="publish-departure-time">Departure time</FormLabel>
+              <FormLabel htmlFor="publish-departure-time">
+                Departure time
+                {requiredMark}
+              </FormLabel>
               <Input
                 id="publish-departure-time"
                 type="time"
@@ -705,7 +718,10 @@ export function PublishFlightWizard({
       {step === 5 ? (
         <StepCard step={5} title="Total cost" description="Full flight cost in EUR">
           <FormField>
-            <FormLabel htmlFor="publish-total-cost">Total cost (EUR)</FormLabel>
+            <FormLabel htmlFor="publish-total-cost">
+              Total cost (EUR)
+              {requiredMark}
+            </FormLabel>
             <Input
               id="publish-total-cost"
               type="number"
@@ -736,7 +752,10 @@ export function PublishFlightWizard({
       {step === 6 ? (
         <StepCard step={6} title="Passenger seats" description="Max 5 (6 incl. pilot)">
           <FormField>
-            <FormLabel htmlFor="publish-passenger-seats">Passenger seats</FormLabel>
+            <FormLabel htmlFor="publish-passenger-seats">
+              Passenger seats
+              {requiredMark}
+            </FormLabel>
             <Input
               id="publish-passenger-seats"
               type="number"

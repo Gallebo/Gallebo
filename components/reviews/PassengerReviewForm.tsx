@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import * as React from "react";
 
+import { FormMessage } from "@/components/auth/form-message";
 import { submitPassengerReview } from "@/lib/reviews/actions";
 import { Button } from "@/components/ui/button";
 import { StarCategoryRow } from "@/components/reviews/StarCategoryRow";
@@ -36,13 +37,18 @@ export function PassengerReviewForm({
   );
   const [comment, setComment] = React.useState(existing?.comment ?? "");
   const [pending, setPending] = React.useState(false);
+  const [formError, setFormError] = React.useState<string | null>(null);
+  const [formSuccess, setFormSuccess] = React.useState<string | null>(null);
 
   const canSubmit = !isExpired && !existing;
 
   async function onSubmit() {
     if (!canSubmit) return;
+    setFormError(null);
+    setFormSuccess(null);
+
     if (!accuracyRating || !behaviorRating || !weightAccuracyRating) {
-      alert("Please select all star ratings.");
+      setFormError("Please select all star ratings.");
       return;
     }
 
@@ -51,7 +57,7 @@ export function PassengerReviewForm({
       (r) => r <= 3,
     );
     if (needsComment && trimmed.length === 0) {
-      alert("Comment is required when any category is rated 3 or below.");
+      setFormError("Comment is required when any category is rated 3 or below.");
       return;
     }
 
@@ -63,8 +69,11 @@ export function PassengerReviewForm({
         weightAccuracyRating,
         comment: trimmed.length ? trimmed : null,
       });
-      if (res.error) alert(res.error);
-      else alert(res.success ?? "Saved.");
+      if (res.error) {
+        setFormError(res.error);
+        return;
+      }
+      setFormSuccess(res.success ?? "Saved.");
       router.refresh();
     } finally {
       setPending(false);
@@ -123,6 +132,7 @@ export function PassengerReviewForm({
           />
         </div>
 
+        <FormMessage error={formError ?? undefined} success={formSuccess ?? undefined} />
         <div className="flex justify-end gap-3 pt-2">
           <Button size="sm" disabled={!canSubmit || pending} onClick={onSubmit}>
             {pending ? "Saving…" : "Submit review"}

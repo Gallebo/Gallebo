@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { Loader2 } from "lucide-react";
 
 import {
   approveVerificationAction,
@@ -33,7 +34,14 @@ export function VerificationActions({
           });
         }}
       >
-        Approve
+        {pending ? (
+          <>
+            <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+            Approving…
+          </>
+        ) : (
+          "Approve"
+        )}
       </Button>
       <form
         onSubmit={(e) => {
