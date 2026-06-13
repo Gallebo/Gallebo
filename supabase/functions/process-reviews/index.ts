@@ -15,9 +15,7 @@ Deno.serve(async (req) => {
 
   const { data: bookings, error } = await supabase
     .from("flight_booking_requests")
-    .select(
-      "id, passenger_user_id, status, review_deadline_at, flights!inner(pilot_user_id)",
-    )
+    .select("id")
     .eq("status", "completed")
     .not("review_deadline_at", "is", null)
     .lte("review_deadline_at", now)
@@ -36,22 +34,11 @@ Deno.serve(async (req) => {
 
   for (const b of bookings ?? []) {
     const bookingId = b.id as string;
-    const passengerId = b.passenger_user_id as string;
-    const pilotId = (b.flights as { pilot_user_id: string } | null)
-      ?.pilot_user_id;
-
-    if (!pilotId) {
-      failed += 1;
-      errors.push({ bookingId, error: "missing_pilot_user_id" });
-      continue;
-    }
 
     const { error: rpcErr } = await supabase.rpc(
       "finalize_expired_booking_reviews",
       {
         p_booking_id: bookingId,
-        p_pilot_user_id: pilotId,
-        p_passenger_user_id: passengerId,
       },
     );
 

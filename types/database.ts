@@ -1300,11 +1300,7 @@ export type Database = {
         Returns: undefined;
       };
       finalize_expired_booking_reviews: {
-        Args: {
-          p_booking_id: string;
-          p_pilot_user_id: string;
-          p_passenger_user_id: string;
-        };
+        Args: { p_booking_id: string };
         Returns: undefined;
       };
       is_admin: { Args: Record<string, never>; Returns: boolean };
