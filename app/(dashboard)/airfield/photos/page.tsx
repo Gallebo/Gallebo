@@ -22,7 +22,7 @@ export default async function AirfieldPhotosPage() {
   const supabase = await createClient();
   const { data: photos } = await supabase
     .from("airfield_photos")
-    .select("*")
+    .select("id, storage_path, sort_order")
     .eq("airfield_id", airfield.id)
     .order("sort_order");
 

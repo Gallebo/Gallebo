@@ -1070,6 +1070,23 @@ export type Database = {
         };
         Relationships: Database["public"]["Tables"]["flights"]["Relationships"];
       };
+      open_verification_requests_deduped: {
+        Row: Pick<
+          Database["public"]["Tables"]["verification_requests"]["Row"],
+          | "id"
+          | "user_id"
+          | "requested_role"
+          | "created_at"
+          | "submitted_at"
+          | "didit_status"
+          | "auto_approved"
+          | "reviewed_at"
+          | "rejection_reason"
+        >;
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
       pilot_reviews_public: {
         Row: {
           accuracy_rating: number | null;

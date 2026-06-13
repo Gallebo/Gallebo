@@ -209,6 +209,7 @@ export async function getAdminUsers(limit = 200): Promise<AdminUserRow[]> {
   const ids = profiles.map((p) => p.id);
   const emailMap = new Map<string, string>();
 
+  // capped at 1000 users — acceptable for current admin panel scale
   const { data: authList } = await admin.auth.admin.listUsers({ perPage: 1000 });
   for (const u of authList?.users ?? []) {
     if (ids.includes(u.id) && u.email) emailMap.set(u.id, u.email);
@@ -216,7 +217,8 @@ export async function getAdminUsers(limit = 200): Promise<AdminUserRow[]> {
 
   const { data: flightCounts } = await admin
     .from("flights")
-    .select("pilot_user_id");
+    .select("pilot_user_id")
+    .in("pilot_user_id", ids);
 
   const flightsByPilot = new Map<string, number>();
   for (const f of flightCounts ?? []) {
@@ -469,23 +471,15 @@ export async function getKycQueue(): Promise<KycQueueItem[]> {
   const admin = createAdminClient();
 
   const { data: requests } = await admin
-    .from("verification_requests")
+    .from("open_verification_requests_deduped")
     .select(
       "id, user_id, requested_role, created_at, submitted_at, didit_status, auto_approved",
     )
-    .is("reviewed_at", null)
     .order("created_at", { ascending: false });
 
   if (!requests?.length) return [];
 
-  const latestOpenByUser = new Map<string, (typeof requests)[number]>();
-  for (const row of requests) {
-    if (!latestOpenByUser.has(row.user_id)) {
-      latestOpenByUser.set(row.user_id, row);
-    }
-  }
-
-  const queueRequests = [...latestOpenByUser.values()].filter(
+  const queueRequests = requests.filter(
     (r) =>
       !isPassengerIdentityOnlyQueueItem(
         r.requested_role ?? "pilot",
@@ -581,21 +575,13 @@ export async function getKycPendingCount(): Promise<number> {
   const admin = createAdminClient();
 
   const { data: requests } = await admin
-    .from("verification_requests")
+    .from("open_verification_requests_deduped")
     .select("user_id, requested_role, didit_status, auto_approved")
-    .is("reviewed_at", null)
     .order("created_at", { ascending: false });
 
   if (!requests?.length) return 0;
 
-  const latestOpenByUser = new Map<string, (typeof requests)[number]>();
-  for (const row of requests) {
-    if (!latestOpenByUser.has(row.user_id)) {
-      latestOpenByUser.set(row.user_id, row);
-    }
-  }
-
-  return [...latestOpenByUser.values()].filter(
+  return requests.filter(
     (r) =>
       !isPassengerIdentityOnlyQueueItem(
         r.requested_role ?? "pilot",

@@ -1,9 +1,18 @@
 import type { Tables } from "@/types/database";
 
 export type Airfield = Tables<"airfields">;
-export type AirfieldPhoto = Tables<"airfield_photos">;
-export type AirfieldNotice = Tables<"airfield_notices">;
-export type AirfieldEvent = Tables<"airfield_events">;
+export type AirfieldPhoto = Pick<
+  Tables<"airfield_photos">,
+  "id" | "storage_path" | "sort_order"
+>;
+export type AirfieldNotice = Pick<
+  Tables<"airfield_notices">,
+  "id" | "body" | "created_at"
+>;
+export type AirfieldEvent = Pick<
+  Tables<"airfield_events">,
+  "id" | "title" | "description" | "event_date" | "link"
+>;
 
 export type AirfieldMapMarker = Pick<
   Airfield,

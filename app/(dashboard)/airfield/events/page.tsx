@@ -22,7 +22,7 @@ export default async function AirfieldEventsPage() {
   const supabase = await createClient();
   const { data: events } = await supabase
     .from("airfield_events")
-    .select("*")
+    .select("id, title, description, event_date, link")
     .eq("airfield_id", airfield.id)
     .order("event_date", { ascending: true });
 

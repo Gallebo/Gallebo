@@ -24,7 +24,7 @@ async function getOperatorAirfield() {
 
   const { data: airfield, error } = await supabase
     .from("airfields")
-    .select("*")
+    .select("id, icao_code")
     .eq("operator_user_id", user.id)
     .maybeSingle();
 

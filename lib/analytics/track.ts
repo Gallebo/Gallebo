@@ -1,5 +1,7 @@
 "use client";
 
+// posthog-js is client-only: this module is never imported statically on the server
+// (PostHogProvider loads it via dynamic import in useEffect).
 import posthog from "posthog-js";
 
 import { isPostHogConfigured } from "@/lib/env";

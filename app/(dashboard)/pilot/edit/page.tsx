@@ -21,7 +21,9 @@ export default async function PilotEditPage() {
 
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("*")
+    .select(
+      "first_name, last_name, date_of_birth, phone_encrypted, weight_encrypted, avatar_path",
+    )
     .eq("id", authUser.id)
     .single();
 
