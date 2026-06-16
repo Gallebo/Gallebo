@@ -21,6 +21,7 @@ function buildNavLinks(becomePilotHref: string) {
     { href: "/flights", label: "Find a flight" },
     { href: "/airfields", label: "Airfields" },
     { href: becomePilotHref, label: "Become a pilot" },
+    { href: "/safety", label: "Safety" },
     { href: "/#how", label: "How it works" },
     { href: "/#faq", label: "FAQ" },
   ] as const;

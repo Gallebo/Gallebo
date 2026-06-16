@@ -69,6 +69,7 @@ export function SiteHeader({
             { href: "/flights", label: "Find a flight" },
             { href: "/airfields", label: "Airfields" },
             { href: pilotLink, label: "Become a pilot" },
+            { href: "/safety", label: "Safety" },
             { href: "/#how", label: "How it works" },
             { href: "/#faq", label: "FAQ" },
           ].map(({ href, label }) => (
