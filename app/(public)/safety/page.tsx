@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -17,6 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Safety & Regulation",
@@ -155,7 +156,7 @@ export default function SafetyPage() {
           <div className="max-w-3xl space-y-5">
             <Badge variant="outline" className="gap-1.5 px-3 py-1">
               <Shield className="size-3" aria-hidden="true" />
-              EASA Safety Charter signatory
+              EASA Safety Charter
             </Badge>
             <h1
               className="text-4xl font-bold tracking-tight sm:text-5xl"
@@ -289,20 +290,14 @@ export default function SafetyPage() {
                   Download the EASA-recommended checklist covering passenger
                   briefings, weight &amp; balance, and pre-departure procedures.
                 </p>
-                <Button
-                  nativeButton={false}
-                  render={
-                    <a
-                      href="https://www.wingly.io/en_GB/regulation/docs/easa-pilot-checklist.pdf"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    />
-                  }
-                  className="w-full sm:w-auto"
+                <a
+                  href="/gallebo-pilot-checklist.pdf"
+                  download
+                  className={cn(buttonVariants(), "inline-flex w-full sm:w-auto")}
                 >
                   <Download aria-hidden="true" />
                   Download PDF
-                </Button>
+                </a>
               </CardContent>
             </Card>
           </div>
