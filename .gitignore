@@ -78,3 +78,6 @@ secrets/
 # local agent skills (copywriting etc.)
 /.agents/
 /skills-lock.json
+
+# one-off dummy pilot photos for seed scripts (do not commit)
+/scripts/seed-assets/
